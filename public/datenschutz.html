@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#173b57" />
+    <meta
+      name="description"
+      content="How GymiQuest handles progress, answers, XP, reviews, and private exam PDFs."
+    />
+    <link rel="icon" href="/gymiquest-mark.svg" />
+    <title>Privacy and local data · GymiQuest</title>
+    <script>
+      (() => {
+        let locale = "en"
+        try {
+          const stored = localStorage.getItem("gymiquest.app-locale.v1")
+          if (stored === "de" || stored === "en" || stored === "it" || stored === "es") locale = stored
+        } catch {}
+        document.documentElement.dataset.locale = locale
+        document.documentElement.lang = locale === "de" ? "de-CH" : locale === "it" ? "it" : locale === "es" ? "es" : "en"
+      })()
+    </script>
+    <style>
+      :root {
+        color: #173b57;
+        background: #f6f3ea;
+        font-family: Inter, ui-rounded, "SF Pro Rounded", "Avenir Next", system-ui, sans-serif;
+        font-synthesis: none;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background:
+          radial-gradient(circle at 8% 2%, rgba(255, 211, 77, 0.24), transparent 28rem),
+          radial-gradient(circle at 94% 18%, rgba(53, 201, 156, 0.16), transparent 24rem),
+          #f6f3ea;
+      }
+
+      a { color: #176bda; }
+
+      a:focus-visible {
+        outline: 3px solid rgba(23, 107, 218, 0.35);
+        outline-offset: 4px;
+      }
+
+      header,
+      main,
+      footer {
+        width: min(880px, calc(100% - 32px));
+        margin-inline: auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 22px 0;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: #173b57;
+        font-size: 19px;
+        font-weight: 850;
+        text-decoration: none;
+      }
+
+      .brand img {
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
+        box-shadow: 0 5px 14px rgba(23, 107, 218, 0.18);
+      }
+
+      .back-link {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 750;
+        text-decoration: none;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .language-picker {
+        min-height: 44px;
+        border: 1px solid rgba(23, 59, 87, 0.16);
+        border-radius: 12px;
+        background: rgba(255, 254, 250, 0.92);
+        color: #173b57;
+        padding: 0 12px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      html:not([data-locale="en"]) [data-locale-copy="en"],
+      html:not([data-locale="it"]) [data-locale-copy="it"],
+      html:not([data-locale="es"]) [data-locale-copy="es"],
+      html:not([data-locale="de"]) [data-locale-copy="de"] {
+        display: none !important;
+      }
+
+      main { padding: 42px 0 56px; }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        color: #176bda;
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: 0.13em;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 0;
+        color: #173b57;
+        font-size: clamp(38px, 8vw, 68px);
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      .lead {
+        max-width: 700px;
+        margin: 24px 0 34px;
+        color: #415d70;
+        font-size: clamp(17px, 2.5vw, 20px);
+        line-height: 1.65;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 30px;
+      }
+
+      .summary div,
+      section,
+      .release-note {
+        border: 1px solid rgba(23, 59, 87, 0.12);
+        background: rgba(255, 254, 250, 0.9);
+        box-shadow: 0 14px 34px rgba(23, 59, 87, 0.07);
+      }
+
+      .summary div {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .summary strong,
+      .summary span { display: block; }
+
+      .summary strong {
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .summary span {
+        color: #597184;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .sections {
+        display: grid;
+        gap: 14px;
+      }
+
+      section {
+        padding: clamp(22px, 4vw, 32px);
+        border-radius: 22px;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        letter-spacing: -0.025em;
+      }
+
+      p,
+      li {
+        color: #415d70;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      section p:last-child { margin-bottom: 0; }
+
+      ul {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .release-note {
+        margin-top: 22px;
+        padding: 22px 24px;
+        border-left: 5px solid #ffd34d;
+        border-radius: 18px;
+      }
+
+      .release-note strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .release-note p { margin: 0; }
+
+      footer {
+        padding: 0 0 34px;
+        color: #6c7f8c;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 660px) {
+        .summary { grid-template-columns: 1fr; }
+        main { padding-top: 26px; }
+        header { align-items: flex-start; }
+        .header-actions { align-items: flex-end; flex-direction: column-reverse; gap: 4px; }
+        .back-link { text-align: right; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/" aria-label="GymiQuest">
+        <img src="/gymiquest-mark.svg" alt="" />
+        <span>GymiQuest</span>
+      </a>
+      <div class="header-actions">
+        <label>
+          <span class="eyebrow" data-locale-copy="en">LANGUAGE</span>
+          <span class="eyebrow" data-locale-copy="it">LINGUA</span>
+          <span class="eyebrow" data-locale-copy="es">IDIOMA</span>
+          <span class="eyebrow" data-locale-copy="de">SPRACHE</span>
+          <select class="language-picker" id="privacy-language" aria-label="Language / Lingua / Idioma / Sprache">
+            <option value="en">English</option>
+            <option value="it">Italiano</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </label>
+        <a class="back-link" href="/" data-locale-copy="en">Back to learning plan</a>
+        <a class="back-link" href="/" data-locale-copy="it">Torna al piano di studio</a>
+        <a class="back-link" href="/" data-locale-copy="es">Volver al plan de aprendizaje</a>
+        <a class="back-link" href="/" data-locale-copy="de">Zurück zum Lernplan</a>
+      </div>
+    </header>
+
+    <main data-locale-copy="en">
+      <p class="eyebrow">PRIVACY IN THE PRODUCT · UPDATED 17 JULY 2026</p>
+      <h1>Your learning stays on your device.</h1>
+      <p class="lead">
+        The current version of GymiQuest deliberately has no accounts. Learning progress is stored
+        in the browser so lessons, challenging reviews, and assessments work without a public profile
+        or learning account.
+      </p>
+
+      <div class="summary" aria-label="Privacy summary">
+        <div><strong>No learning account</strong><span>No full name, login, or public profile is required.</span></div>
+        <div><strong>No tracking</strong><span>No advertising, analytics SDKs, or marketing of learning data.</span></div>
+        <div><strong>Local control</strong><span>Deletion and encrypted backups remain under the user’s control.</span></div>
+      </div>
+
+      <div class="sections">
+        <section aria-labelledby="stored-title-en">
+          <h2 id="stored-title-en">What is stored locally</h2>
+          <ul>
+            <li>nickname, exam date, and chosen study rhythm;</li>
+            <li>curriculum package and version, progress, XP evidence, mastery, review dates, and assessments;</li>
+            <li>question results, help usage, active learning time, and a paused session;</li>
+            <li>optional feedback about clarity, mock-exam results, and the history and self-comparisons of private archive training;</li>
+            <li>the selected app language as a small device setting in local browser storage;</li>
+            <li>for the parent area, only a salted verifier for the PIN—never the PIN itself—and the selected language of the shared coaching guide;</li>
+            <li>in the protected release log, only locally selected checks and their timestamps, kept separate from learning progress.</li>
+          </ul>
+          <p>Learning progress is held in the local browser database (IndexedDB) of the device and browser profile in use. The app language is kept separately in Local Storage so onboarding and restoration can already appear in the selected language.</p>
+          <p>The protected companion view also summarises existing sessions into a local three-week overview. It stores no new answers, free text, or observation fields and sends no data.</p>
+        </section>
+
+        <section aria-labelledby="network-title-en">
+          <h2 id="network-title-en">What the app does not transmit</h2>
+          <p>The current app does not send learning progress, answers, XP, mastery, review planning, timing, or the parent PIN verifier to a GymiQuest server. There is no background synchronisation, leaderboard, advertising, or product analytics. When the public website is loaded normally, the hosting provider still receives the usual technical request data, such as IP address, time, requested file, and browser information. That request data does not contain the local learning history from IndexedDB.</p>
+        </section>
+
+        <section aria-labelledby="archive-title-en">
+          <h2 id="archive-title-en">Private official exam PDFs</h2>
+          <p>Personally imported question and solution PDFs for 2015–2025 are identified locally by checksum and stored only on this device. They are neither part of the public app package nor included in a GymiQuest backup, and the app does not upload them. After changing device or browser, they must be selected again from the user’s own collection.</p>
+        </section>
+
+        <section aria-labelledby="backup-title-en">
+          <h2 id="backup-title-en">Encrypted backup</h2>
+          <p>A backup file is encrypted in the browser and then downloaded directly. The selected password is neither stored nor transmitted. Anyone holding both the file and password can read the learning data, so they should be kept separately. Active archive training and its bounded self-comparisons are included in learning progress; the private exam PDFs, parent PIN and coaching-guide language, and local release log are not included. The release log can be exported separately as a readable Markdown file.</p>
+        </section>
+
+        <section aria-labelledby="delete-title-en">
+          <h2 id="delete-title-en">Deletion and changing devices</h2>
+          <p>“Reset local progress” removes learning progress, paused sessions, mock exams, archive training, imported PDFs, and parent access from GymiQuest on this device. The separate local release log and app language remain; the log can be cleared separately with “Reset local release checks,” and the language can be changed from the profile at any time. Alternatively, all site data can be deleted in the browser. Previously downloaded backup files are independent and must be deleted separately when needed.</p>
+        </section>
+
+        <section aria-labelledby="future-title-en">
+          <h2 id="future-title-en">If GymiQuest is expanded later</h2>
+          <p>Public profiles, leagues, and cross-device accounts are not part of this version. If those features are introduced, data flows, consent, safeguards for children, and deletion paths must be explained and reviewed again before activation.</p>
+        </section>
+      </div>
+
+      <aside class="release-note" aria-label="Public-release notice">
+        <strong>Technical product information</strong>
+        <p>This page describes the behaviour currently implemented. Before a general public release, the responsible entity, a contact route, and the legal information required in the selected countries will also be added and professionally reviewed.</p>
+      </aside>
+    </main>
+
+    <main data-locale-copy="es">
+      <p class="eyebrow">PRIVACIDAD EN EL PRODUCTO · ACTUALIZADO EL 17 DE JULIO DE 2026</p>
+      <h1>Tu aprendizaje se queda en tu dispositivo.</h1>
+      <p class="lead">
+        La versión actual de GymiQuest no tiene cuentas de forma deliberada. El progreso de aprendizaje se guarda
+        en el navegador para que las lecciones, los repasos exigentes y las evaluaciones funcionen sin un perfil
+        público ni una cuenta de aprendizaje.
+      </p>
+
+      <div class="summary" aria-label="Resumen de privacidad">
+        <div><strong>Sin cuenta de aprendizaje</strong><span>No se necesita nombre completo, inicio de sesión ni perfil público.</span></div>
+        <div><strong>Sin seguimiento</strong><span>Sin publicidad, SDK de analítica ni comercialización de datos de aprendizaje.</span></div>
+        <div><strong>Control local</strong><span>La eliminación y las copias cifradas siguen bajo el control del usuario.</span></div>
+      </div>
+
+      <div class="sections">
+        <section aria-labelledby="stored-title-es">
+          <h2 id="stored-title-es">Qué se guarda localmente</h2>
+          <ul>
+            <li>apodo, fecha del examen y ritmo de estudio elegido;</li>
+            <li>paquete y versión del currículo, progreso, evidencias de XP, dominio, fechas de repaso y evaluaciones;</li>
+            <li>resultados de preguntas, uso de ayudas, tiempo activo de aprendizaje y una sesión pausada;</li>
+            <li>valoraciones opcionales sobre claridad, resultados de simulacros y el historial y las comparaciones personales del entrenamiento con archivos privados;</li>
+            <li>el idioma elegido para la aplicación como pequeño ajuste del dispositivo en el almacenamiento local del navegador;</li>
+            <li>para el área familiar, solo un verificador con sal del PIN, nunca el propio PIN, y el idioma elegido para la guía de acompañamiento compartida;</li>
+            <li>en el registro de publicación protegido, solo las comprobaciones elegidas localmente y sus marcas de tiempo, separadas del progreso de aprendizaje.</li>
+          </ul>
+          <p>El progreso de aprendizaje se conserva en la base de datos local del navegador (IndexedDB) del dispositivo y perfil de navegador utilizados. El idioma de la aplicación se guarda por separado en Local Storage para que la bienvenida y la restauración ya puedan mostrarse en el idioma elegido.</p>
+          <p>La vista de acompañamiento protegida también resume las sesiones existentes en una vista local de tres semanas. No guarda respuestas nuevas, texto libre ni campos de observación y no envía datos.</p>
+        </section>
+
+        <section aria-labelledby="network-title-es">
+          <h2 id="network-title-es">Qué no transmite la aplicación</h2>
+          <p>La aplicación actual no envía a un servidor de GymiQuest el progreso, las respuestas, los XP, el dominio, la planificación de repasos, los tiempos ni el verificador del PIN familiar. No hay sincronización en segundo plano, clasificación, publicidad ni analítica de producto. Cuando se carga normalmente el sitio público, el proveedor de alojamiento recibe los datos técnicos habituales de la solicitud, como dirección IP, hora, archivo solicitado e información del navegador. Esos datos no contienen el historial local de aprendizaje de IndexedDB.</p>
+        </section>
+
+        <section aria-labelledby="archive-title-es">
+          <h2 id="archive-title-es">PDF privados de exámenes oficiales</h2>
+          <p>Los PDF de preguntas y soluciones de 2015–2025 importados personalmente se identifican localmente mediante una suma de comprobación y solo se guardan en este dispositivo. No forman parte del paquete público ni de una copia de seguridad de GymiQuest y la aplicación no los sube. Tras cambiar de dispositivo o navegador, deben volver a elegirse de la colección del usuario.</p>
+        </section>
+
+        <section aria-labelledby="backup-title-es">
+          <h2 id="backup-title-es">Copia de seguridad cifrada</h2>
+          <p>El archivo de copia se cifra en el navegador y se descarga directamente. La contraseña elegida no se guarda ni se transmite. Quien tenga tanto el archivo como la contraseña puede leer los datos de aprendizaje, por lo que deben guardarse por separado. El entrenamiento de archivo activo y sus comparaciones limitadas forman parte del progreso; los PDF privados, el PIN familiar y el idioma de la guía, y el registro local de publicación no se incluyen. El registro se puede exportar por separado como archivo Markdown legible.</p>
+        </section>
+
+        <section aria-labelledby="delete-title-es">
+          <h2 id="delete-title-es">Eliminación y cambio de dispositivo</h2>
+          <p>«Restablecer progreso local» elimina de GymiQuest en este dispositivo el progreso, las sesiones pausadas, los simulacros, el entrenamiento de archivo, los PDF importados y el acceso familiar. El registro local de publicación y el idioma de la aplicación se conservan; el registro se puede borrar por separado con «Restablecer marcas locales de publicación» y el idioma se puede cambiar en cualquier momento desde el perfil. Como alternativa se pueden borrar todos los datos del sitio en el navegador. Las copias descargadas anteriormente son independientes y deben eliminarse por separado cuando sea necesario.</p>
+        </section>
+
+        <section aria-labelledby="future-title-es">
+          <h2 id="future-title-es">Si GymiQuest se amplía más adelante</h2>
+          <p>Los perfiles públicos, las ligas y las cuentas entre dispositivos no forman parte de esta versión. Si se incorporan, habrá que explicar y revisar de nuevo los flujos de datos, el consentimiento, la protección de menores y las vías de eliminación antes de activarlos.</p>
+        </section>
+      </div>
+
+      <aside class="release-note" aria-label="Aviso sobre la publicación">
+        <strong>Información técnica del producto</strong>
+        <p>Esta página describe el comportamiento implementado actualmente. Antes de una publicación general también se añadirán y revisarán profesionalmente la entidad responsable, un canal de contacto y la información jurídica exigida en los países elegidos.</p>
+      </aside>
+    </main>
+
+    <main data-locale-copy="it">
+      <p class="eyebrow">PRIVACY NEL PRODOTTO · AGGIORNATO IL 17 LUGLIO 2026</p>
+      <h1>Il tuo apprendimento resta sul tuo dispositivo.</h1>
+      <p class="lead">
+        La versione attuale di GymiQuest non prevede volutamente alcun account. I progressi vengono
+        salvati nel browser, così lezioni, ripassi impegnativi e verifiche funzionano senza un profilo
+        pubblico o un account di apprendimento.
+      </p>
+
+      <div class="summary" aria-label="Sintesi della privacy">
+        <div><strong>Nessun account di studio</strong><span>Non servono nome completo, accesso o profilo pubblico.</span></div>
+        <div><strong>Nessun tracciamento</strong><span>Nessuna pubblicità, SDK di analisi o commercializzazione dei dati di apprendimento.</span></div>
+        <div><strong>Controllo locale</strong><span>Eliminazione e backup cifrati restano sotto il controllo dell'utente.</span></div>
+      </div>
+
+      <div class="sections">
+        <section aria-labelledby="stored-title-it">
+          <h2 id="stored-title-it">Che cosa viene salvato localmente</h2>
+          <ul>
+            <li>soprannome, data dell'esame e ritmo di studio scelto;</li>
+            <li>pacchetto didattico e versione, progressi, prove XP, padronanza, date dei ripassi e verifiche;</li>
+            <li>risultati delle domande, uso degli aiuti, tempo di studio attivo e una sessione in pausa;</li>
+            <li>riscontro facoltativo sulla chiarezza, risultati delle simulazioni, cronologia e autoconfronti degli allenamenti d'archivio privati;</li>
+            <li>la lingua dell'app selezionata, come piccola impostazione del dispositivo nella memoria locale del browser;</li>
+            <li>per l'area genitore, soltanto un verificatore con salt del PIN, mai il PIN stesso, e la lingua scelta per la guida condivisa;</li>
+            <li>nel registro di rilascio protetto, soltanto i controlli selezionati localmente e le relative date, separati dai progressi di apprendimento.</li>
+          </ul>
+          <p>I progressi sono conservati nella banca dati locale del browser (IndexedDB) del dispositivo e del profilo browser in uso. La lingua dell'app viene salvata separatamente in Local Storage, così onboarding e ripristino possono già apparire nella lingua scelta.</p>
+          <p>L'area accompagnatore protetta riassume inoltre le sessioni esistenti in una panoramica locale di tre settimane. Non salva nuove risposte, testi liberi o campi di osservazione e non invia dati.</p>
+        </section>
+
+        <section aria-labelledby="network-title-it">
+          <h2 id="network-title-it">Che cosa l'app non trasmette</h2>
+          <p>La versione attuale non invia a un server GymiQuest progressi, risposte, XP, padronanza, pianificazione dei ripassi, tempi o verificatore del PIN genitore. Non esistono sincronizzazione in background, classifiche, pubblicità o analisi del prodotto. Quando il sito pubblico viene caricato normalmente, il fornitore di hosting riceve comunque i consueti dati tecnici della richiesta, come indirizzo IP, ora, file richiesto e informazioni sul browser. Questi dati non contengono la cronologia locale di apprendimento presente in IndexedDB.</p>
+        </section>
+
+        <section aria-labelledby="archive-title-it">
+          <h2 id="archive-title-it">PDF privati degli esami ufficiali</h2>
+          <p>I PDF delle domande e delle soluzioni 2015–2025 importati personalmente vengono identificati localmente tramite checksum e salvati soltanto su questo dispositivo. Non fanno parte del pacchetto pubblico dell'app né di un backup GymiQuest e l'app non li carica. Dopo un cambio di dispositivo o browser devono essere selezionati di nuovo dalla propria raccolta.</p>
+        </section>
+
+        <section aria-labelledby="backup-title-it">
+          <h2 id="backup-title-it">Backup cifrato</h2>
+          <p>Il file di backup viene cifrato nel browser e poi scaricato direttamente. La password scelta non viene né salvata né trasmessa. Chi possiede sia il file sia la password può leggere i dati di apprendimento, perciò vanno conservati separatamente. Gli allenamenti d'archivio attivi e i relativi autoconfronti limitati sono inclusi nei progressi; i PDF privati degli esami, il PIN genitore e la lingua della guida, e il registro locale di rilascio non sono inclusi. Il registro di rilascio può essere esportato separatamente come file Markdown leggibile.</p>
+        </section>
+
+        <section aria-labelledby="delete-title-it">
+          <h2 id="delete-title-it">Eliminazione e cambio di dispositivo</h2>
+          <p>«Azzera progressi locali» elimina da GymiQuest su questo dispositivo progressi, sessioni in pausa, simulazioni, allenamenti d'archivio, PDF importati e accesso genitore. Il registro locale di rilascio separato e la lingua dell'app rimangono; il registro può essere eliminato separatamente con «Azzera spunte locali di rilascio» e la lingua può essere cambiata in qualsiasi momento dal profilo. In alternativa, tutti i dati del sito possono essere eliminati nel browser. I file di backup già scaricati sono indipendenti e, se necessario, devono essere eliminati separatamente.</p>
+        </section>
+
+        <section aria-labelledby="future-title-it">
+          <h2 id="future-title-it">Se GymiQuest verrà ampliato</h2>
+          <p>Profili pubblici, leghe e account tra dispositivi non fanno parte di questa versione. Se tali funzioni verranno introdotte, flussi di dati, consenso, tutele per i minori e percorsi di eliminazione dovranno essere spiegati e verificati nuovamente prima dell'attivazione.</p>
+        </section>
+      </div>
+
+      <aside class="release-note" aria-label="Avviso sul rilascio pubblico">
+        <strong>Informazioni tecniche sul prodotto</strong>
+        <p>Questa pagina descrive il comportamento attualmente implementato. Prima di un rilascio pubblico generale verranno inoltre aggiunti e verificati professionalmente il soggetto responsabile, un canale di contatto e le informazioni legali richieste nei Paesi selezionati.</p>
+      </aside>
+    </main>
+
+    <main data-locale-copy="de">
+      <p class="eyebrow">DATENSCHUTZ IM PRODUKT · STAND 17. JULI 2026</p>
+      <h1>Dein Lernen bleibt auf deinem Gerät.</h1>
+      <p class="lead">
+        GymiQuest ist in der aktuellen Version bewusst kontolos. Der Lernstand wird im Browser
+        gespeichert, damit Lektionen, anspruchsvolle Reviews und Standortbestimmungen auch ohne
+        öffentliches Profil oder Lernkonto funktionieren.
+      </p>
+
+      <div class="summary" aria-label="Datenschutz kurz zusammengefasst">
+        <div><strong>Kein Lernkonto</strong><span>Kein vollständiger Name, Login oder öffentliches Profil nötig.</span></div>
+        <div><strong>Kein Tracking</strong><span>Keine Werbung, Analyse-SDKs oder Vermarktung von Lerndaten.</span></div>
+        <div><strong>Lokale Kontrolle</strong><span>Löschen und verschlüsselte Sicherung bleiben beim Nutzer.</span></div>
+      </div>
+
+      <div class="sections">
+        <section aria-labelledby="stored-title">
+          <h2 id="stored-title">Was lokal gespeichert wird</h2>
+          <ul>
+            <li>Spitzname, Prüfungstermin und gewählter Lernrhythmus;</li>
+            <li>Lehrplanpaket samt Version, Lernstand, XP-Belege, Mastery, Review-Termine und Standortbestimmungen;</li>
+            <li>Aufgabenresultate, Hilfe-Nutzung, aktive Lernzeit und eine pausierte Runde;</li>
+            <li>freiwillige Rückmeldung zur Verständlichkeit, Ergebnisse von Probeprüfungen sowie Verlauf und Selbstvergleich privater Archivtrainings;</li>
+            <li>die gewählte App-Sprache als kleine Geräteeinstellung im lokalen Browser-Speicher;</li>
+            <li>für den Elternbereich nur ein gesalzener Prüfnachweis der PIN, nie die PIN selbst, sowie die gewählte Sprache des gemeinsamen Begleitfadens;</li>
+            <li>im geschützten Freigabeprotokoll nur lokal gesetzte Prüfhaken und deren Zeitstempel, getrennt vom Lernstand.</li>
+          </ul>
+          <p>Der Lernstand liegt in der lokalen Browser-Datenbank (IndexedDB) des verwendeten Geräts und Browserprofils. Die App-Sprache liegt getrennt davon in Local Storage, damit bereits Onboarding und Wiederherstellung in der gewählten Sprache erscheinen können.</p>
+          <p>
+            Die geschützte Begleitansicht verdichtet vorhandene Lernrunden zusätzlich zu einem lokalen
+            Drei-Wochen-Überblick. Dafür werden keine neuen Antworten, Freitexte oder Beobachtungsfelder
+            gespeichert und keine Daten übertragen.
+          </p>
+        </section>
+
+        <section aria-labelledby="network-title">
+          <h2 id="network-title">Was die App nicht überträgt</h2>
+          <p>
+            Die aktuelle App sendet Lernstand, Antworten, XP, Mastery, Review-Plan, Zeitmessung oder
+            Eltern-PIN-Nachweis nicht an einen GymiQuest-Server. Es gibt keine Hintergrund-Synchronisation,
+            Bestenliste, Werbung oder Produktanalyse. Beim normalen Laden der öffentlichen Website fallen
+            beim Hosting-Anbieter jedoch die üblichen technischen Abrufdaten an, etwa IP-Adresse,
+            Zeitpunkt, angeforderte Datei und Browserinformationen. Diese Abrufdaten enthalten nicht die
+            lokale Lernhistorie aus IndexedDB.
+          </p>
+        </section>
+
+        <section aria-labelledby="archive-title">
+          <h2 id="archive-title">Private offizielle Prüfungs-PDFs</h2>
+          <p>
+            Selbst importierte Aufgaben- und Lösungs-PDFs der Jahre 2015–2025 werden anhand ihrer
+            Prüfsumme lokal erkannt und nur auf diesem Gerät gespeichert. Sie gehören weder zum
+            öffentlichen App-Paket noch zur GymiQuest-Sicherung und werden von der App nicht hochgeladen.
+            Nach einem Geräte- oder Browserwechsel müssen sie erneut aus der eigenen Sammlung gewählt werden.
+          </p>
+        </section>
+
+        <section aria-labelledby="backup-title">
+          <h2 id="backup-title">Verschlüsselte Sicherung</h2>
+          <p>
+            Eine Sicherungsdatei wird im Browser verschlüsselt und anschliessend direkt heruntergeladen.
+            Das gewählte Passwort wird weder gespeichert noch übertragen. Wer die Datei und das Passwort
+            besitzt, kann den enthaltenen Lernstand lesen; beides sollte deshalb getrennt aufbewahrt werden.
+            Laufende Archivtrainings und ihre begrenzten Selbstvergleiche gehören zum Lernstand; die privaten
+            Prüfungs-PDFs selbst, Eltern-PIN samt Begleitfadensprache und das lokale Freigabeprotokoll gehören nicht zu dieser
+            Lernstandsicherung. Das Freigabeprotokoll kann separat als lesbare Markdown-Datei exportiert werden.
+          </p>
+        </section>
+
+        <section aria-labelledby="delete-title">
+          <h2 id="delete-title">Löschen und Gerätewechsel</h2>
+          <p>
+            „Lokalen Fortschritt zurücksetzen“ entfernt Lernstand, pausierte Runden, Probeprüfungen, Archivtrainings,
+            importierte PDFs und den Elternzugang aus GymiQuest auf diesem Gerät. Das davon getrennte lokale Freigabeprotokoll
+            und die App-Sprache bleiben erhalten; das Protokoll kann über „Lokale Freigabehaken zurücksetzen“ separat geleert
+            und die Sprache jederzeit im Profil geändert werden. Alternativ können alle
+            Website-Daten im Browser gelöscht werden. Bereits heruntergeladene Sicherungsdateien sind
+            davon unabhängig und müssen bei Bedarf separat gelöscht werden.
+          </p>
+        </section>
+
+        <section aria-labelledby="future-title">
+          <h2 id="future-title">Wenn GymiQuest später erweitert wird</h2>
+          <p>
+            Öffentliche Profile, Ligen und geräteübergreifende Konten sind nicht Teil dieser Version.
+            Falls solche Funktionen hinzukommen, müssen Datenfluss, Einwilligungen, Schutz für Kinder und
+            Löschwege vor der Aktivierung neu erklärt und geprüft werden.
+          </p>
+        </section>
+      </div>
+
+      <aside class="release-note" aria-label="Hinweis zur öffentlichen Freigabe">
+        <strong>Technische Produktinformation</strong>
+        <p>
+          Diese Seite beschreibt das derzeit implementierte Verhalten. Vor einer allgemeinen öffentlichen
+          Freigabe werden zusätzlich die verantwortliche Stelle, ein Kontaktweg und die für die gewählten
+          Länder erforderlichen rechtlichen Angaben ergänzt und fachlich geprüft.
+        </p>
+      </aside>
+    </main>
+
+    <footer>
+      <span data-locale-copy="en">GymiQuest · Local adaptive mathematics and German training for lessons, reviews, and assessments.</span>
+      <span data-locale-copy="it">GymiQuest · Allenamento locale e adattivo di matematica e tedesco per lezioni, ripassi e verifiche.</span>
+      <span data-locale-copy="es">GymiQuest · Entrenamiento local y adaptativo de matemáticas y alemán para lecciones, repasos y evaluaciones.</span>
+      <span data-locale-copy="de">GymiQuest · Lokaler, adaptiver Mathematik- und Deutschtrainer für Lektionen, Reviews und Standortbestimmungen.</span>
+    </footer>
+    <script>
+      (() => {
+        const picker = document.getElementById("privacy-language")
+        const applyLocale = (locale) => {
+          const next = locale === "de" ? "de" : locale === "it" ? "it" : locale === "es" ? "es" : "en"
+          document.documentElement.dataset.locale = next
+          document.documentElement.lang = next === "de" ? "de-CH" : next === "it" ? "it" : next === "es" ? "es" : "en"
+          document.title = next === "de"
+            ? "Datenschutz und lokale Daten · GymiQuest"
+            : next === "it"
+              ? "Privacy e dati locali · GymiQuest"
+              : next === "es"
+                ? "Privacidad y datos locales · GymiQuest"
+                : "Privacy and local data · GymiQuest"
+          const description = document.querySelector('meta[name="description"]')
+          if (description) description.content = next === "de"
+            ? "Wie GymiQuest Lernstand, Antworten, XP, Wiederholungen und private Prüfungs-PDFs verarbeitet."
+            : next === "it"
+              ? "Come GymiQuest gestisce progressi, risposte, XP, ripassi e PDF privati degli esami."
+              : next === "es"
+                ? "Cómo gestiona GymiQuest el progreso, las respuestas, los XP, los repasos y los PDF privados de exámenes."
+                : "How GymiQuest handles progress, answers, XP, reviews, and private exam PDFs."
+          if (picker) picker.value = next
+        }
+        applyLocale(document.documentElement.dataset.locale)
+        picker?.addEventListener("change", (event) => {
+          const locale = event.target.value
+          try { localStorage.setItem("gymiquest.app-locale.v1", locale) } catch {}
+          applyLocale(locale)
+        })
+      })()
+    </script>
+  </body>
+</html>

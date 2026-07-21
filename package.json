@@ -1,0 +1,42 @@
+{
+  "name": "gymiquest",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && node scripts/build-vite.mjs && node scripts/verify-pwa.mjs && node scripts/verify-deployment.mjs",
+    "cloudflare:dev": "pnpm build && wrangler pages dev dist --ip 127.0.0.1 --port 8788",
+    "cloudflare:whoami": "wrangler whoami",
+    "deploy:cloudflare": "pnpm test:release && wrangler pages deploy dist --project-name=gymiquest --branch=main --commit-dirty=true",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm build && playwright test",
+    "test:e2e:headed": "pnpm build && playwright test --headed",
+    "test:release": "pnpm test && pnpm test:e2e",
+    "verify:deploy": "node scripts/verify-deployment.mjs",
+    "verify:pwa": "node scripts/verify-pwa.mjs"
+  },
+  "dependencies": {
+    "idb": "^8.0.3",
+    "pdfjs-dist": "^6.1.200",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
+  },
+  "packageManager": "pnpm@11.7.0"
+}

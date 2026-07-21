@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.vite/
+*.tsbuildinfo
+*.log
+*.map
+
+# Local tool caches
+graphify-out/
+.wrangler/
+tmp/
+.pnpm-store/
+
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.local
+
+# Private GymiQuest data
+*.gqbackup
+*.pdf
+gymiquest-report-*.md
+gymiquest-freigabeprotokoll-*.md
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
