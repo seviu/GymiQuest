@@ -1,6 +1,18 @@
-import { topicIds, type GeneratedQuestion, type LearningTask, type TopicId } from "./model"
+import {
+  difficultyBandIds,
+  generationVersionIds,
+  lessonPacingModeIds,
+  topicIds,
+  type GeneratedQuestion,
+  type LearningTask,
+  type TopicId,
+} from "./model"
 import { isAuthorValidationTask } from "./authorValidation"
 import { resolveTaskCurriculumPackage } from "./curriculumPackage"
+import {
+  isLessonPacingQuestionCount,
+  isReachableLessonPacingDifficultyBands,
+} from "./lessonPacing"
 import { courseKeys } from "./subjectIdentity"
 import type { GermanLearningSession } from "../subjects/german/courseState"
 import {
@@ -137,6 +149,9 @@ export type ExerciseReportReference = MathematicsExerciseReportReference | Germa
 
 const validTopicIds = new Set<string>(topicIds)
 const validTaskKinds = new Set(["lesson", "review", "assessment", "repair", "placement"])
+const validDifficultyBands = new Set<string>(difficultyBandIds)
+const validGenerationVersions = new Set<number>(generationVersionIds)
+const validLessonPacingModes = new Set<string>(lessonPacingModeIds)
 const validGermanLearningSessionKinds = new Set(["lesson", "review", "assessment"])
 const validGermanGeneratorVersions = new Set<number>(germanGeneratorVersions)
 const validGermanDifficultyBands = new Set<string>(germanDifficultyBands)
@@ -193,6 +208,23 @@ function isQuestionProvenance(value: unknown): value is NonNullable<GeneratedQue
   )
 }
 
+function isQuestionGeneration(
+  value: unknown,
+): value is NonNullable<GeneratedQuestion["generation"]> {
+  return Boolean(
+    isRecord(value) &&
+    typeof value.version === "number" &&
+    validGenerationVersions.has(value.version) &&
+    typeof value.difficultyBand === "string" &&
+    validDifficultyBands.has(value.difficultyBand) &&
+    typeof value.difficultyScore === "number" &&
+    Number.isFinite(value.difficultyScore) &&
+    typeof value.candidateCount === "number" &&
+    Number.isInteger(value.candidateCount) &&
+    value.candidateCount > 0
+  )
+}
+
 function isLearningTaskReference(value: unknown): value is LearningTask {
   return Boolean(
     isRecord(value) &&
@@ -212,6 +244,28 @@ function isLearningTaskReference(value: unknown): value is LearningTask {
     value.questionCount > 0 &&
     isShortString(value.seed, 2_000) &&
     (value.contentLocale === undefined || value.contentLocale === "en" || value.contentLocale === "it" || value.contentLocale === "es" || value.contentLocale === "de") &&
+    (value.generation === undefined || Boolean(
+      isRecord(value.generation) &&
+      typeof value.generation.version === "number" &&
+      validGenerationVersions.has(value.generation.version) &&
+      Array.isArray(value.generation.difficultyBands) &&
+      value.generation.difficultyBands.length === value.questionCount &&
+      value.generation.difficultyBands.every((band) => (
+        typeof band === "string" && validDifficultyBands.has(band)
+      ))
+    )) &&
+    (value.pacing === undefined || Boolean(
+      value.kind === "lesson" &&
+      isRecord(value.pacing) &&
+      value.pacing.version === 1 &&
+      typeof value.pacing.mode === "string" &&
+      validLessonPacingModes.has(value.pacing.mode) &&
+      isRecord(value.generation) &&
+      isLessonPacingQuestionCount(
+        value.pacing.mode as (typeof lessonPacingModeIds)[number],
+        value.questionCount,
+      )
+    )) &&
     resolveTaskCurriculumPackage(value) !== undefined,
   )
 }
@@ -224,10 +278,30 @@ function isMathematicsExerciseReportReference(value: unknown): value is Mathemat
     Number.isInteger(value.question.index) &&
     value.question.index >= 0 &&
     value.question.index < value.task.questionCount &&
+    (value.task.pacing === undefined || Boolean(
+      value.task.generation &&
+      isReachableLessonPacingDifficultyBands(
+        value.task.pacing.mode,
+        value.task.questionCount,
+        value.task.generation.difficultyBands,
+        value.question.index,
+      )
+    )) &&
     isShortString(value.question.id, 2_000) &&
     isTopicId(value.question.topicId) &&
     value.task.topicIds.includes(value.question.topicId) &&
     isShortString(value.question.prompt) &&
+    (value.question.generation === undefined || Boolean(
+      isQuestionGeneration(value.question.generation) &&
+      (
+        value.task.generation === undefined ||
+        (
+          value.question.generation.version === value.task.generation.version &&
+          value.question.generation.difficultyBand ===
+            value.task.generation.difficultyBands[value.question.index]
+        )
+      )
+    )) &&
     (value.question.provenance === undefined || isQuestionProvenance(value.question.provenance)),
   )
 }
@@ -554,6 +628,7 @@ export function createExerciseReportReference(
       ...(task.generation
         ? { generation: { ...task.generation, difficultyBands: [...task.generation.difficultyBands] } }
         : {}),
+      ...(task.pacing ? { pacing: { ...task.pacing } } : {}),
       ...(task.curriculum ? { curriculum: { ...task.curriculum } } : {}),
     },
     question: {

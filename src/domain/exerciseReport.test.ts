@@ -73,6 +73,51 @@ describe("exercise defect reports", () => {
     })
   })
 
+  it("round-trips a paced lesson with its realized replay path", () => {
+    const learner = createSeededLearner(now)
+    const task = structuredClone(buildAssignments(learner, now)[0]!)
+    if (!task.generation || !task.pacing) throw new Error("Expected a paced lesson")
+    task.generation.difficultyBands = ["foundation", "foundation", "exam"]
+    const questionIndex = 1
+    const question = generateQuestionsForTask(task)[questionIndex]!
+    const reference = createExerciseReportReference(task, question, questionIndex)
+    const decoded = decodeExerciseReport(encodeExerciseReport(reference))
+
+    expect(decoded && isMathematicsExerciseReport(decoded)).toBe(true)
+    if (!decoded || !isMathematicsExerciseReport(decoded)) {
+      throw new Error("Expected a Mathematics report")
+    }
+    expect(decoded.task.pacing).toEqual({
+      version: 1,
+      mode: "steady",
+    })
+    expect(decoded.task.generation?.difficultyBands).toEqual([
+      "foundation",
+      "foundation",
+      "exam",
+    ])
+    expect(decoded.question.generation).toMatchObject({
+      version: 5,
+      difficultyBand: "foundation",
+    })
+    expect(generateQuestionsForTask(decoded.task)[questionIndex]).toEqual(question)
+  })
+
+  it("keeps pacing optional for a legacy lesson report", () => {
+    const task = structuredClone(buildAssignments(createSeededLearner(now), now)[0]!)
+    delete task.pacing
+    const question = generateQuestionsForTask(task)[0]!
+    const reference = createExerciseReportReference(task, question, 0)
+    const decoded = decodeExerciseReport(encodeExerciseReport(reference))
+
+    expect(decoded && isMathematicsExerciseReport(decoded)).toBe(true)
+    if (!decoded || !isMathematicsExerciseReport(decoded)) {
+      throw new Error("Expected a Mathematics report")
+    }
+    expect(decoded.task.pacing).toBeUndefined()
+    expect(generateQuestionsForTask(decoded.task)[0]).toEqual(question)
+  })
+
   it("round-trips an Italian question reference without falling back during reproduction", () => {
     const learner = createSeededLearner(now)
     const task = { ...buildAssignments(learner, now)[0]!, contentLocale: "it" as const }
@@ -138,6 +183,10 @@ describe("exercise defect reports", () => {
     const task = buildAssignments(learner, now)[0]!
     const question = generateQuestionsForTask(task)[0]!
     const reference = createExerciseReportReference(task, question, 0)
+    const questionGeneration = reference.question.generation
+    if (!questionGeneration) {
+      throw new Error("Expected versioned question generation metadata")
+    }
     const invalid = {
       ...reference,
       question: { ...reference.question, topicId: "cube-nets" },
@@ -148,6 +197,65 @@ describe("exercise defect reports", () => {
       task: {
         ...reference.task,
         curriculum: { courseId: "zh-zap1-math", version: 99 },
+      },
+    }))).toBeUndefined()
+
+    const invalidTasks = [
+      {
+        ...reference.task,
+        pacing: { version: 1, mode: "invented" },
+      },
+      {
+        ...reference.task,
+        pacing: { version: 1, mode: "accelerated" },
+      },
+      {
+        ...reference.task,
+        kind: "review",
+      },
+      {
+        ...reference.task,
+        generation: {
+          ...reference.task.generation,
+          difficultyBands: ["foundation", "standard"],
+        },
+      },
+      {
+        ...reference.task,
+        generation: {
+          ...reference.task.generation,
+          difficultyBands: ["foundation", "foundation", "exam"],
+        },
+      },
+      {
+        ...reference.task,
+        generation: undefined,
+      },
+    ]
+    for (const invalidTask of invalidTasks) {
+      expect(decodeExerciseReport(encodeArbitraryReport({
+        ...reference,
+        task: invalidTask,
+      }))).toBeUndefined()
+    }
+    expect(decodeExerciseReport(encodeArbitraryReport({
+      ...reference,
+      question: {
+        ...reference.question,
+        generation: {
+          ...questionGeneration,
+          difficultyBand: "exam",
+        },
+      },
+    }))).toBeUndefined()
+    expect(decodeExerciseReport(encodeArbitraryReport({
+      ...reference,
+      question: {
+        ...reference.question,
+        generation: {
+          ...questionGeneration,
+          candidateCount: 0,
+        },
       },
     }))).toBeUndefined()
   })

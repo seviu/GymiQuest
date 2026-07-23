@@ -11,7 +11,8 @@ import {
   createActiveArchivePractice,
   submitArchivePracticeForReview,
 } from "../domain/archivePractice"
-import type { LearnerState } from "../domain/model"
+import type { LearnerState, LearningTask } from "../domain/model"
+import { generateQuestionsForTask } from "../domain/generators"
 import {
   createActiveLearningSession,
   createPrerequisiteDetourSession,
@@ -401,7 +402,7 @@ describe("encrypted learner backup", () => {
     })
   })
 
-  it("keeps a paused fixed-band generation-v2 task replayable", async () => {
+  it("keeps a paused legacy generation-v2 task without pacing replayable", async () => {
     const learner = createSeededLearner(now)
     const currentTask = buildAssignments(learner, now)[0]!
     if (!currentTask.generation) throw new Error("Expected a versioned task")
@@ -410,6 +411,7 @@ describe("encrypted learner backup", () => {
       generation: { ...currentTask.generation, version: 2 as const },
     }
     delete (versionTwoTask as { curriculum?: unknown }).curriculum
+    delete (versionTwoTask as { pacing?: unknown }).pacing
     const session = createActiveLearningSession(versionTwoTask, now)
     session.activeSeconds = 17
     session.question.answer = "alter Entwurf"
@@ -419,6 +421,7 @@ describe("encrypted learner backup", () => {
 
     expect(restored.activeSession?.task.generation?.version).toBe(2)
     expect(restored.activeSession?.task.curriculum).toBeUndefined()
+    expect(restored.activeSession?.task.pacing).toBeUndefined()
     expect(isResumableSession(restored.activeSession, learner)).toBe(true)
     expect(restored.activeSession?.question.answer).toBe("alter Entwurf")
   })
@@ -433,8 +436,146 @@ describe("encrypted learner backup", () => {
     const restored = await openEncryptedBackup(serialized, password)
 
     expect(restored.activeSession?.task.generation?.version).toBe(5)
+    expect(restored.activeSession?.task.pacing).toEqual({
+      version: 1,
+      mode: "steady",
+    })
     expect(restored.activeSession?.task).toEqual(currentTask)
     expect(isResumableSession(restored.activeSession, learner)).toBe(true)
+  })
+
+  it("round-trips the realized difficulty path of a paused paced lesson", async () => {
+    const learner = createSeededLearner(now)
+    const task = structuredClone(buildAssignments(learner, now)[0]!)
+    if (!task.generation || !task.pacing) throw new Error("Expected a paced lesson")
+    const firstQuestion = generateQuestionsForTask(task)[0]!
+    task.generation.difficultyBands = ["foundation", "foundation", "exam"]
+    const expectedNextQuestion = generateQuestionsForTask(task)[1]!
+    const session = createActiveLearningSession(task, now)
+    session.phase = "questions"
+    session.question.questionIndex = 1
+    session.question.results = [{
+      questionId: firstQuestion.id,
+      topicId: firstQuestion.topicId,
+      attempts: 2,
+      hintsUsed: 0,
+      activeSeconds: 31,
+      independentlySolved: false,
+      solved: true,
+      difficultyBand: "foundation",
+    }]
+
+    const serialized = await createEncryptedBackup(learner, session, password, now)
+    const restored = await openEncryptedBackup(serialized, password)
+
+    expect(restored.activeSession?.task.pacing).toEqual(task.pacing)
+    expect(restored.activeSession?.task.generation?.difficultyBands).toEqual([
+      "foundation",
+      "foundation",
+      "exam",
+    ])
+    expect(restored.activeSession?.question.results).toEqual(session.question.results)
+    expect(generateQuestionsForTask(restored.activeSession!.task)[1]).toEqual(
+      expectedNextQuestion,
+    )
+  })
+
+  it.each([
+    [
+      "an unknown pacing mode",
+      (task: LearningTask) => {
+        const pacing = task.pacing as { mode: string }
+        pacing.mode = "invented"
+      },
+    ],
+    [
+      "a question count that does not belong to the pacing mode",
+      (task: LearningTask) => {
+        task.pacing = { version: 1, mode: "accelerated" }
+      },
+    ],
+    [
+      "pacing attached to a non-lesson task",
+      (task: LearningTask) => {
+        task.kind = "review"
+      },
+    ],
+    [
+      "a malformed realized generation path",
+      (task: LearningTask) => {
+        if (!task.generation) throw new Error("Expected generation metadata")
+        task.generation.difficultyBands = ["foundation", "standard"]
+      },
+    ],
+    [
+      "no realized generation path",
+      (task: LearningTask) => {
+        task.generation = undefined
+      },
+    ],
+  ] as const)("rejects an active task with %s", async (_label, mutateTask) => {
+    const learner = createSeededLearner(now)
+    const task = structuredClone(buildAssignments(learner, now)[0]!)
+    if (!task.pacing) throw new Error("Expected a paced lesson")
+    mutateTask(task)
+    const serialized = await createEncryptedBackup(
+      learner,
+      createActiveLearningSession(task, now),
+      password,
+      now,
+    )
+
+    await expect(openEncryptedBackup(serialized, password)).rejects.toMatchObject({
+      code: "invalid-format",
+    })
+  })
+
+  it("rejects paced progress whose result count or realized path is incoherent", async () => {
+    const learner = createSeededLearner(now)
+    const task = structuredClone(buildAssignments(learner, now)[0]!)
+    if (!task.generation || !task.pacing) throw new Error("Expected a paced lesson")
+
+    const missingResultSession = createActiveLearningSession(task, now)
+    missingResultSession.phase = "questions"
+    missingResultSession.question.questionIndex = 1
+    const missingResultBackup = await createEncryptedBackup(
+      learner,
+      missingResultSession,
+      password,
+      now,
+    )
+    await expect(openEncryptedBackup(missingResultBackup, password)).rejects.toMatchObject({
+      code: "invalid-format",
+    })
+
+    const impossiblePathTask = structuredClone(task)
+    impossiblePathTask.generation!.difficultyBands = [
+      "foundation",
+      "foundation",
+      "exam",
+    ]
+    const impossiblePathSession = createActiveLearningSession(impossiblePathTask, now)
+    impossiblePathSession.phase = "questions"
+    impossiblePathSession.question.questionIndex = 2
+    impossiblePathSession.question.results = [0, 1].map((index) => ({
+      questionId: `${task.id}:question:${index}`,
+      topicId: task.topicIds[0]!,
+      attempts: 2,
+      hintsUsed: 0,
+      activeSeconds: 20,
+      independentlySolved: false,
+      solved: true,
+      difficultyBand: "foundation" as const,
+    }))
+    const impossiblePathBackup = await createEncryptedBackup(
+      learner,
+      impossiblePathSession,
+      password,
+      now,
+    )
+    await expect(openEncryptedBackup(impossiblePathBackup, password)).rejects.toMatchObject({
+      code: "invalid-format",
+    })
   })
 
   it("round-trips source-only archive history and an active review without embedding PDFs", async () => {

@@ -1887,6 +1887,10 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("30 Tage")
     expect(container.textContent).toContain("13. August 2026")
     expect(container.textContent).toContain("keine vorhergesagte Note")
+    expect(container.querySelector(".task-card.lesson")).not.toBeNull()
+    expect(
+      container.querySelector(".task-card.lesson .difficulty-sequence"),
+    ).toBeNull()
   })
 
   it("shows the mastered curriculum as an ongoing consolidation phase", () => {
@@ -2099,6 +2103,11 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("selbständig")
     expect(container.textContent).toContain(`+${result.award.totalXp}`)
     expect(container.textContent).not.toContain("Diese Wiederholung zählt.")
+    const pacedLessonReviewMeta = container.querySelector(
+      ".session-review-question small",
+    )
+    expect(pacedLessonReviewMeta).not.toBeNull()
+    expect(pacedLessonReviewMeta?.textContent).not.toContain("Aufbau")
 
     const recovery = buildAssignments(result.state, now).find(
       (candidate) => candidate.purpose === "lesson-recovery",
@@ -2145,6 +2154,9 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Sicherungs-XP")
     expect(container.textContent).toContain(`vollen ${recovery.maxXp} XP`)
     expect(container.textContent).not.toContain("Wiederholungs-XP")
+    expect(
+      container.querySelector(".session-review-question small")?.textContent,
+    ).toContain("Standard")
   })
 
   it("debriefs a difficult review without changing its fixed smaller XP", () => {
@@ -2508,6 +2520,131 @@ describe("assessment UI flow", () => {
       solved: true,
     })
     expect(event.questionResults[0]?.diagnostic).toBeUndefined()
+  })
+
+  it("persists the adapted next question atomically and replays it after a reload", () => {
+    const task: LearningTask = {
+      id: "lesson:mass-units:adaptive-resume",
+      kind: "lesson",
+      title: "Adaptive Masseinheiten",
+      description: "Die nächste Aufgabe passt sich im gespeicherten Lernstand an.",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 25,
+      questionCount: 3,
+      seed: "lesson:mass-units:adaptive-resume",
+      generation: {
+        version: 5,
+        difficultyBands: ["foundation", "foundation", "standard"],
+      },
+      pacing: {
+        version: 1,
+        mode: "supported",
+      },
+    }
+    const session = createActiveLearningSession(task)
+    session.phase = "questions"
+    const firstQuestion = generateQuestionsForTask(task)[0]!
+    if (firstQuestion.response.kind !== "number") {
+      throw new Error("Expected numeric adaptive lesson question")
+    }
+    const onSessionChange = vi.fn()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={session}
+          onBack={() => undefined}
+          onFinish={() => undefined}
+          onPrerequisite={() => undefined}
+          onSessionChange={onSessionChange}
+        />,
+      )
+    })
+
+    expect(container.querySelector(".difficulty-pill")).toBeNull()
+    const input = container.querySelector("#answer")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing adaptive lesson input")
+    const correctAnswer = String(firstQuestion.response.value).replace(".", ",")
+    const answerUnit = firstQuestion.response.unit
+    act(() => setInputValue(
+      input,
+      `${correctAnswer} ${answerUnit ?? "kg"}`,
+    ))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+
+    expect(onSessionChange.mock.calls.at(-1)?.[0]).toMatchObject({
+      task: {
+        generation: {
+          difficultyBands: ["foundation", "foundation", "standard"],
+        },
+      },
+      question: {
+        submissions: 0,
+        mistakes: 0,
+        results: [],
+      },
+    })
+
+    act(() => setInputValue(input, correctAnswer))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    act(() => buttonWithText(container, "Weiter").click())
+
+    const savedSession = structuredClone(onSessionChange.mock.calls.at(-1)?.[0])
+    expect(savedSession).toMatchObject({
+      task: {
+        generation: {
+          difficultyBands: ["foundation", "standard", "standard"],
+        },
+        pacing: {
+          version: 1,
+          mode: "supported",
+        },
+      },
+      question: {
+        questionIndex: 1,
+        submissions: 0,
+        mistakes: 0,
+        results: [{
+          attempts: 1,
+          independentlySolved: true,
+          solved: true,
+          difficultyBand: "foundation",
+        }],
+      },
+    })
+    const expectedNextQuestion = generateQuestionsForTask(savedSession.task)[1]!
+    expect(container.querySelector(".question-card h1")?.textContent).toBe(
+      expectedNextQuestion.prompt,
+    )
+
+    act(() => root.unmount())
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={savedSession}
+          onBack={() => undefined}
+          onFinish={() => undefined}
+          onPrerequisite={() => undefined}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.querySelector(".question-card h1")?.textContent).toBe(
+      expectedNextQuestion.prompt,
+    )
+    expect(container.querySelector(".difficulty-pill")).toBeNull()
+    expect(container.textContent).toContain("Aufgabe 2 von 3")
   })
 
   it("counts the first mathematical miss after a free format correction", () => {

@@ -101,6 +101,7 @@ import {
   type ErrorCompass,
   type QuestionDiagnosticDraft,
 } from "./domain/errorPatterns"
+import { adaptLessonTaskAfterQuestion } from "./domain/lessonPacing"
 import {
   decodeGeometryConstructionAnswer,
   encodeGeometryConstructionAnswer,
@@ -968,7 +969,7 @@ function TaskCard({
   const { locale, copy, t } = useLocalization()
   const prerequisites = task.prerequisiteIds.map((topicId) => topicForLocale(topicId, locale))
   const presentation = taskPresentationForLocale(task, locale)
-  const difficultySummary = task.generation
+  const difficultySummary = task.generation && !task.pacing
     ? task.generation.difficultyBands
         .filter((band, index, bands) => bands.indexOf(band) === index)
         .map((band) => copy.player.difficultyBands[band])
@@ -7966,6 +7967,7 @@ export function QuestionStage({
 
     setSession((current) => ({
       ...current,
+      task: adaptLessonTaskAfterQuestion(current.task, nextResults),
       question: {
         questionIndex: current.question.questionIndex + 1,
         answer: "",
@@ -8169,7 +8171,7 @@ export function QuestionStage({
         <div className="question-topline">
           <span>{copy.player.questionProgress(questionIndex + 1, questions.length)}</span>
           <span className="question-context">
-            {question.generation && (
+            {question.generation && !task.pacing && (
               <strong className={`difficulty-pill ${question.generation.difficultyBand}`}>
                 {copy.player.difficultyBands[question.generation.difficultyBand]}
               </strong>
@@ -8802,6 +8804,7 @@ function SessionDebrief({
   onOpenConcept,
   retryBlockedByAssessment = false,
   assessmentMode = false,
+  showDifficultyBand = true,
 }: {
   review: ReturnType<typeof buildSessionReview>
   learner: LearnerState
@@ -8809,6 +8812,7 @@ function SessionDebrief({
   onOpenConcept?: (topicId: TopicId) => void
   retryBlockedByAssessment?: boolean
   assessmentMode?: boolean
+  showDifficultyBand?: boolean
 }) {
   const { locale, copy, t } = useLocalization()
   const mistakeItems = review.items.filter((item) => item.finalAnswerStatus === "missed")
@@ -8860,7 +8864,9 @@ function SessionDebrief({
             <div className="session-review-question">
               <small>
                 {t("debrief.question", { number: item.index + 1 })} · {topicForLocale(item.result.topicId, locale).shortTitle}
-                {item.result.difficultyBand ? ` · ${copy.player.difficultyBands[item.result.difficultyBand]}` : ""}
+                {showDifficultyBand && item.result.difficultyBand
+                  ? ` · ${copy.player.difficultyBands[item.result.difficultyBand]}`
+                  : ""}
               </small>
               <h3>{item.question.prompt}</h3>
             </div>
@@ -9354,6 +9360,7 @@ export function CompletionView({
           onOpenConcept={onOpenConcept}
           retryBlockedByAssessment={retryBlockedByAssessment}
           assessmentMode={isAssessment}
+          showDifficultyBand={!task.pacing}
         />
 
         {onLearnerFeedback && (

@@ -9,6 +9,7 @@ import {
   taskMatchesLearnerCurriculum,
 } from "./curriculumPackage"
 import { buildTaskGenerationProfile, reviewDifficultyBands } from "./difficulty"
+import { buildLessonPacingPlan } from "./lessonPacing"
 import {
   blendMasteryEvidence,
   clampMastery,
@@ -637,6 +638,7 @@ function dueReviewTasks(state: LearnerState, now: Date): LearningTask[] {
 
 function lessonTaskForTopic(state: LearnerState, topicId: TopicId): LearningTask {
   const topic = topics[topicId]
+  const pacing = buildLessonPacingPlan(state, [topicId, ...topic.prerequisites])
   return {
     id: `lesson:${topic.id}`,
     kind: "lesson",
@@ -645,10 +647,11 @@ function lessonTaskForTopic(state: LearnerState, topicId: TopicId): LearningTask
     topicIds: [topic.id],
     prerequisiteIds: topic.prerequisites,
     maxXp: curriculumPackageFor(state).xp.lessonMaxXp,
-    questionCount: 3,
+    questionCount: pacing.difficultyBands.length,
     seed: `lesson:${state.learnerId}:${topic.id}`,
     curriculum: taskCurriculumFor(state),
-    generation: buildTaskGenerationProfile(["foundation", "standard", "exam"]),
+    generation: buildTaskGenerationProfile(pacing.difficultyBands),
+    pacing: pacing.profile,
   }
 }
 

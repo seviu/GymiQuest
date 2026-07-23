@@ -1,6 +1,7 @@
 import {
   difficultyBandIds,
   generationVersionIds,
+  lessonPacingModeIds,
   learnerFeedbackKindIds,
   MAX_ASSESSMENT_SUBMITTED_ANSWER_LENGTH,
   practiceDayIds,
@@ -19,6 +20,10 @@ import {
   type TopicHelpRequest,
   type XPAward,
 } from "../domain/model"
+import {
+  isLessonPacingQuestionCount,
+  lessonPacingTaskMatchesResults,
+} from "../domain/lessonPacing"
 import {
   CURRICULUM_IDENTITY_SCHEMA_VERSION,
   resolveLearnerCurriculumPackage,
@@ -102,6 +107,7 @@ const decoder = new TextDecoder()
 const validTopicIds = new Set<string>(topicIds)
 const validDifficultyBands = new Set<string>(difficultyBandIds)
 const validGenerationVersions = new Set<number>(generationVersionIds)
+const validLessonPacingModes = new Set<string>(lessonPacingModeIds)
 const validLearnerFeedbackKinds = new Set<string>(learnerFeedbackKindIds)
 const validPracticeDayIds = new Set<string>(practiceDayIds)
 const validQuestionDiagnosticKinds = new Set<string>(questionDiagnosticKindIds)
@@ -1107,6 +1113,18 @@ function isLearningTask(value: unknown): value is LearningTask {
         typeof band === "string" && validDifficultyBands.has(band)
       ))
     )) &&
+    (value.pacing === undefined || Boolean(
+      value.kind === "lesson" &&
+      isRecord(value.pacing) &&
+      value.pacing.version === 1 &&
+      typeof value.pacing.mode === "string" &&
+      validLessonPacingModes.has(value.pacing.mode) &&
+      isRecord(value.generation) &&
+      isLessonPacingQuestionCount(
+        value.pacing.mode as (typeof lessonPacingModeIds)[number],
+        value.questionCount,
+      )
+    )) &&
     isOptionalDate(value.dueAt) &&
     (value.assessmentNumber === undefined || isPositiveInteger(value.assessmentNumber, 1_000_000))
   )
@@ -1287,7 +1305,7 @@ function isSessionSnapshotShape(value: unknown): value is LearningSessionSnapsho
 
   const question = value.question
   return Boolean(
-    isNonNegativeInteger(question.questionIndex, value.task.questionCount) &&
+    isNonNegativeInteger(question.questionIndex, value.task.questionCount - 1) &&
     typeof question.answer === "string" &&
     question.answer.length <= 10_000 &&
     isNonNegativeInteger(question.submissions, 100_000) &&
@@ -1303,6 +1321,11 @@ function isSessionSnapshotShape(value: unknown): value is LearningSessionSnapsho
     Array.isArray(question.results) &&
     question.results.length <= value.task.questionCount &&
     question.results.every(isQuestionResult) &&
+    question.results.length === question.questionIndex &&
+    (
+      value.task.pacing === undefined ||
+      lessonPacingTaskMatchesResults(value.task, question.results)
+    ) &&
     (question.firstDiagnostic === undefined || (
       isRecord(question.firstDiagnostic) &&
       typeof question.firstDiagnostic.kind === "string" &&

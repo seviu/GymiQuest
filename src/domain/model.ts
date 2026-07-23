@@ -67,6 +67,15 @@ export interface TaskGenerationProfile {
   difficultyBands: DifficultyBand[]
 }
 
+export const lessonPacingModeIds = ["supported", "steady", "accelerated"] as const
+
+export type LessonPacingMode = (typeof lessonPacingModeIds)[number]
+
+export interface LessonPacingProfile {
+  version: 1
+  mode: LessonPacingMode
+}
+
 export interface QuestionGenerationRequest {
   version: GenerationVersion
   difficultyBand: DifficultyBand
@@ -193,6 +202,11 @@ export interface LearningTask {
   curriculum?: CurriculumPackageReference
   purpose?: TaskPurpose
   generation?: TaskGenerationProfile
+  /**
+   * Present only on lessons whose length and next unseen difficulty are chosen
+   * from recent performance. The task snapshot pins the decision for reloads.
+   */
+  pacing?: LessonPacingProfile
   dueAt?: string
   assessmentNumber?: number
 }

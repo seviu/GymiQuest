@@ -190,10 +190,29 @@ describe("parent dashboard summary", () => {
     learner.preferences.sessionMinutes = 20
 
     const summary = buildParentDashboard(learner, now)
+    const englishSummary = buildParentDashboard(
+      learner,
+      now,
+      "Europe/Zurich",
+      "en",
+      "en",
+    )
 
     expect(summary.weeklyTarget).toBe(2)
     expect(summary.sessionPlan.find((item) => item.id === "learn")?.durationMinutes).toBe(20)
     expect(summary.sessionPlan.find((item) => item.id === "retrieve")?.durationMinutes).toBe(10)
+    expect(summary.sessionPlan.find((item) => item.id === "learn")?.purpose).toContain(
+      "zwei bis vier adaptiven Aufgaben",
+    )
+    expect(summary.sessionPlan.find((item) => item.id === "learn")?.purpose).toContain(
+      "die Anzahl steht beim Start fest",
+    )
+    expect(englishSummary.sessionPlan.find((item) => item.id === "learn")?.purpose).toContain(
+      "two to four adaptive questions",
+    )
+    expect(englishSummary.sessionPlan.find((item) => item.id === "learn")?.purpose).toContain(
+      "the question count is fixed",
+    )
   })
 
   it("prioritizes the learner's own bounded confusion signal without changing learning state", () => {

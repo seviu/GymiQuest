@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { orderedTopics } from "./content"
 import { UnsupportedCurriculumPackageError } from "./curriculumPackage"
-import { topicIds, type LearnerState, type LearningEvent, type LearningTask, type QuestionResult, type TopicId } from "./model"
+import {
+  topicIds,
+  type LearnerState,
+  type LearningEvent,
+  type LearningTask,
+  type LessonPacingMode,
+  type QuestionResult,
+  type TopicId,
+} from "./model"
 import {
   buildAssignments,
   buildErrorRefresh,
@@ -62,6 +70,80 @@ function taskOfKind(state: LearnerState, kind: LearningTask["kind"]): LearningTa
   const task = buildAssignments(state, now).find((assignment) => assignment.kind === kind)
   if (!task) throw new Error(`Expected a ${kind} task`)
   return task
+}
+
+function addPacingEvidence(
+  state: LearnerState,
+  topicId: TopicId,
+  independentResults: readonly boolean[],
+  id: string,
+  completedAt: string,
+): void {
+  const mistakes = independentResults.filter((independent) => !independent).length
+  state.learningEvents.push({
+    id: `event:pacing:${id}`,
+    taskId: `pacing:${id}`,
+    taskKind: "review",
+    topicIds: [topicId],
+    completedAt,
+    activeSeconds: independentResults.length * 20,
+    mistakes,
+    hintsUsed: 0,
+    independentlyCompleted: mistakes === 0,
+    questionResults: independentResults.map((independent, index) => ({
+      questionId: `pacing:${id}:question:${index}`,
+      topicId,
+      attempts: independent ? 1 : 2,
+      hintsUsed: 0,
+      activeSeconds: 20,
+      independentlySolved: independent,
+      solved: true,
+    })),
+  })
+}
+
+function learnerForPacing(mode: LessonPacingMode): LearnerState {
+  const state = createSeededLearner(now)
+  if (mode === "steady") return state
+
+  const topicId = taskOfKind(state, "lesson").topicIds[0]!
+  addPacingEvidence(
+    state,
+    topicId,
+    mode === "accelerated" ? [true, true] : [true, false],
+    mode,
+    "2026-07-13T10:00:00.000Z",
+  )
+  return state
+}
+
+function completionWithMissedQuestions(
+  task: LearningTask,
+  suffix: string,
+  missedIndexes: readonly number[],
+): LearningEvent {
+  const missed = new Set(missedIndexes)
+  return {
+    id: `event:${task.id}:${suffix}`,
+    taskId: task.id,
+    taskKind: task.kind,
+    topicIds: task.topicIds,
+    completedAt: now.toISOString(),
+    activeSeconds: task.questionCount * 25,
+    mistakes: missed.size,
+    hintsUsed: 0,
+    independentlyCompleted: missed.size === 0,
+    questionResults: Array.from({ length: task.questionCount }, (_, index) => ({
+      questionId: `${task.id}:question:${index}`,
+      topicId: task.topicIds[index % task.topicIds.length]!,
+      attempts: missed.has(index) ? 2 : 1,
+      hintsUsed: 0,
+      activeSeconds: 25,
+      independentlySolved: !missed.has(index),
+      solved: true,
+      difficultyBand: task.generation?.difficultyBands[index],
+    })),
+  }
 }
 
 describe("learning engine", () => {
@@ -155,6 +237,125 @@ describe("learning engine", () => {
     )
   })
 
+  it("chooses default, accelerated, and supported lesson pacing from the latest relevant round", () => {
+    const steadyState = createSeededLearner(now)
+    const steadyLesson = taskOfKind(steadyState, "lesson")
+    expect(steadyLesson).toMatchObject({
+      pacing: { version: 1, mode: "steady" },
+      questionCount: 3,
+      generation: { difficultyBands: ["foundation", "standard", "exam"] },
+    })
+
+    const targetTopicId = steadyLesson.topicIds[0]!
+    const acceleratedState = createSeededLearner(now)
+    addPacingEvidence(
+      acceleratedState,
+      targetTopicId,
+      [true, false],
+      "older-relevant-struggle",
+      "2026-07-13T08:00:00.000Z",
+    )
+    addPacingEvidence(
+      acceleratedState,
+      targetTopicId,
+      [true, true],
+      "latest-relevant-success",
+      "2026-07-13T09:00:00.000Z",
+    )
+    addPacingEvidence(
+      acceleratedState,
+      "mass-units",
+      [false, false],
+      "newer-unrelated-struggle",
+      "2026-07-13T10:00:00.000Z",
+    )
+    expect(taskOfKind(acceleratedState, "lesson")).toMatchObject({
+      pacing: { version: 1, mode: "accelerated" },
+      questionCount: 2,
+      generation: { difficultyBands: ["standard", "exam"] },
+    })
+
+    const supportedState = createSeededLearner(now)
+    addPacingEvidence(
+      supportedState,
+      targetTopicId,
+      [true, false],
+      "latest-relevant-support",
+      "2026-07-13T10:00:00.000Z",
+    )
+    expect(taskOfKind(supportedState, "lesson")).toMatchObject({
+      pacing: { version: 1, mode: "supported" },
+      questionCount: 4,
+      generation: { difficultyBands: ["foundation", "foundation", "standard", "exam"] },
+    })
+  })
+
+  it("uses immediate-prerequisite evidence and caps supported pacing in a ten-minute session", () => {
+    const state = createSeededLearner(now)
+    state.preferences.sessionMinutes = 10
+    addPacingEvidence(
+      state,
+      "fraction-of-quantity",
+      [true, false],
+      "weak-immediate-prerequisite",
+      "2026-07-13T09:00:00.000Z",
+    )
+    addPacingEvidence(
+      state,
+      "mass-units",
+      [true, true],
+      "newer-unrelated-success",
+      "2026-07-13T10:00:00.000Z",
+    )
+
+    expect(buildTopicLesson(state, "time-fractions")).toMatchObject({
+      pacing: { version: 1, mode: "supported" },
+      questionCount: 3,
+      generation: { difficultyBands: ["foundation", "foundation", "standard"] },
+    })
+  })
+
+  it("leaves placement, review, repair, and assessment lengths and bands unchanged", () => {
+    const fresh = createInitialLearner(now)
+    const state = createSeededLearner(now)
+    const assessmentState = structuredClone(state)
+    assessmentState.xpSinceAssessment = assessmentState.assessmentThreshold
+
+    const placement = buildPlacementTask(fresh)
+    const review = taskOfKind(state, "review")
+    const prerequisiteRefresh = buildPrerequisiteRefresh(state, "mass-units")
+    const errorRefresh = buildErrorRefresh(state, "mass-units")
+    const assessment = taskOfKind(assessmentState, "assessment")
+
+    expect(placement).toMatchObject({
+      questionCount: 9,
+      generation: { difficultyBands: Array.from({ length: 9 }, () => "standard") },
+    })
+    expect(review).toMatchObject({
+      questionCount: 2,
+      generation: { difficultyBands: ["standard", "exam"] },
+    })
+    expect(prerequisiteRefresh).toMatchObject({
+      questionCount: 2,
+      generation: { difficultyBands: ["foundation", "standard"] },
+    })
+    expect(errorRefresh).toMatchObject({
+      questionCount: 2,
+      generation: { difficultyBands: ["standard", "exam"] },
+    })
+    expect(assessment).toMatchObject({
+      questionCount: 6,
+      generation: { difficultyBands: Array.from({ length: 6 }, () => "exam") },
+    })
+    expect([
+      placement,
+      review,
+      prerequisiteRefresh,
+      errorRefresh,
+      assessment,
+    ].every((task) => task.pacing === undefined)).toBe(true)
+  })
+
   it("uses secure placement answers as provisional mastery with an early review", () => {
     const state = createInitialLearner(now)
     const task = buildPlacementTask(state)
@@ -209,18 +410,84 @@ describe("learning engine", () => {
   })
 
   it.each([
-    [0, 33, "lesson-flawless"],
-    [1, 25, "lesson-full"],
-    [2, 18, "lesson-partial"],
-    [3, 10, "lesson-partial"],
-    [4, 0, "lesson-recovery"],
-  ] as const)("awards the explicit lesson policy for %i mistakes", (mistakes, xp, reason) => {
-    const state = createSeededLearner(now)
-    const lesson = taskOfKind(state, "lesson")
-    const result = recordCompletion(state, lesson, completion(lesson, String(mistakes), { mistakes }))
+    ["accelerated", 0, 33, "lesson-flawless"],
+    ["accelerated", 1, 25, "lesson-full"],
+    ["steady", 2, 18, "lesson-partial"],
+    ["steady", 3, 10, "lesson-partial"],
+    ["supported", 4, 0, "lesson-recovery"],
+  ] as const)(
+    "awards the explicit lesson policy in a %s round with %i mistakes",
+    (mode, mistakes, xp, reason) => {
+      const state = learnerForPacing(mode)
+      const lesson = taskOfKind(state, "lesson")
+      const result = recordCompletion(
+        state,
+        lesson,
+        completionWithMissedQuestions(
+          lesson,
+          `${mode}-${mistakes}`,
+          Array.from({ length: mistakes }, (_, index) => index),
+        ),
+      )
 
-    expect(result.award.totalXp).toBe(xp)
-    expect(result.award.reason).toBe(reason)
+      expect(result.award.totalXp).toBe(xp)
+      expect(result.award.reason).toBe(reason)
+    },
+  )
+
+  it("keeps 25 XP but requires recovery after one miss in a two-question accelerated lesson", () => {
+    const state = learnerForPacing("accelerated")
+    const lesson = taskOfKind(state, "lesson")
+    const topicId = lesson.topicIds[0]!
+    const result = recordCompletion(
+      state,
+      lesson,
+      completionWithMissedQuestions(lesson, "accelerated-one-miss", [0]),
+    )
+    const recovery = buildAssignments(result.state, now).find(
+      (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
+    )
+
+    expect(lesson).toMatchObject({
+      questionCount: 2,
+      pacing: { mode: "accelerated" },
+    })
+    expect(result.award).toMatchObject({ totalXp: 25, reason: "lesson-full" })
+    expect(result.state.mastery[topicId].status).toBe("learning")
+    expect(recovery).toMatchObject({
+      kind: "repair",
+      purpose: "lesson-recovery",
+      questionCount: 2,
+      generation: { difficultyBands: ["standard", "exam"] },
+    })
+    expect(recovery?.pacing).toBeUndefined()
+  })
+
+  it("awards zero XP and requires recovery when all four supported questions are missed", () => {
+    const state = learnerForPacing("supported")
+    const lesson = taskOfKind(state, "lesson")
+    const topicId = lesson.topicIds[0]!
+    const result = recordCompletion(
+      state,
+      lesson,
+      completionWithMissedQuestions(lesson, "supported-four-misses", [0, 1, 2, 3]),
+    )
+    const recovery = buildAssignments(result.state, now).find(
+      (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
+    )
+
+    expect(lesson).toMatchObject({
+      questionCount: 4,
+      pacing: { mode: "supported" },
+    })
+    expect(result.award).toMatchObject({
+      baseXp: 0,
+      bonusXp: 0,
+      totalXp: 0,
+      reason: "lesson-recovery",
+    })
+    expect(result.state.mastery[topicId].status).toBe("learning")
+    expect(recovery).toMatchObject({ kind: "repair", purpose: "lesson-recovery" })
   })
 
   it("awards no lesson XP after more than three mistakes and schedules the topic again", () => {
