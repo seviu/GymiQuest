@@ -7757,7 +7757,7 @@ export function QuestionStage({
   onRequestTeacherSupport?: (topicId: TopicId) => void
   helpStyle?: LearnerHelpStyle
 }) {
-  const { locale, copy, t } = useLocalization()
+  const { locale, copy } = useLocalization()
   const [confirmTeacherSupport, setConfirmTeacherSupport] = useState(false)
   const { task, activeSeconds } = session
   const contentLocale = task.contentLocale ?? "de"
@@ -8330,30 +8330,18 @@ export function QuestionStage({
             <div className="feedback wrong diagnostic-feedback">
               <div>
                 <span>{isAssessment ? copy.player.incorrect : diagnosis?.title ?? copy.player.wrongAnswerTitle}</span>
-                <p>
-                  {diagnosis?.message ?? copy.player.wrongAnswerMessage}
-                </p>
-                {diagnosis && (
-                  <strong className="diagnostic-next-step">
-                    <span>{copy.player.nextStep}</span>
-                    {diagnosis.nextStep}
-                  </strong>
-                )}
-                {isAssessment && (
-                  <dl className="assessment-answer-comparison assessment-submission-comparison">
-                    <div className="submitted">
-                      <dt>{t("debrief.assessment.yourAnswer")}</dt>
-                      <dd>{submittedAssessmentAnswerLabel(question, answer, locale)}</dd>
-                    </div>
-                    <div className="correct">
-                      <dt>{t("debrief.assessment.correctAnswer")}</dt>
-                      <dd>{correctAssessmentAnswerLabel(question, locale)}</dd>
-                    </div>
-                    <div className="explanation">
-                      <dt>{t("debrief.assessment.explanation")}</dt>
-                      <dd>{question.explanation}</dd>
-                    </div>
-                  </dl>
+                {isAssessment ? (
+                  <p>{copy.player.assessmentAnswerRecorded}</p>
+                ) : (
+                  <>
+                    <p>{diagnosis?.message ?? copy.player.wrongAnswerMessage}</p>
+                    {diagnosis && (
+                      <strong className="diagnostic-next-step">
+                        <span>{copy.player.nextStep}</span>
+                        {diagnosis.nextStep}
+                      </strong>
+                    )}
+                  </>
                 )}
               </div>
               {isAssessment && (
@@ -8365,7 +8353,10 @@ export function QuestionStage({
           )}
           {feedback === "correct" && (
             <div className="feedback correct">
-              <div><span>{copy.player.correct}</span><p>{question.explanation}</p></div>
+              <div>
+                <span>{copy.player.correct}</span>
+                <p>{isAssessment ? copy.player.assessmentAnswerRecorded : question.explanation}</p>
+              </div>
               <button className="primary-button" type="button" onClick={() => finishQuestion(true)}>
                 {questionIndex === questions.length - 1 ? copy.player.finish : copy.player.continue}
               </button>

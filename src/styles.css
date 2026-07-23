@@ -8739,12 +8739,6 @@ button.profile-chip:hover {
   margin: 0 17px 15px;
 }
 
-.assessment-submission-comparison {
-  margin: 14px 0 0;
-  color: var(--ink);
-  text-align: left;
-}
-
 .assessment-answer-comparison > div {
   min-width: 0;
   padding: 12px 13px;

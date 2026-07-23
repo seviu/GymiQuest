@@ -206,6 +206,7 @@ interface AppCopy {
     nextStep: string
     correct: string
     finish: string
+    assessmentAnswerRecorded: string
     assessmentModeNote: string
     placementModeNote: string
     helpTitle: string
@@ -468,7 +469,8 @@ const englishCopy: AppCopy = {
     nextStep: "Next step",
     correct: "Correct.",
     finish: "Finish",
-    assessmentModeNote: "Assessment mode: every submitted answer is final. You immediately see the result and explanation.",
+    assessmentAnswerRecorded: "Answer saved. Your review follows after you finish.",
+    assessmentModeNote: "Assessment mode: every submitted answer is final. You see whether it is correct right away. Anything that needs fixing is explained after you finish.",
     placementModeNote: "Start check: no grade and no intermediate results. Unclear topics will be explained later.",
     helpTitle: "I do not understand it yet",
     helpSubtitle: "Choose exactly the help you need.",
@@ -509,7 +511,7 @@ const englishCopy: AppCopy = {
     assessmentRules: [
       "You submit exactly one answer per question.",
       "The questions are exam-style and use new values and variants every time.",
-      "After submitting, you immediately see whether the answer was correct and what to fix.",
+      "After submitting, you immediately see whether the answer was correct. Anything that needs fixing is explained after you finish.",
       "Incorrect topics are saved and return in future targeted reviews.",
     ],
     mixedFrom: "Mixed today from",
@@ -773,7 +775,8 @@ const spanishCopy: AppCopy = {
     nextStep: "Siguiente paso",
     correct: "Correcto.",
     finish: "Terminar",
-    assessmentModeNote: "Modo evaluación: cada respuesta entregada es definitiva. Ves inmediatamente el resultado y la explicación.",
+    assessmentAnswerRecorded: "Respuesta guardada. El repaso aparecerá cuando termines.",
+    assessmentModeNote: "Modo evaluación: cada respuesta entregada es definitiva. Ves inmediatamente si es correcta. Lo que haya que corregir se explicará cuando termines.",
     placementModeNote: "Prueba inicial: sin nota ni resultados intermedios. Los temas que no estén claros se explicarán más adelante.",
     helpTitle: "Todavía no lo entiendo",
     helpSubtitle: "Elige exactamente la ayuda que necesitas.",
@@ -814,7 +817,7 @@ const spanishCopy: AppCopy = {
     assessmentRules: [
       "Envías exactamente una respuesta por pregunta.",
       "Las preguntas son de tipo examen y utilizan valores y variantes nuevos cada vez.",
-      "Después de entregarla, ves inmediatamente si la respuesta era correcta y qué debes corregir.",
+      "Después de entregarla, ves inmediatamente si la respuesta era correcta. Lo que haya que corregir se explicará cuando termines.",
       "Los temas incorrectos se guardan y vuelven en repasos específicos futuros.",
     ],
     mixedFrom: "Mezcla de hoy de",
@@ -1078,7 +1081,8 @@ const italianCopy: AppCopy = {
     nextStep: "Passaggio successivo",
     correct: "Corretto.",
     finish: "Termina",
-    assessmentModeNote: "Modalità verifica: ogni risposta inviata è definitiva. Vedi subito il risultato e la spiegazione.",
+    assessmentAnswerRecorded: "Risposta salvata. Il riepilogo apparirà dopo la conclusione.",
+    assessmentModeNote: "Modalità verifica: ogni risposta inviata è definitiva. Vedi subito se è corretta. Quello che va corretto verrà spiegato dopo la conclusione.",
     placementModeNote: "Verifica iniziale: nessun voto e nessun risultato intermedio. Gli argomenti poco chiari verranno spiegati più avanti.",
     helpTitle: "Non l'ho ancora capito",
     helpSubtitle: "Scegli esattamente l'aiuto che ti serve.",
@@ -1119,7 +1123,7 @@ const italianCopy: AppCopy = {
     assessmentRules: [
       "Invii esattamente una risposta per ogni domanda.",
       "Le domande sono in stile d'esame e usano ogni volta valori e varianti nuovi.",
-      "Dopo l'invio vedi subito se la risposta era corretta e che cosa correggere.",
+      "Dopo l'invio vedi subito se la risposta era corretta. Quello che va corretto verrà spiegato dopo la conclusione.",
       "Gli argomenti sbagliati vengono salvati e ritornano nei ripassi mirati futuri.",
     ],
     mixedFrom: "Oggi mescolato da",
@@ -1383,7 +1387,8 @@ const germanCopy: AppCopy = {
     nextStep: "Als Nächstes",
     correct: "Richtig.",
     finish: "Abschliessen",
-    assessmentModeNote: "Prüfmodus: Jede abgegebene Antwort ist endgültig. Du siehst sofort das Ergebnis und die Erklärung.",
+    assessmentAnswerRecorded: "Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.",
+    assessmentModeNote: "Prüfmodus: Jede abgegebene Antwort ist endgültig. Du siehst sofort, ob sie stimmt. Was noch nicht stimmt, wird nach dem Abschluss erklärt.",
     placementModeNote: "Start-Check: keine Note und keine Zwischenresultate. Unklare Themen werden später erklärt.",
     helpTitle: "Ich verstehe es noch nicht",
     helpSubtitle: "Wähle genau die Hilfe, die du brauchst.",
@@ -1424,7 +1429,7 @@ const germanCopy: AppCopy = {
     assessmentRules: [
       "Du gibst pro Aufgabe genau eine Antwort ab.",
       "Die Aufgaben sind prüfungsnah und verwenden jedes Mal neue Werte und Varianten.",
-      "Nach der Abgabe siehst du sofort, ob die Antwort richtig war und was du korrigieren musst.",
+      "Nach der Abgabe siehst du sofort, ob die Antwort richtig war. Was noch nicht stimmt, wird nach dem Abschluss erklärt.",
       "Falsch gelöste Themen werden gespeichert und kehren in späteren gezielten Wiederholungen zurück.",
     ],
     mixedFrom: "Heute gemischt aus",

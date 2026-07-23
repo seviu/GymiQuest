@@ -2229,6 +2229,7 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Gemischte Runde")
     expect(container.textContent).toContain("Rückweg")
     expect(container.textContent).toContain("Bereit")
+    expect(container.textContent).toContain("Was noch nicht stimmt, wird nach dem Abschluss erklärt.")
     expect(container.querySelector(".question-card")).toBeNull()
     expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Pause")).toBe(false)
 
@@ -3060,7 +3061,7 @@ describe("assessment UI flow", () => {
     }
   })
 
-  it("grades a submitted semantic construction once and explains it immediately", () => {
+  it("grades a submitted semantic construction once without revealing its explanation", () => {
     const task = geometryTask("assessment", "silent-ui")
     const question = generateQuestionsForTask(task)[0]!
     const spec = question.geometryConstruction
@@ -3091,7 +3092,8 @@ describe("assessment UI flow", () => {
 
     expect(onFinish).not.toHaveBeenCalled()
     expect(container.textContent).toContain("Richtig.")
-    expect(container.textContent).toContain(question.explanation)
+    expect(container.textContent).toContain("Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.")
+    expect(container.textContent).not.toContain(question.explanation)
     expect(range.disabled).toBe(true)
 
     act(() => buttonWithText(container, "Abschliessen").click())
@@ -3103,7 +3105,7 @@ describe("assessment UI flow", () => {
     })
   })
 
-  it("uses a final submit action and explains a correct assessment answer immediately", () => {
+  it("uses a final submit action and defers the explanation for a correct assessment answer", () => {
     const onFinish = vi.fn<(event: LearningEvent) => void>()
     const question = generateQuestionsForTask(assessment)[0]!
     if (question.response.kind !== "number") throw new Error("Expected a numeric test question")
@@ -3136,7 +3138,8 @@ describe("assessment UI flow", () => {
     expect(onFinish).not.toHaveBeenCalled()
     expect(input.disabled).toBe(true)
     expect(container.textContent).toContain("Richtig.")
-    expect(container.textContent).toContain(question.explanation)
+    expect(container.textContent).toContain("Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.")
+    expect(container.textContent).not.toContain(question.explanation)
     expect(container.textContent).not.toContain("Ich verstehe es noch nicht")
 
     act(() => buttonWithText(container, "Abschliessen").click())
@@ -3349,7 +3352,7 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Richtig")
   })
 
-  it("finalizes a wrong answer, explains the mistake immediately, and retains recovery evidence", () => {
+  it("finalizes a wrong answer without revealing the solution and retains recovery evidence", () => {
     const onFinish = vi.fn<(event: LearningEvent) => void>()
     const versionedAssessment: LearningTask = {
       ...assessment,
@@ -3383,9 +3386,14 @@ describe("assessment UI flow", () => {
     expect(onFinish).not.toHaveBeenCalled()
     expect(input.disabled).toBe(true)
     expect(container.textContent).toContain("Falsch.")
-    expect(container.textContent).toContain("Deine Antwort")
-    expect(container.textContent).toContain("Richtige Antwort")
-    expect(container.textContent).toContain(question.explanation)
+    expect(container.textContent).toContain("Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.")
+    expect(container.querySelector(".feedback.wrong p")?.textContent).toBe(
+      "Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.",
+    )
+    expect(container.querySelector(".diagnostic-next-step")).toBeNull()
+    expect(container.querySelector(".assessment-submission-comparison")).toBeNull()
+    expect(container.textContent).not.toContain("Richtige Antwort")
+    expect(container.textContent).not.toContain(question.explanation)
 
     act(() => buttonWithText(container, "Abschliessen").click())
     const event = onFinish.mock.calls[0]![0]
@@ -3449,6 +3457,7 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("1 Fehler")
     expect(container.textContent).toContain("Deine Antwort")
     expect(container.textContent).toContain("Richtige Antwort")
+    expect(container.textContent).toContain(questions[1]!.explanation)
 
     const focusedLearner = structuredClone(result.state)
     focusedLearner.preferences.visualMode = "focus"
