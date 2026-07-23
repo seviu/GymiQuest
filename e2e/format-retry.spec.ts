@@ -171,6 +171,34 @@ test("keeps a corrected input-format slip out of lesson grading and recovery", a
   await page.getByRole("button", { name: "Abschliessen" }).click()
   await waitForCompletion(page)
 
+  await page.setViewportSize({ width: 320, height: 800 })
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+  await expect(page.locator(".completion-card h1")).toBeFocused()
+  const backToPlan = page.getByRole("button", { name: "Zurück zum Lernplan" })
+  await expect(backToPlan).toBeVisible()
+  expect(await backToPlan.evaluate((element) => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(800)
+
+  const evidenceDisclosure = page.locator(".completion-evidence-disclosure")
+  await expect(evidenceDisclosure).not.toHaveAttribute("open", "")
+  await evidenceDisclosure.locator(":scope > summary").focus()
+  await page.keyboard.press("Enter")
+  await expect(evidenceDisclosure).toHaveAttribute("open", "")
+  await page.keyboard.press("Enter")
+  await expect(evidenceDisclosure).not.toHaveAttribute("open", "")
+
+  const feedbackDisclosure = page.locator(".completion-feedback-disclosure")
+  await expect(feedbackDisclosure).not.toHaveAttribute("open", "")
+  await feedbackDisclosure.locator(":scope > summary").focus()
+  await page.keyboard.press("Enter")
+  await expect(feedbackDisclosure).toHaveAttribute("open", "")
+  await expect(page.getByRole("button", { name: /Die Idee ist klar/u })).toBeVisible()
+  expect(await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )).toBeLessThanOrEqual(0)
+  expect((await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze()).violations).toEqual([])
+
   const learner = await readLearner(page)
   const event = learner.learningEvents.find((candidate) => candidate.taskId === lessonTask.id)
   const award = learner.xpLedger.find((candidate) => candidate.taskId === lessonTask.id)

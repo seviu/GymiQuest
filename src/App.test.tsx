@@ -2166,6 +2166,7 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Deine Antwort")
     expect(container.textContent).toContain("Richtige Antwort")
     expect(container.textContent).toContain("Warum")
+    expect(container.querySelectorAll(".session-next-action")).toHaveLength(1)
     expect(container.querySelector(".xp-earned")).toBeNull()
   })
 
@@ -2212,6 +2213,17 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("selbständig")
     expect(container.textContent).toContain(`+${result.award.totalXp}`)
     expect(container.textContent).not.toContain("Diese Wiederholung zählt.")
+    expect(container.querySelectorAll(".session-next-action")).toHaveLength(1)
+    expect(document.activeElement).toBe(container.querySelector(".completion-card h1"))
+    const lessonEvidence = container.querySelector(".completion-evidence-disclosure")
+    if (!(lessonEvidence instanceof HTMLDetailsElement)) throw new Error("Missing lesson evidence disclosure")
+    expect(lessonEvidence.open).toBe(false)
+    const lessonBack = buttonWithText(container, "Zurück zum Lernplan")
+    expect(lessonBack.nextElementSibling).toBe(lessonEvidence)
+    const lessonEvidenceSummary = lessonEvidence.querySelector("summary")
+    if (!(lessonEvidenceSummary instanceof HTMLElement)) throw new Error("Missing lesson evidence summary")
+    act(() => lessonEvidenceSummary.click())
+    expect(lessonEvidence.open).toBe(true)
     const pacedLessonReviewMeta = container.querySelector(
       ".session-review-question small",
     )
@@ -2343,6 +2355,23 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain(discardedWrongEntry)
     expect(container.textContent).toContain("DEINE SICHT ZÄHLT")
     expect(container.textContent).toContain("verändert weder XP noch Behaltensstand")
+    const reviewEvidence = container.querySelector(".completion-evidence-disclosure")
+    const feedbackDisclosure = container.querySelector(".completion-feedback-disclosure")
+    if (!(reviewEvidence instanceof HTMLDetailsElement) || !(feedbackDisclosure instanceof HTMLDetailsElement)) {
+      throw new Error("Missing completion disclosures")
+    }
+    expect(reviewEvidence.open).toBe(false)
+    expect(feedbackDisclosure.open).toBe(false)
+    const reviewEvidenceSummary = reviewEvidence.querySelector(":scope > summary")
+    if (!(reviewEvidenceSummary instanceof HTMLElement)) throw new Error("Missing review evidence summary")
+    act(() => reviewEvidenceSummary.click())
+    expect(reviewEvidence.open).toBe(true)
+    expect(reviewEvidence.contains(buttonWithText(container, "Neue Variante lösen"))).toBe(true)
+    expect(reviewEvidence.contains(buttonWithText(container, "Grundidee öffnen"))).toBe(true)
+    const feedbackSummary = feedbackDisclosure.querySelector("summary")
+    if (!(feedbackSummary instanceof HTMLElement)) throw new Error("Missing feedback disclosure summary")
+    act(() => feedbackSummary.click())
+    expect(feedbackDisclosure.open).toBe(true)
 
     act(() => buttonWithStrongText(container, "Die Erklärung war noch unklar").click())
     expect(onLearnerFeedback).toHaveBeenCalledWith("explanation-unclear")
@@ -2366,6 +2395,7 @@ describe("assessment UI flow", () => {
     })
     expect(container.textContent).toContain("Gespeichert: Die Erklärung war noch unklar")
     expect(container.textContent).toContain("Öffne die Grundidee im Konzept-Labor")
+    expect((container.querySelector(".completion-feedback-disclosure") as HTMLDetailsElement).open).toBe(true)
     expect(learnerWithFeedback.totalXp).toBe(result.state.totalXp)
     act(() => buttonWithText(container, "Grundidee anders öffnen").click())
     expect(onOpenConcept).toHaveBeenCalledWith("mass-units")
@@ -4211,6 +4241,14 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Deine Antwort")
     expect(container.textContent).toContain("Richtige Antwort")
     expect(container.textContent).toContain(questions[1]!.explanation)
+    const assessmentEvidence = container.querySelector(".completion-evidence-disclosure")
+    if (!(assessmentEvidence instanceof HTMLDetailsElement)) throw new Error("Missing assessment evidence disclosure")
+    expect(assessmentEvidence.open).toBe(true)
+    expect(container.querySelectorAll(".session-next-action")).toHaveLength(1)
+    expect(container.querySelector(".assessment-stats .xp-earned")?.textContent).toContain(
+      String(result.award.totalXp),
+    )
+    expect(buttonWithText(container, "Zurück zum Lernplan").nextElementSibling).toBe(assessmentEvidence)
 
     const focusedLearner = structuredClone(result.state)
     focusedLearner.preferences.visualMode = "focus"

@@ -8337,6 +8337,10 @@ button.profile-chip:hover {
   place-items: start center;
 }
 
+.compact-completion-shell {
+  padding-top: 28px;
+}
+
 .placement-completion-card {
   width: min(720px, 100%);
   padding: clamp(38px, 7vw, 64px);
@@ -8549,6 +8553,7 @@ button.profile-chip:hover {
 
 .completion-card.with-debrief {
   width: min(900px, 100%);
+  padding: clamp(30px, 5vw, 48px);
 }
 
 .completion-card::before,
@@ -8602,11 +8607,36 @@ button.profile-chip:hover {
   color: var(--violet);
 }
 
+.completion-card.with-debrief .completion-burst {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 17px;
+  box-shadow: 0 0 0 8px rgba(97, 198, 160, 0.14);
+}
+
+.completion-card.with-debrief.assessment .completion-burst {
+  box-shadow: 0 0 0 8px rgba(116, 88, 199, 0.11);
+}
+
+.completion-card.with-debrief .completion-burst span {
+  font-size: 28px;
+}
+
 .completion-card h1 {
   margin-bottom: 13px;
   font-size: clamp(31px, 5vw, 44px);
   line-height: 1.1;
   letter-spacing: -0.05em;
+}
+
+.completion-card > h1:focus {
+  border-radius: 8px;
+  outline: 3px solid rgba(23, 107, 218, 0.35);
+  outline-offset: 5px;
+}
+
+:root[data-visual-mode="high-contrast"] .completion-card > h1:focus {
+  outline-color: var(--blue);
 }
 
 .completion-card > p {
@@ -8624,6 +8654,18 @@ button.profile-chip:hover {
   border: 1px solid #e0e6e2;
   border-radius: 17px;
   background: #e0e6e2;
+}
+
+.assessment-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.completion-card.with-debrief .completion-stats {
+  margin: 22px 0 14px;
+}
+
+.completion-card.with-debrief .completion-stats > div {
+  min-height: 76px;
 }
 
 .completion-stats > div {
@@ -9371,6 +9413,7 @@ button.profile-chip:hover {
   font-size: 8px;
 }
 
+.session-next-action h2,
 .session-next-action h3 {
   margin: 3px 0 5px;
   font-size: 15px;
@@ -9409,6 +9452,132 @@ button.profile-chip:hover {
   border-top: 1px solid rgba(118, 87, 0, 0.18);
   color: #765700 !important;
   font-weight: 750;
+}
+
+.completion-card > .session-next-action {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+  text-align: left;
+}
+
+.completion-primary-cta {
+  margin-top: 14px;
+}
+
+.completion-disclosure {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  margin-top: 14px;
+  border: 1px solid #dfe6e2;
+  border-radius: 16px;
+  text-align: left;
+  background: #fbfcfa;
+}
+
+.completion-disclosure > summary {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 15px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.completion-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.completion-disclosure > summary:focus-visible {
+  outline-offset: -5px;
+}
+
+:root[data-visual-mode="high-contrast"] .completion-disclosure,
+:root[data-visual-mode="high-contrast"] .completion-disclosure > summary:focus-visible {
+  border-color: #6f899b;
+  outline-color: var(--blue);
+}
+
+.completion-disclosure-label {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.completion-disclosure-label .eyebrow {
+  color: var(--blue);
+  font-size: 10px;
+}
+
+.completion-feedback-disclosure .completion-disclosure-label .eyebrow {
+  color: var(--violet);
+}
+
+.completion-disclosure-label strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.completion-disclosure-count {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.completion-disclosure > summary > b {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 15px;
+  transition: transform 160ms ease;
+}
+
+.completion-disclosure[open] > summary {
+  border-bottom: 1px solid #e1e7e3;
+}
+
+.completion-disclosure[open] > summary > b {
+  transform: rotate(180deg);
+}
+
+.completion-disclosure-content {
+  padding: 0 16px 16px;
+}
+
+.completion-evidence-disclosure .session-debrief {
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.completion-recovery-actions {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #dfe6e2;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.completion-recovery-actions > .eyebrow {
+  color: var(--blue);
+  font-size: 10px;
+}
+
+.completion-recovery-actions .session-next-buttons {
+  margin-top: 9px;
+}
+
+.completion-feedback-disclosure .learner-feedback-panel {
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 0;
+}
+
+.completion-evidence-disclosure .total-xp-line {
+  margin-bottom: 0;
 }
 
 .total-xp-line {
@@ -14454,17 +14623,128 @@ button.profile-chip:hover {
     padding-left: 14px;
   }
 
+  .compact-completion-shell {
+    padding-top: 14px;
+    padding-bottom: 48px;
+  }
+
   .completion-card,
   .placement-completion-card {
     padding: 32px 18px;
+  }
+
+  .completion-card.with-debrief {
+    padding: 20px 14px 28px;
+  }
+
+  .completion-card.with-debrief .completion-burst {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 11px;
+    box-shadow: 0 0 0 5px rgba(97, 198, 160, 0.14);
+  }
+
+  .completion-card.with-debrief.assessment .completion-burst {
+    box-shadow: 0 0 0 5px rgba(116, 88, 199, 0.11);
+  }
+
+  .completion-card.with-debrief .completion-burst span {
+    font-size: 21px;
+  }
+
+  .completion-card.with-debrief h1 {
+    margin-bottom: 8px;
+    font-size: 27px;
+  }
+
+  .completion-card.with-debrief > p {
+    font-size: 12px;
+    line-height: 1.42;
   }
 
   .completion-stats {
     grid-template-columns: 1fr;
   }
 
+  .completion-card.with-debrief .completion-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 14px 0 12px;
+  }
+
+  .completion-card.with-debrief .assessment-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .completion-stats > div {
     min-height: 75px;
+  }
+
+  .completion-card.with-debrief .completion-stats > div {
+    min-height: 58px;
+    padding: 5px;
+  }
+
+  .completion-card.with-debrief .completion-stats div > span {
+    font-size: 10px;
+  }
+
+  .completion-card.with-debrief .completion-stats div > strong {
+    font-size: 17px;
+  }
+
+  .completion-card.with-debrief .xp-earned > strong {
+    font-size: 25px !important;
+  }
+
+  .completion-card > .session-next-action {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px;
+  }
+
+  .completion-card > .session-next-action .session-next-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+
+  .completion-card > .session-next-action h2 {
+    margin-bottom: 3px;
+    font-size: 13px;
+  }
+
+  .completion-card > .session-next-action p {
+    margin-bottom: 3px;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  .completion-card > .session-next-action .eyebrow,
+  .completion-card > .session-next-action small {
+    font-size: 10px;
+  }
+
+  .completion-primary-cta {
+    margin-top: 11px;
+  }
+
+  .completion-disclosure > summary {
+    min-height: 60px;
+    gap: 9px;
+    padding: 9px 11px;
+  }
+
+  .completion-disclosure-label strong {
+    font-size: 12px;
+  }
+
+  .completion-disclosure-count {
+    font-size: 10px;
+  }
+
+  .completion-disclosure-content {
+    padding: 0 10px 12px;
   }
 
   .session-debrief-heading,

@@ -8994,45 +8994,36 @@ function submittedAssessmentAnswerLabel(
 
 function SessionDebrief({
   review,
-  learner,
-  onRetryTopic,
-  onOpenConcept,
-  retryBlockedByAssessment = false,
   assessmentMode = false,
   showDifficultyBand = true,
+  showHeading = true,
 }: {
   review: ReturnType<typeof buildSessionReview>
-  learner: LearnerState
-  onRetryTopic?: (topicId: TopicId) => void
-  onOpenConcept?: (topicId: TopicId) => void
-  retryBlockedByAssessment?: boolean
   assessmentMode?: boolean
   showDifficultyBand?: boolean
+  showHeading?: boolean
 }) {
   const { locale, copy, t } = useLocalization()
   const mistakeItems = review.items.filter((item) => item.finalAnswerStatus === "missed")
   const visibleItems = assessmentMode ? mistakeItems : review.items
-  const recommended = review.recommendedItemIndex === undefined
-    ? undefined
-    : review.items[review.recommendedItemIndex]
-  const nextTopicId = recommended?.result.topicId ?? review.items[0]?.result.topicId
-  const nextDueAt = nextTopicId ? learner.mastery[nextTopicId].dueAt : undefined
 
   return (
     <section className={`session-debrief${assessmentMode ? " assessment-debrief" : ""}`} aria-label={t(assessmentMode ? "debrief.assessment.aria" : "debrief.aria")}>
-      <div className="session-debrief-heading">
-        <div>
-          <span className="eyebrow">{t(assessmentMode ? "debrief.assessment.eyebrow" : "debrief.eyebrow")}</span>
-          <h2>{t(assessmentMode ? "debrief.assessment.title" : "debrief.title")}</h2>
+      {showHeading && (
+        <div className="session-debrief-heading">
+          <div>
+            <span className="eyebrow">{t(assessmentMode ? "debrief.assessment.eyebrow" : "debrief.eyebrow")}</span>
+            <h2>{t(assessmentMode ? "debrief.assessment.title" : "debrief.title")}</h2>
+          </div>
+          <span>{assessmentMode
+            ? visibleItems.length === 1
+              ? t("debrief.assessment.oneMistake")
+              : t("debrief.assessment.manyMistakes", { count: visibleItems.length })
+            : review.items.length === 1
+              ? t("debrief.oneQuestion")
+              : t("debrief.manyQuestions", { count: review.items.length })}</span>
         </div>
-        <span>{assessmentMode
-          ? visibleItems.length === 1
-            ? t("debrief.assessment.oneMistake")
-            : t("debrief.assessment.manyMistakes", { count: visibleItems.length })
-          : review.items.length === 1
-            ? t("debrief.oneQuestion")
-            : t("debrief.manyQuestions", { count: review.items.length })}</span>
-      </div>
+      )}
       <p className="session-privacy-note">
         <span aria-hidden="true">⌁</span>
         {t(assessmentMode ? "debrief.assessment.privacy" : "debrief.privacy")}
@@ -9121,48 +9112,121 @@ function SessionDebrief({
         ))}
         </div>
       )}
+    </section>
+  )
+}
 
-      <div className={`session-next-action ${recommended ? "practice" : "secure"}`}>
-        <div className="session-next-icon" aria-hidden="true">{recommended ? "↗" : "✓"}</div>
-        <div>
-          <span className="eyebrow">{t("debrief.nextEyebrow")}</span>
-          <h3>
-            {recommended
-              ? t("debrief.newValues", { topic: topicForLocale(recommended.result.topicId, locale).shortTitle })
-              : t("debrief.continuePlan")}
-          </h3>
-          <p>
-            {recommended
-              ? recommendedReviewCopy(recommended, locale)
-              : t("debrief.allSecure")}
-          </p>
-          {nextTopicId && (
-            <small>
-              {nextDueAt
-                ? t("debrief.savedReview", { date: formatReviewDate(nextDueAt, locale) })
-                : t("debrief.savedRecovery")}
-            </small>
-          )}
-          {recommended && (
-            <div className="session-next-buttons">
-              {onRetryTopic && !retryBlockedByAssessment && (
-                <button className="primary-button" type="button" onClick={() => onRetryTopic(recommended.result.topicId)}>
-                  {t("debrief.solveVariant")}
-                </button>
-              )}
-              {onOpenConcept && (
-                <button className="secondary-button" type="button" onClick={() => onOpenConcept(recommended.result.topicId)}>
-                  {t("debrief.openIdea")}
-                </button>
-              )}
-            </div>
-          )}
-          {recommended && retryBlockedByAssessment && (
-            <small className="session-assessment-priority">{t("debrief.assessmentPriority")}</small>
-          )}
-        </div>
+function SessionNextAction({
+  review,
+  learner,
+}: {
+  review: ReturnType<typeof buildSessionReview>
+  learner: LearnerState
+}) {
+  const { locale, t } = useLocalization()
+  const recommended = review.recommendedItemIndex === undefined
+    ? undefined
+    : review.items[review.recommendedItemIndex]
+  const nextTopicId = recommended?.result.topicId ?? review.items[0]?.result.topicId
+  const nextDueAt = nextTopicId ? learner.mastery[nextTopicId].dueAt : undefined
+
+  return (
+    <section className={`session-next-action ${recommended ? "practice" : "secure"}`}>
+      <div className="session-next-icon" aria-hidden="true">{recommended ? "↗" : "✓"}</div>
+      <div>
+        <span className="eyebrow">{t("debrief.nextEyebrow")}</span>
+        <h2>
+          {recommended
+            ? t("debrief.newValues", { topic: topicForLocale(recommended.result.topicId, locale).shortTitle })
+            : t("debrief.continuePlan")}
+        </h2>
+        <p>
+          {recommended
+            ? recommendedReviewCopy(recommended, locale)
+            : t("debrief.allSecure")}
+        </p>
+        {nextTopicId && (
+          <small>
+            {nextDueAt
+              ? t("debrief.savedReview", { date: formatReviewDate(nextDueAt, locale) })
+              : t("debrief.savedRecovery")}
+          </small>
+        )}
       </div>
     </section>
+  )
+}
+
+function SessionRecoveryActions({
+  review,
+  onRetryTopic,
+  onOpenConcept,
+  retryBlockedByAssessment = false,
+}: {
+  review: ReturnType<typeof buildSessionReview>
+  onRetryTopic?: (topicId: TopicId) => void
+  onOpenConcept?: (topicId: TopicId) => void
+  retryBlockedByAssessment?: boolean
+}) {
+  const { t } = useLocalization()
+  const recommended = review.recommendedItemIndex === undefined
+    ? undefined
+    : review.items[review.recommendedItemIndex]
+  if (!recommended) return null
+  const canRetry = Boolean(onRetryTopic && !retryBlockedByAssessment)
+  if (!canRetry && !onOpenConcept && !retryBlockedByAssessment) return null
+
+  return (
+    <section className="completion-recovery-actions" aria-label={t("debrief.nextEyebrow")}>
+      <span className="eyebrow">{t("debrief.nextEyebrow")}</span>
+      {(canRetry || onOpenConcept) && (
+        <div className="session-next-buttons">
+          {canRetry && onRetryTopic && (
+            <button className="secondary-button" type="button" onClick={() => onRetryTopic(recommended.result.topicId)}>
+              {t("debrief.solveVariant")}
+            </button>
+          )}
+          {onOpenConcept && (
+            <button className="secondary-button" type="button" onClick={() => onOpenConcept(recommended.result.topicId)}>
+              {t("debrief.openIdea")}
+            </button>
+          )}
+        </div>
+      )}
+      {retryBlockedByAssessment && (
+        <small className="session-assessment-priority">{t("debrief.assessmentPriority")}</small>
+      )}
+    </section>
+  )
+}
+
+function CompletionDisclosure({
+  className,
+  initialOpen = false,
+  summary,
+  children,
+}: {
+  className: string
+  initialOpen?: boolean
+  summary: ReactNode
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(initialOpen)
+
+  return (
+    <details
+      className={`completion-disclosure ${className}`}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        {summary}
+        <b aria-hidden="true">⌄</b>
+      </summary>
+      <div className="completion-disclosure-content">
+        {children}
+      </div>
+    </details>
   )
 }
 
@@ -9254,8 +9318,11 @@ function PlacementCompletionView({
 
         <SessionDebrief
           review={sessionReview}
-          learner={learner}
           assessmentMode
+        />
+        <SessionNextAction
+          review={sessionReview}
+          learner={learner}
         />
 
         <button className="primary-button wide" type="button" onClick={onContinue}>
@@ -9276,6 +9343,7 @@ export function LearnerFeedbackPanel({
   onRetryTopic,
   onOpenConcept,
   retryBlockedByAssessment = false,
+  showHeading = true,
 }: {
   learner: LearnerState
   event: LearningEvent
@@ -9283,6 +9351,7 @@ export function LearnerFeedbackPanel({
   onRetryTopic?: (topicId: TopicId) => void
   onOpenConcept?: (topicId: TopicId) => void
   retryBlockedByAssessment?: boolean
+  showHeading?: boolean
 }) {
   const { locale, t } = useLocalization()
   const feedbackCopy = learnerFeedbackCopyForLocale(locale)
@@ -9293,14 +9362,20 @@ export function LearnerFeedbackPanel({
   const wantsConcept = submitted?.kind === "explanation-unclear" || submitted?.kind === "question-unclear"
 
   return (
-    <section className="learner-feedback-panel" aria-labelledby="learner-feedback-title">
-      <div className="learner-feedback-heading">
-        <div>
-          <span className="eyebrow">{t("feedback.eyebrow")}</span>
-          <h2 id="learner-feedback-title">{t("feedback.title")}</h2>
+    <section
+      className="learner-feedback-panel"
+      aria-labelledby={showHeading ? "learner-feedback-title" : undefined}
+      aria-label={showHeading ? undefined : t("feedback.title")}
+    >
+      {showHeading && (
+        <div className="learner-feedback-heading">
+          <div>
+            <span className="eyebrow">{t("feedback.eyebrow")}</span>
+            <h2 id="learner-feedback-title">{t("feedback.title")}</h2>
+          </div>
+          <span>{t("feedback.optional")}</span>
         </div>
-        <span>{t("feedback.optional")}</span>
-      </div>
+      )}
 
       {submitted ? (
         <div className={`learner-feedback-saved ${submittedCopy!.concern ? "concern" : "clear"}`} role="status">
@@ -9362,6 +9437,11 @@ export function CompletionView({
 }) {
   const { locale, t } = useLocalization()
   const { task, event, award, learner } = summary
+  const completionHeadingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    completionHeadingRef.current?.focus()
+  }, [event.id])
   if (task.kind === "placement") {
     return <PlacementCompletionView summary={summary} onContinue={onContinue} />
   }
@@ -9408,19 +9488,30 @@ export function CompletionView({
         : lessonSecured
           ? t("completion.lesson.secureBody")
           : t("completion.lesson.buildingBody")
+  const assessmentMistakeCount = sessionReview.items.filter(
+    (item) => item.finalAnswerStatus === "missed",
+  ).length
+  const reviewCountLabel = isAssessment
+    ? assessmentMistakeCount === 1
+      ? t("debrief.assessment.oneMistake")
+      : t("debrief.assessment.manyMistakes", { count: assessmentMistakeCount })
+    : sessionReview.items.length === 1
+      ? t("debrief.oneQuestion")
+      : t("debrief.manyQuestions", { count: sessionReview.items.length })
 
   return (
-    <main className="completion-shell">
+    <main className="completion-shell compact-completion-shell">
       <section className={`completion-card ${task.kind} with-debrief`}>
         <div className="completion-burst" aria-hidden="true"><span>{isAssessment ? "◆" : isLessonFlow && !lessonSecured ? "↻" : "✓"}</span></div>
         <span className="eyebrow">
           {isAssessment ? minimalFocus ? t("completion.assessmentEyebrow") : t("completion.checkEyebrow") : t("completion.done")}
         </span>
-        <h1>{completionHeading}</h1>
+        <h1 ref={completionHeadingRef} tabIndex={-1}>{completionHeading}</h1>
         <p>{completionDescription}</p>
 
         {isAssessment ? (
           <div className="completion-stats assessment-stats">
+            <div className="xp-earned"><span>+</span><strong>{award.totalXp}</strong><small>XP</small></div>
             <div><span>{t("completion.secure")}</span><strong>{assessmentReport!.correct}/{assessmentReport!.total}</strong></div>
             <div><span>{t("completion.targetedReviews")}</span><strong>{assessmentReport!.reviewTopicIds.length}</strong></div>
             <div><span>{t("completion.activeTime")}</span><strong>{formatMinutes(event.activeSeconds)}</strong></div>
@@ -9433,144 +9524,186 @@ export function CompletionView({
           </div>
         )}
 
-        {newAchievements.length > 0 && (
-          <section className="new-achievements" aria-label={t("completion.newBadgesAria")}>
-            <div className="new-achievements-heading">
-              <span aria-hidden="true">✦</span>
-              <div><small>{t("completion.newBadge")}</small><strong>{newAchievements.length === 1 ? t("completion.unlockedOne") : t("completion.unlockedMany", { count: newAchievements.length })}</strong></div>
-            </div>
-            <div>
-              {newAchievements.map((item) => (
-                <article key={item.id}>
-                  <span aria-hidden="true">{item.icon}</span>
-                  <p><strong>{item.title}</strong><small>{item.description}</small></p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {assessmentReport && (
-          <section className="assessment-report" aria-label={t("completion.reportAria")}>
-            <div className="assessment-report-heading">
-              <div>
-                <span className="eyebrow">{t("completion.reportEyebrow")}</span>
-                <h2>{t("completion.reportSecure", { percentage: assessmentReport.percentage })}</h2>
-              </div>
-              <span>{t("completion.of", { correct: assessmentReport.correct, total: assessmentReport.total })}</span>
-            </div>
-            <div className="assessment-topic-results">
-              {assessmentReport.topicOutcomes.map((outcome) => (
-                <div className={`assessment-topic-result ${outcome.status}`} key={outcome.topicId}>
-                  <span className="assessment-result-icon" aria-hidden="true">
-                    {outcome.status === "secure" ? "✓" : "↻"}
-                  </span>
-                  <div>
-                    <strong>{topicForLocale(outcome.topicId, locale).shortTitle}</strong>
-                    <small>
-                      {outcome.status === "secure"
-                        ? t("completion.availableToday")
-                        : t("completion.reviewDue", { date: formatReviewDate(outcome.reviewDueAt, locale) })}
-                    </small>
-                  </div>
-                  <span>{outcome.correct}/{outcome.total}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {assessmentReport && assessmentReport.reviewTopicIds.length > 0 && (
-          <section className="checkpoint-return-brief" aria-labelledby="checkpoint-return-brief-title">
-            <div aria-hidden="true">⌁</div>
-            <div>
-              <span className="eyebrow">{minimalFocus ? t("completion.reviewsPlanned") : t("completion.returnPlanned")}</span>
-              <h2 id="checkpoint-return-brief-title">
-                {minimalFocus
-                  ? assessmentReport.reviewTopicIds.length === 1
-                    ? t("completion.reviewPlannedOne")
-                    : t("completion.reviewPlannedMany", { count: assessmentReport.reviewTopicIds.length })
-                  : assessmentReport.reviewTopicIds.length === 1
-                    ? t("completion.returnPlannedOne")
-                    : t("completion.returnPlannedMany", { count: assessmentReport.reviewTopicIds.length })}
-              </h2>
-              <p>
-                {minimalFocus
-                  ? t("completion.reviewPlanBody")
-                  : t("completion.returnPlanBody")}
-              </p>
-            </div>
-          </section>
-        )}
-
-        {task.kind === "lesson" && (
-          <div className="xp-rule-note">
-            <strong>{t("completion.lessonXpTitle")}</strong>
-            <span>{t("completion.lessonXpRule", {
-              bonus: Math.round(lessonMistakePolicy.perfectBonusRate * 100),
-              fullMistakes: lessonMistakePolicy.fullXpMaxMistakes,
-              deduction: Math.round(lessonMistakePolicy.deductionRatePerAdditionalMistake * 100),
-              lastPaidMistakes: lessonMistakePolicy.noXpAfterMistakes,
-            })}</span>
-          </div>
-        )}
-
-        {isLessonFlow && (
-          <div className={`mastery-outcome-note ${lessonSecured ? "secure" : "building"}`}>
-            <strong>{lessonSecured ? t("completion.topicUnlocked") : t("completion.understandingBuilding")}</strong>
-            <span>
-              {t("completion.mastery", {
-                supported: Math.round(topicMastery.supportedMastery * 100),
-                independent: Math.round(topicMastery.independentMastery * 100),
-              })}
-            </span>
-          </div>
-        )}
-
-        {isLessonRecovery && (
-          <div className="xp-rule-note recovery-rule">
-            <strong>{t("completion.recoveryXpTitle")}</strong>
-            <span>{t("completion.recoveryXpBody", { xp: task.maxXp })}</span>
-          </div>
-        )}
-
-        {isReview && (
-          <div className="xp-rule-note review-rule">
-            <strong>{t("completion.reviewXpTitle")}</strong>
-            <span>{t("completion.reviewXpBody", { xp: task.maxXp })}</span>
-          </div>
-        )}
-
-        {isAssessment && (
-          <div className="assessment-xp-note">
-            <span>+{award.totalXp} XP</span>
-            <p>{t("completion.assessmentXpBody")}</p>
-          </div>
-        )}
-
-        <SessionDebrief
+        <SessionNextAction
           review={sessionReview}
           learner={learner}
-          onRetryTopic={onRetryTopic}
-          onOpenConcept={onOpenConcept}
-          retryBlockedByAssessment={retryBlockedByAssessment}
-          assessmentMode={isAssessment}
-          showDifficultyBand={!task.pacing}
         />
 
-        {onLearnerFeedback && (
-          <LearnerFeedbackPanel
-            learner={learner}
-            event={event}
-            onSubmit={onLearnerFeedback}
+        <button className="primary-button wide completion-primary-cta" type="button" onClick={onContinue}>
+          {t("completion.back")}
+        </button>
+
+        <CompletionDisclosure
+          key={`completion-evidence:${event.id}`}
+          className="completion-evidence-disclosure"
+          initialOpen={isAssessment}
+          summary={(
+            <>
+              <span className="completion-disclosure-label">
+                <small className="eyebrow">{t(isAssessment ? "debrief.assessment.eyebrow" : "debrief.eyebrow")}</small>
+                <strong>{t(isAssessment ? "debrief.assessment.title" : "debrief.title")}</strong>
+              </span>
+              <span className="completion-disclosure-count">{reviewCountLabel}</span>
+            </>
+          )}
+        >
+          {newAchievements.length > 0 && (
+            <section className="new-achievements" aria-label={t("completion.newBadgesAria")}>
+              <div className="new-achievements-heading">
+                <span aria-hidden="true">✦</span>
+                <div><small>{t("completion.newBadge")}</small><strong>{newAchievements.length === 1 ? t("completion.unlockedOne") : t("completion.unlockedMany", { count: newAchievements.length })}</strong></div>
+              </div>
+              <div>
+                {newAchievements.map((item) => (
+                  <article key={item.id}>
+                    <span aria-hidden="true">{item.icon}</span>
+                    <p><strong>{item.title}</strong><small>{item.description}</small></p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {assessmentReport && (
+            <section className="assessment-report" aria-label={t("completion.reportAria")}>
+              <div className="assessment-report-heading">
+                <div>
+                  <span className="eyebrow">{t("completion.reportEyebrow")}</span>
+                  <h2>{t("completion.reportSecure", { percentage: assessmentReport.percentage })}</h2>
+                </div>
+                <span>{t("completion.of", { correct: assessmentReport.correct, total: assessmentReport.total })}</span>
+              </div>
+              <div className="assessment-topic-results">
+                {assessmentReport.topicOutcomes.map((outcome) => (
+                  <div className={`assessment-topic-result ${outcome.status}`} key={outcome.topicId}>
+                    <span className="assessment-result-icon" aria-hidden="true">
+                      {outcome.status === "secure" ? "✓" : "↻"}
+                    </span>
+                    <div>
+                      <strong>{topicForLocale(outcome.topicId, locale).shortTitle}</strong>
+                      <small>
+                        {outcome.status === "secure"
+                          ? t("completion.availableToday")
+                          : t("completion.reviewDue", { date: formatReviewDate(outcome.reviewDueAt, locale) })}
+                      </small>
+                    </div>
+                    <span>{outcome.correct}/{outcome.total}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {assessmentReport && assessmentReport.reviewTopicIds.length > 0 && (
+            <section className="checkpoint-return-brief" aria-labelledby="checkpoint-return-brief-title">
+              <div aria-hidden="true">⌁</div>
+              <div>
+                <span className="eyebrow">{minimalFocus ? t("completion.reviewsPlanned") : t("completion.returnPlanned")}</span>
+                <h2 id="checkpoint-return-brief-title">
+                  {minimalFocus
+                    ? assessmentReport.reviewTopicIds.length === 1
+                      ? t("completion.reviewPlannedOne")
+                      : t("completion.reviewPlannedMany", { count: assessmentReport.reviewTopicIds.length })
+                    : assessmentReport.reviewTopicIds.length === 1
+                      ? t("completion.returnPlannedOne")
+                      : t("completion.returnPlannedMany", { count: assessmentReport.reviewTopicIds.length })}
+                </h2>
+                <p>
+                  {minimalFocus
+                    ? t("completion.reviewPlanBody")
+                    : t("completion.returnPlanBody")}
+                </p>
+              </div>
+            </section>
+          )}
+
+          {task.kind === "lesson" && (
+            <div className="xp-rule-note">
+              <strong>{t("completion.lessonXpTitle")}</strong>
+              <span>{t("completion.lessonXpRule", {
+                bonus: Math.round(lessonMistakePolicy.perfectBonusRate * 100),
+                fullMistakes: lessonMistakePolicy.fullXpMaxMistakes,
+                deduction: Math.round(lessonMistakePolicy.deductionRatePerAdditionalMistake * 100),
+                lastPaidMistakes: lessonMistakePolicy.noXpAfterMistakes,
+              })}</span>
+            </div>
+          )}
+
+          {isLessonFlow && (
+            <div className={`mastery-outcome-note ${lessonSecured ? "secure" : "building"}`}>
+              <strong>{lessonSecured ? t("completion.topicUnlocked") : t("completion.understandingBuilding")}</strong>
+              <span>
+                {t("completion.mastery", {
+                  supported: Math.round(topicMastery.supportedMastery * 100),
+                  independent: Math.round(topicMastery.independentMastery * 100),
+                })}
+              </span>
+            </div>
+          )}
+
+          {isLessonRecovery && (
+            <div className="xp-rule-note recovery-rule">
+              <strong>{t("completion.recoveryXpTitle")}</strong>
+              <span>{t("completion.recoveryXpBody", { xp: task.maxXp })}</span>
+            </div>
+          )}
+
+          {isReview && (
+            <div className="xp-rule-note review-rule">
+              <strong>{t("completion.reviewXpTitle")}</strong>
+              <span>{t("completion.reviewXpBody", { xp: task.maxXp })}</span>
+            </div>
+          )}
+
+          {isAssessment && (
+            <div className="assessment-xp-note">
+              <span>+{award.totalXp} XP</span>
+              <p>{t("completion.assessmentXpBody")}</p>
+            </div>
+          )}
+
+          <SessionDebrief
+            review={sessionReview}
+            assessmentMode={isAssessment}
+            showDifficultyBand={!task.pacing}
+            showHeading={false}
+          />
+
+          <SessionRecoveryActions
+            review={sessionReview}
             onRetryTopic={onRetryTopic}
             onOpenConcept={onOpenConcept}
             retryBlockedByAssessment={retryBlockedByAssessment}
           />
-        )}
 
-        <div className="total-xp-line"><span>{t("completion.total")}</span><strong>{learner.totalXp} XP</strong></div>
-        <button className="primary-button wide" type="button" onClick={onContinue}>{t("completion.back")}</button>
+          <div className="total-xp-line"><span>{t("completion.total")}</span><strong>{learner.totalXp} XP</strong></div>
+        </CompletionDisclosure>
+
+        {onLearnerFeedback && (
+          <CompletionDisclosure
+            key={`completion-feedback:${event.id}`}
+            className="completion-feedback-disclosure"
+            summary={(
+              <>
+                <span className="completion-disclosure-label">
+                  <small className="eyebrow">{t("feedback.eyebrow")}</small>
+                  <strong>{t("feedback.title")}</strong>
+                </span>
+                <span className="completion-disclosure-count">{t("feedback.optional")}</span>
+              </>
+            )}
+          >
+            <LearnerFeedbackPanel
+              learner={learner}
+              event={event}
+              onSubmit={onLearnerFeedback}
+              onRetryTopic={onRetryTopic}
+              onOpenConcept={onOpenConcept}
+              retryBlockedByAssessment={retryBlockedByAssessment}
+              showHeading={false}
+            />
+          </CompletionDisclosure>
+        )}
       </section>
     </main>
   )

@@ -159,6 +159,9 @@ test(`defers an assessment ${assessmentCase.label} until the final review, inclu
   await expect(page.getByText(assessmentQuestion.explanation, { exact: true })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Abschliessen" }).click()
+  await expect(page.locator(".completion-evidence-disclosure")).toHaveAttribute("open", "")
+  await expect(page.locator(".assessment-stats .xp-earned")).toContainText("XP")
+  await expect(page.getByRole("button", { name: "Zurück zum Lernplan" })).toBeVisible()
   await expect(page.getByText("FEHLER-RÜCKBLICK", { exact: true })).toBeVisible()
   await expect(page.getByText("Richtige Antwort", { exact: true })).toBeVisible()
   await expect(page.getByText(assessmentQuestion.explanation, { exact: true })).toBeVisible()
