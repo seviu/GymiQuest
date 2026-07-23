@@ -205,7 +205,9 @@ import type {
 } from "./domain/model"
 import {
   createActiveLearningSession,
-  isResumableSession,
+  createPrerequisiteDetourSession,
+  originatingSession,
+  resolveResumableSession,
   type ActiveLearningSession,
   type ConceptRepairProgress,
   type HelpKind,
@@ -363,6 +365,7 @@ import {
   replaceLocalLearningData,
   saveActiveSession,
   saveActiveArchivePractice,
+  saveLearnerAndActiveSession,
   saveActiveMockExam,
   saveLearnerState,
   saveCourseIndex,
@@ -7261,7 +7264,7 @@ function HelpPanel({
   helpStyle?: LearnerHelpStyle
   onUseHelp: (kind: HelpKind) => void
   onConceptRepair: () => void
-  onPrerequisite: (topicId: TopicId) => void
+  onPrerequisite?: (topicId: TopicId) => void
   onContinueWithSolution: () => void
 }) {
   const { locale, copy } = useLocalization()
@@ -7277,7 +7280,9 @@ function HelpPanel({
     { kind: "easier", label: copy.player.helpOptionLabels.easier },
     { kind: "concept", label: copy.player.helpOptionLabels.concept },
     { kind: "solution", label: copy.player.helpOptionLabels.solution },
-    { kind: "prerequisites", label: copy.player.helpOptionLabels.prerequisites },
+    ...(onPrerequisite
+      ? [{ kind: "prerequisites" as const, label: copy.player.helpOptionLabels.prerequisites }]
+      : []),
   ]
   const orderedHelpOptions = [
     ...helpOptions.filter((option) => option.kind === preferredKind),
@@ -7316,7 +7321,7 @@ function HelpPanel({
               <button className="secondary-button full" type="button" onClick={onContinueWithSolution}>{copy.player.solutionContinue}</button>
             </>
           )}
-          {visibleHelp === "prerequisites" && (
+          {visibleHelp === "prerequisites" && onPrerequisite && (
             <>
               <span className="eyebrow">{copy.player.prerequisitesEyebrow}</span>
               {prerequisites.length === 0 ? (
@@ -7748,7 +7753,7 @@ export function QuestionStage({
   session: ActiveLearningSession
   setSession: Dispatch<SetStateAction<ActiveLearningSession>>
   onFinish: (event: LearningEvent) => void
-  onPrerequisite: (topicId: TopicId) => void
+  onPrerequisite?: (topicId: TopicId) => void
   onRequestTeacherSupport?: (topicId: TopicId) => void
   helpStyle?: LearnerHelpStyle
 }) {
@@ -8400,6 +8405,7 @@ export function TaskPlayer({
   onPrerequisite,
   onSessionChange,
   onRequestTeacherSupport,
+  prerequisiteReturnXp,
   helpStyle = "visual",
   minimalFocus = false,
 }: {
@@ -8407,9 +8413,10 @@ export function TaskPlayer({
   backLabel?: string
   onBack: () => void
   onFinish: (event: LearningEvent) => void
-  onPrerequisite: (topicId: TopicId) => void
+  onPrerequisite: (topicId: TopicId, origin: ActiveLearningSession) => void
   onSessionChange: (session: ActiveLearningSession) => void
   onRequestTeacherSupport?: (topicId: TopicId) => void
+  prerequisiteReturnXp?: number
   helpStyle?: LearnerHelpStyle
   minimalFocus?: boolean
 }) {
@@ -8417,6 +8424,7 @@ export function TaskPlayer({
   const [session, setSession] = useState(initialSession)
   const [confirmTeacherSupport, setConfirmTeacherSupport] = useState(false)
   const { task, phase, pageIndex, activeSeconds } = session
+  const isPrerequisiteDetour = Boolean(session.prerequisiteDetour)
   const canPauseTimer = phase !== "assessment-intro" && task.kind !== "assessment"
   const timerPaused = canPauseTimer && session.timerPaused === true
 
@@ -8472,7 +8480,10 @@ export function TaskPlayer({
   return (
     <main className="player-shell">
       <div className="player-toolbar">
-        <button className="back-button" type="button" onClick={onBack}><span aria-hidden="true">←</span> {backLabel ?? copy.player.learningPlan}</button>
+        <button className="back-button" type="button" onClick={onBack}>
+          <span aria-hidden="true">←</span>{" "}
+          {backLabel ?? (isPrerequisiteDetour ? copy.player.returnToQuestion : copy.player.learningPlan)}
+        </button>
         <div className="player-title">
           <span>{localizedKind}</span>
           <strong>{localizedTaskTitle}</strong>
@@ -8501,6 +8512,21 @@ export function TaskPlayer({
           </div>
         )}
       </div>
+
+      {isPrerequisiteDetour && (
+        <section className="prerequisite-detour-note" aria-label={copy.player.prerequisiteDetourEyebrow}>
+          <span className="eyebrow">{copy.player.prerequisiteDetourEyebrow}</span>
+          <strong>{copy.player.prerequisiteDetourTitle(localizedTopic?.shortTitle ?? task.title)}</strong>
+          <p>{copy.player.prerequisiteDetourBody}</p>
+        </section>
+      )}
+
+      {prerequisiteReturnXp !== undefined && !isPrerequisiteDetour && (
+        <p className="prerequisite-return-notice" role="status" aria-live="polite">
+          <span aria-hidden="true">✓</span>
+          {copy.player.prerequisiteReturnNotice(prerequisiteReturnXp)}
+        </p>
+      )}
 
       {timerPaused ? (
         <section className="practice-pause-card" aria-labelledby="practice-pause-title" aria-live="polite">
@@ -8582,7 +8608,9 @@ export function TaskPlayer({
               session={session}
               setSession={setSession}
               onFinish={onFinish}
-              onPrerequisite={onPrerequisite}
+              onPrerequisite={isPrerequisiteDetour
+                ? undefined
+                : (topicId) => onPrerequisite(topicId, session)}
               onRequestTeacherSupport={onRequestTeacherSupport}
               helpStyle={helpStyle}
             />
@@ -10673,6 +10701,7 @@ function LearningApp() {
   const [courseIndex, setCourseIndex] = useState<LearnerCourseIndex>()
   const [activeSubject, setActiveSubject] = useState<SubjectId>("math")
   const [activeSession, setActiveSession] = useState<ActiveLearningSession>()
+  const [prerequisiteReturnXp, setPrerequisiteReturnXp] = useState<number>()
   const [playerOpen, setPlayerOpen] = useState(false)
   const [completion, setCompletion] = useState<CompletionSummary>()
   const [showCurriculum, setShowCurriculum] = useState(false)
@@ -10732,13 +10761,13 @@ function LearningApp() {
       if (cancelled) return
       const state = saved ? migrateLearnerState(saved) : createInitialLearner()
       const germanState = savedGermanCourse ?? createInitialGermanCourseState(state.learnerId)
-      const resumableMathSession = isResumableSession(savedSession, state)
+      const resumableMathSession = resolveResumableSession(savedSession, state)
       const selectedSubject = state.profileCompletedAt && state.placementCompletedAt
         ? resolveResumeSubject(savedCourseIndex, [
           {
             subjectId: "math",
             paused: Boolean(resumableMathSession || savedMock || savedArchivePractice),
-            pausedAt: savedSession?.updatedAt ?? savedMock?.startedAt ?? savedArchivePractice?.startedAt,
+            pausedAt: resumableMathSession?.updatedAt ?? savedMock?.startedAt ?? savedArchivePractice?.startedAt,
           },
           {
             subjectId: "german",
@@ -10756,8 +10785,11 @@ function LearningApp() {
       setOfficialArchiveLibrary(savedOfficialArchiveLibrary)
       setGermanSourceArchiveLibrary(savedGermanSourceArchiveLibrary)
       if (resumableMathSession) {
-        setActiveSession(savedSession)
+        setActiveSession(resumableMathSession)
         setPlayerOpen(selectedSubject === "math")
+        if (resumableMathSession !== savedSession) {
+          void saveActiveSession(resumableMathSession)
+        }
       } else if (savedSession) {
         void clearActiveSession()
       }
@@ -10838,8 +10870,15 @@ function LearningApp() {
     germanCourse?.activeSession?.id,
   ])
 
+  useEffect(() => {
+    if (prerequisiteReturnXp === undefined) return
+    const timeout = window.setTimeout(() => setPrerequisiteReturnXp(undefined), 8_000)
+    return () => window.clearTimeout(timeout)
+  }, [prerequisiteReturnXp])
+
   const goHome = () => {
     setPlayerOpen(false)
+    setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
     setShowConceptLibrary(false)
@@ -11041,10 +11080,10 @@ function LearningApp() {
     setArchivePracticeResult(undefined)
   }
 
-  const startTask = (task: LearningTask) => {
+  const startSession = (session: ActiveLearningSession) => {
     if (activeMock || activeArchivePractice) return
-    const session = createActiveLearningSession({ ...task, contentLocale: locale })
     setActiveSession(session)
+    setPrerequisiteReturnXp(undefined)
     setPlayerOpen(true)
     setCompletion(undefined)
     setShowCurriculum(false)
@@ -11059,6 +11098,11 @@ function LearningApp() {
     setMockResult(undefined)
     setArchivePracticeResult(undefined)
     void saveActiveSession(session)
+  }
+
+  const startTask = (task: LearningTask) => {
+    if (activeSession) return
+    startSession(createActiveLearningSession({ ...task, contentLocale: locale }))
   }
 
   const startPlacement = () => {
@@ -11079,6 +11123,33 @@ function LearningApp() {
   const startPrerequisite = (topicId: TopicId) => {
     if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
     startTask(buildPrerequisiteRefresh(learner, topicId))
+  }
+
+  const startPrerequisiteDetour = (
+    topicId: TopicId,
+    origin: ActiveLearningSession,
+  ) => {
+    if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
+    const task = {
+      ...buildPrerequisiteRefresh(learner, topicId),
+      contentLocale: origin.task.contentLocale ?? locale,
+    }
+    startSession(createPrerequisiteDetourSession(task, origin))
+  }
+
+  const returnFromPrerequisiteDetour = () => {
+    if (!learner || !activeSession?.prerequisiteDetour) {
+      goHome()
+      return
+    }
+    const origin = resolveResumableSession(originatingSession(activeSession), learner)
+    if (!origin) {
+      setActiveSession(undefined)
+      void clearActiveSession()
+      goHome()
+      return
+    }
+    startSession(origin)
   }
 
   const startErrorPractice = (topicId: TopicId) => {
@@ -11110,11 +11181,23 @@ function LearningApp() {
     if (!learner || !activeSession) return
     const task = activeSession.task
     const result = recordCompletion(learner, task, event)
+    const origin = activeSession.prerequisiteDetour
+      ? resolveResumableSession(originatingSession(activeSession), result.state)
+      : undefined
     setLearner(result.state)
+    recordMathCompletion()
+    if (origin) {
+      setActiveSession(origin)
+      setPlayerOpen(true)
+      setCompletion(undefined)
+      setPrerequisiteReturnXp(result.award.totalXp)
+      void saveLearnerAndActiveSession(result.state, origin)
+      return
+    }
     setActiveSession(undefined)
     setPlayerOpen(false)
     setCompletion({ task, event, award: result.award, learner: result.state })
-    recordMathCompletion()
+    setPrerequisiteReturnXp(undefined)
     void clearActiveSession()
     void saveLearnerState(result.state)
   }
@@ -11384,9 +11467,7 @@ function LearningApp() {
     const state = migrateLearnerState(payload.learner)
     const restoredGermanCourse = payload.germanCourse ?? createInitialGermanCourseState(state.learnerId)
     const restoredGermanSourcePractice = payload.germanSourcePractice ?? createGermanSourcePracticeState()
-    const restoredSession = isResumableSession(payload.activeSession, state)
-      ? payload.activeSession
-      : undefined
+    const restoredSession = resolveResumableSession(payload.activeSession, state)
     const restoredCourseIndex = payload.courseIndex ?? createLearnerCourseIndex(
       new Date(payload.createdAt),
     )
@@ -11426,6 +11507,7 @@ function LearningApp() {
     setGermanSourcePracticeState(restoredGermanSourcePractice)
     setCourseIndex(nextCourseIndex)
     setActiveSession(restoredSession)
+    setPrerequisiteReturnXp(undefined)
     setPlayerOpen(false)
     setActiveMock(payload.activeMock)
     const restoredMockReady = Boolean(
@@ -11501,17 +11583,25 @@ function LearningApp() {
     if (!learner) return
     const state = requestTeacherSupport(learner, topicId)
     if (state === learner) return
+    const origin = activeSession?.prerequisiteDetour
+      ? resolveResumableSession(originatingSession(activeSession), state)
+      : undefined
     setLearner(state)
-    setActiveSession(undefined)
+    setActiveSession(origin)
     setPlayerOpen(false)
+    setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
     setShowProgress(false)
-    void clearActiveSession()
-    void saveLearnerState(state)
+    if (origin) {
+      void saveLearnerAndActiveSession(state, origin)
+    } else {
+      void clearActiveSession()
+      void saveLearnerState(state)
+    }
   }
 
   const resolveTopicSupport = (topicId: TopicId) => {
@@ -11754,11 +11844,12 @@ function LearningApp() {
         <TaskPlayer
           key={activeSession.id}
           initialSession={activeSession}
-          onBack={goHome}
+          onBack={activeSession.prerequisiteDetour ? returnFromPrerequisiteDetour : goHome}
           onFinish={finishTask}
-          onPrerequisite={startPrerequisite}
+          onPrerequisite={startPrerequisiteDetour}
           onSessionChange={persistSession}
           onRequestTeacherSupport={requestTopicSupport}
+          prerequisiteReturnXp={prerequisiteReturnXp}
           helpStyle={learner.preferences.helpStyle}
           minimalFocus={learner.preferences.visualMode === "focus"}
         />

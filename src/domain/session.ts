@@ -36,7 +36,7 @@ export interface QuestionSessionProgress {
   conceptRepair?: ConceptRepairProgress
 }
 
-export interface ActiveLearningSession {
+export interface LearningSessionSnapshot {
   schemaVersion: 1
   id: string
   task: LearningTask
@@ -48,6 +48,20 @@ export interface ActiveLearningSession {
   question: QuestionSessionProgress
   startedAt: string
   updatedAt: string
+}
+
+export interface PrerequisiteDetourContext {
+  kind: "prerequisite-refresh"
+  origin: LearningSessionSnapshot
+}
+
+export interface ActiveLearningSession extends LearningSessionSnapshot {
+  /**
+   * A prerequisite refresh is a temporary child session. Its origin is kept as
+   * a non-recursive snapshot so reloads and backups can return to the exact
+   * question without allowing an unbounded session stack.
+   */
+  prerequisiteDetour?: PrerequisiteDetourContext
 }
 
 export function createActiveLearningSession(
@@ -86,10 +100,37 @@ export function createActiveLearningSession(
   }
 }
 
-export function isResumableSession(
-  session: ActiveLearningSession | undefined,
+function sessionSnapshot(
+  session: ActiveLearningSession,
+): LearningSessionSnapshot {
+  const { prerequisiteDetour: _detour, ...snapshot } = session
+  return snapshot
+}
+
+export function createPrerequisiteDetourSession(
+  task: LearningTask,
+  origin: ActiveLearningSession,
+  now = new Date(),
+): ActiveLearningSession {
+  if (task.kind !== "repair" || task.purpose !== "prerequisite-refresh") {
+    throw new Error("A prerequisite detour requires a prerequisite-refresh repair task.")
+  }
+  if (origin.prerequisiteDetour) {
+    throw new Error("Nested prerequisite detours are not supported.")
+  }
+  return {
+    ...createActiveLearningSession(task, now),
+    prerequisiteDetour: {
+      kind: "prerequisite-refresh",
+      origin: sessionSnapshot(origin),
+    },
+  }
+}
+
+function sessionCoreIsResumable(
+  session: LearningSessionSnapshot | undefined,
   learner: LearnerState,
-): session is ActiveLearningSession {
+): session is LearningSessionSnapshot {
   return Boolean(
     session &&
     session.schemaVersion === 1 &&
@@ -102,4 +143,38 @@ export function isResumableSession(
     )) &&
     !learner.completedTaskIds.includes(session.task.id),
   )
+}
+
+export function originatingSession(
+  session: ActiveLearningSession | undefined,
+): ActiveLearningSession | undefined {
+  const origin = session?.prerequisiteDetour?.origin
+  return origin ? { ...origin } : undefined
+}
+
+export function isResumableSession(
+  session: ActiveLearningSession | undefined,
+  learner: LearnerState,
+): session is ActiveLearningSession {
+  if (!sessionCoreIsResumable(session, learner)) return false
+  if (!session.prerequisiteDetour) return true
+  return (
+    session.task.kind === "repair" &&
+    session.task.purpose === "prerequisite-refresh" &&
+    session.prerequisiteDetour.kind === "prerequisite-refresh" &&
+    sessionCoreIsResumable(session.prerequisiteDetour.origin, learner)
+  )
+}
+
+/**
+ * Recovers the origin when a refresh was committed but a stale detour remained
+ * on disk. This also keeps older, ordinary sessions on the direct fast path.
+ */
+export function resolveResumableSession(
+  session: ActiveLearningSession | undefined,
+  learner: LearnerState,
+): ActiveLearningSession | undefined {
+  if (isResumableSession(session, learner)) return session
+  const origin = originatingSession(session)
+  return sessionCoreIsResumable(origin, learner) ? origin : undefined
 }

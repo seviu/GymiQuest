@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { buildAssignments, createSeededLearner } from "../domain/learningEngine"
+import {
+  buildAssignments,
+  buildPrerequisiteRefresh,
+  createSeededLearner,
+} from "../domain/learningEngine"
 import { createActiveArchivePractice } from "../domain/archivePractice"
-import { createActiveLearningSession } from "../domain/session"
+import {
+  createActiveLearningSession,
+  createPrerequisiteDetourSession,
+} from "../domain/session"
 import { createActiveMockExam } from "../domain/mockExam"
 import { officialArchiveCatalog } from "../domain/officialArchiveCatalog"
 import { germanSourceArchiveCatalog } from "../subjects/german/sourceArchiveCatalog"
@@ -50,6 +57,7 @@ import {
   loadReleaseReadiness,
   replaceLocalLearningData,
   saveActiveSession,
+  saveLearnerAndActiveSession,
   saveActiveMockExam,
   saveActiveArchivePractice,
   saveLearnerState,
@@ -167,6 +175,28 @@ describe("learner repository", () => {
 
     await clearActiveSession()
     expect(await loadActiveSession()).toBeUndefined()
+  })
+
+  it("atomically replaces a prerequisite detour with its source session and learner result", async () => {
+    const now = new Date("2026-07-14T10:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const source = createActiveLearningSession(buildAssignments(learner, now)[0]!, now)
+    source.question.answer = "42"
+    const detour = createPrerequisiteDetourSession(
+      buildPrerequisiteRefresh(learner, "mass-units"),
+      source,
+      now,
+    )
+    await saveLearnerState(learner)
+    await saveActiveSession(detour)
+
+    const completed = structuredClone(learner)
+    completed.totalXp += detour.task.maxXp
+    completed.completedTaskIds.push(detour.task.id)
+    await saveLearnerAndActiveSession(completed, source)
+
+    expect(await loadLearnerState()).toEqual(completed)
+    expect(await loadActiveSession()).toEqual(source)
   })
 
   it("round-trips and clears a running absolute-deadline mock exam", async () => {

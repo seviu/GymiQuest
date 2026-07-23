@@ -5090,6 +5090,54 @@ button.profile-chip:hover {
   margin-bottom: 25px;
 }
 
+.prerequisite-detour-note,
+.prerequisite-return-notice {
+  width: min(760px, 100%);
+  margin: -8px auto 20px;
+  border: 1px solid rgba(23, 107, 218, 0.2);
+  border-radius: 16px;
+  background: var(--sky);
+}
+
+.prerequisite-detour-note {
+  display: grid;
+  gap: 5px;
+  padding: 15px 18px;
+}
+
+.prerequisite-detour-note strong {
+  font-size: 14px;
+}
+
+.prerequisite-detour-note p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.prerequisite-return-notice {
+  display: flex;
+  min-height: 48px;
+  padding: 10px 16px;
+  align-items: center;
+  gap: 10px;
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.prerequisite-return-notice span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--blue);
+}
+
 .back-button {
   justify-self: start;
   min-height: 44px;

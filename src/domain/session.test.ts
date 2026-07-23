@@ -2,11 +2,18 @@ import { describe, expect, it } from "vitest"
 import {
   buildAssignments,
   buildPlacementTask,
+  buildPrerequisiteRefresh,
   createInitialLearner,
   createSeededLearner,
   requestTeacherSupport,
 } from "./learningEngine"
-import { createActiveLearningSession, isResumableSession } from "./session"
+import {
+  createActiveLearningSession,
+  createPrerequisiteDetourSession,
+  isResumableSession,
+  originatingSession,
+  resolveResumableSession,
+} from "./session"
 
 const now = new Date("2026-07-14T10:00:00.000Z")
 
@@ -51,6 +58,61 @@ describe("active learning session", () => {
     delete session.timerPaused
 
     expect(isResumableSession(session, learner)).toBe(true)
+  })
+
+  it("preserves the exact question state through a prerequisite detour", () => {
+    const learner = createSeededLearner(now)
+    const sourceTask = buildAssignments(learner, now)[0]!
+    const source = createActiveLearningSession(sourceTask, now)
+    source.activeSeconds = 73
+    source.timerPaused = true
+    source.question.answer = "12,5"
+    source.question.submissions = 2
+    source.question.mistakes = 1
+    source.question.helpCount = 1
+    source.question.activeHelp = ["hint", "prerequisites"]
+    source.question.questionStartedAt = 17
+    source.question.verifiedPracticeSteps = ["first-step"]
+    source.question.firstDiagnostic = {
+      kind: "format",
+      title: "Nur die Zahl eingeben.",
+    }
+    source.question.conceptRepair = {
+      version: 5,
+      seed: "detour:origin:repair",
+      stage: "example",
+      teachBack: "Ich rechne zuerst zurück.",
+      answer: "18",
+      attempts: 1,
+      feedback: "wrong",
+    }
+
+    const refresh = buildPrerequisiteRefresh(learner, "mass-units")
+    const detour = createPrerequisiteDetourSession(
+      refresh,
+      source,
+      new Date("2026-07-14T10:02:00.000Z"),
+    )
+
+    expect(detour.task).toEqual(refresh)
+    expect(detour.activeSeconds).toBe(0)
+    expect(originatingSession(detour)).toEqual(source)
+    expect(detour.prerequisiteDetour?.origin).not.toHaveProperty("prerequisiteDetour")
+    expect(isResumableSession(detour, learner)).toBe(true)
+
+    learner.completedTaskIds.push(refresh.id)
+    expect(resolveResumableSession(detour, learner)).toEqual(source)
+  })
+
+  it("rejects a nested prerequisite detour", () => {
+    const learner = createSeededLearner(now)
+    const source = createActiveLearningSession(buildAssignments(learner, now)[0]!, now)
+    const refresh = buildPrerequisiteRefresh(learner, "mass-units")
+    const detour = createPrerequisiteDetourSession(refresh, source, now)
+
+    expect(() => createPrerequisiteDetourSession(refresh, detour, now)).toThrow(
+      /Nested prerequisite detours/,
+    )
   })
 
   it("maps an unversioned legacy task to Zurich v1 but rejects an unknown task package", () => {

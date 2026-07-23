@@ -177,6 +177,11 @@ interface AppCopy {
     pauseAndReport: string
     notUnderstood: string
     learningPlan: string
+    prerequisiteDetourEyebrow: string
+    prerequisiteDetourTitle: (topic: string) => string
+    prerequisiteDetourBody: string
+    returnToQuestion: string
+    prerequisiteReturnNotice: (xp: number) => string
     questionProgress: (current: number, total: number) => string
     difficultyBands: Record<DifficultyBand, string>
     notationTitle: string
@@ -430,6 +435,11 @@ const englishCopy: AppCopy = {
     pauseAndReport: "Pause and report",
     notUnderstood: "I do not understand this topic yet",
     learningPlan: "Learning plan",
+    prerequisiteDetourEyebrow: "QUICK REFRESH",
+    prerequisiteDetourTitle: (topic) => `First, a quick refresh: ${topic}`,
+    prerequisiteDetourBody: "Your problem and your work are saved. You’ll continue from this exact spot afterwards.",
+    returnToQuestion: "Back to my problem",
+    prerequisiteReturnNotice: (xp) => `Refresh complete · +${xp} XP. Your work is still here.`,
     questionProgress: (current, total) => `Question ${current} of ${total}`,
     difficultyBands: {
       foundation: "Foundation",
@@ -730,6 +740,11 @@ const spanishCopy: AppCopy = {
     pauseAndReport: "Poner en pausa y avisar",
     notUnderstood: "Todavía no entiendo este tema",
     learningPlan: "Plan de estudio",
+    prerequisiteDetourEyebrow: "REPASO RÁPIDO",
+    prerequisiteDetourTitle: (topic) => `Primero un repaso breve: ${topic}`,
+    prerequisiteDetourBody: "Tu ejercicio y tu trabajo quedan guardados. Después seguirás exactamente desde aquí.",
+    returnToQuestion: "Volver a mi ejercicio",
+    prerequisiteReturnNotice: (xp) => `Repaso completado · +${xp} XP. Tu trabajo sigue aquí.`,
     questionProgress: (current, total) => `Pregunta ${current} de ${total}`,
     difficultyBands: {
       foundation: "Fundamentos",
@@ -1030,6 +1045,11 @@ const italianCopy: AppCopy = {
     pauseAndReport: "Metti in pausa e segnala",
     notUnderstood: "Non ho ancora capito questo argomento",
     learningPlan: "Piano di studio",
+    prerequisiteDetourEyebrow: "RIPASSO RAPIDO",
+    prerequisiteDetourTitle: (topic) => `Prima un breve ripasso: ${topic}`,
+    prerequisiteDetourBody: "Il tuo esercizio e il tuo lavoro restano salvati. Poi riprenderai esattamente da qui.",
+    returnToQuestion: "Torna al mio esercizio",
+    prerequisiteReturnNotice: (xp) => `Ripasso completato · +${xp} XP. Il tuo lavoro è ancora qui.`,
     questionProgress: (current, total) => `Domanda ${current} di ${total}`,
     difficultyBands: {
       foundation: "Basi",
@@ -1330,6 +1350,11 @@ const germanCopy: AppCopy = {
     pauseAndReport: "Pausieren und melden",
     notUnderstood: "Ich verstehe dieses Thema noch nicht",
     learningPlan: "Lernplan",
+    prerequisiteDetourEyebrow: "KURZE AUFFRISCHUNG",
+    prerequisiteDetourTitle: (topic) => `Zuerst kurz auffrischen: ${topic}`,
+    prerequisiteDetourBody: "Deine Aufgabe und dein Stand bleiben gespeichert. Danach geht es genau hier weiter.",
+    returnToQuestion: "Zurück zu meiner Aufgabe",
+    prerequisiteReturnNotice: (xp) => `Auffrischung geschafft · +${xp} XP. Dein Stand ist noch da.`,
     questionProgress: (current, total) => `Aufgabe ${current} von ${total}`,
     difficultyBands: {
       foundation: "Aufbau",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildAssignments,
+  buildPrerequisiteRefresh,
   createSeededLearner,
   migrateLearnerState,
   requestTeacherSupport,
@@ -11,7 +12,11 @@ import {
   submitArchivePracticeForReview,
 } from "../domain/archivePractice"
 import type { LearnerState } from "../domain/model"
-import { createActiveLearningSession, isResumableSession } from "../domain/session"
+import {
+  createActiveLearningSession,
+  createPrerequisiteDetourSession,
+  isResumableSession,
+} from "../domain/session"
 import {
   FULL_MOCK_DURATION_SECONDS,
   LEGACY_MOCK_BLUEPRINT_VERSION,
@@ -232,7 +237,31 @@ describe("encrypted learner backup", () => {
     expect(restored.activeMock).toEqual(activeMock)
     expect(restored.activeMock?.contentLocale).toBe("it")
     expect(restored.learner.mockHistory).toEqual(learner.mockHistory)
-    expect(restored.version).toBe(5)
+    expect(restored.version).toBe(6)
+  })
+
+  it("preserves a prerequisite detour and its exact source session", async () => {
+    const learner = createSeededLearner(now)
+    const source = createActiveLearningSession(buildAssignments(learner, now)[0]!, now)
+    source.activeSeconds = 83
+    source.question.answer = "gespeicherter Entwurf"
+    source.question.submissions = 1
+    source.question.mistakes = 1
+    source.question.activeHelp = ["prerequisites"]
+    const detour = createPrerequisiteDetourSession(
+      buildPrerequisiteRefresh(learner, "mass-units"),
+      source,
+      new Date("2026-07-14T12:03:00.000Z"),
+    )
+    detour.activeSeconds = 19
+    detour.question.answer = "1000"
+
+    const serialized = await createEncryptedBackup(learner, detour, password, now)
+    const restored = await openEncryptedBackup(serialized, password)
+
+    expect(restored.activeSession).toEqual(detour)
+    expect(restored.activeSession?.prerequisiteDetour?.origin).toEqual(source)
+    expect(isResumableSession(restored.activeSession, learner)).toBe(true)
   })
 
   it("preserves Spanish on active learning and mock-exam work", async () => {
@@ -444,7 +473,7 @@ describe("encrypted learner backup", () => {
     )
     const restored = await openEncryptedBackup(serialized, password)
 
-    expect(restored.version).toBe(5)
+    expect(restored.version).toBe(6)
     expect(restored.learner.archivePracticeHistory).toEqual(learner.archivePracticeHistory)
     expect(restored.activeArchivePractice).toEqual(activePractice)
     expect(serialized).not.toContain("%PDF")
@@ -565,7 +594,7 @@ describe("encrypted learner backup", () => {
     )
     const restored = await openEncryptedBackup(serialized, password)
 
-    expect(restored.version).toBe(5)
+    expect(restored.version).toBe(6)
     expect(restored.germanCourse).toEqual(germanCourse)
     expect(restored.courseIndex).toEqual(courseIndex)
     expect(serialized).not.toContain("reading-evidence")

@@ -210,6 +210,21 @@ export function saveActiveSession(session: ActiveLearningSession): Promise<void>
   })
 }
 
+export function saveLearnerAndActiveSession(
+  state: LearnerState,
+  session: ActiveLearningSession,
+): Promise<void> {
+  return enqueueSessionMutation(async () => {
+    const database = await databasePromise
+    const transaction = database.transaction(["learner", "session"], "readwrite")
+    await Promise.all([
+      transaction.objectStore("learner").put(state, courseKeys.math),
+      transaction.objectStore("session").put(session, courseKeys.math),
+      transaction.done,
+    ])
+  })
+}
+
 export function clearActiveSession(): Promise<void> {
   return enqueueSessionMutation(async () => {
     const database = await databasePromise

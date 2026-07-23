@@ -59,6 +59,7 @@ import { encodeGeometryConstructionAnswer } from "./domain/geometryConstruction"
 import {
   buildAssignments,
   buildPlacementTask,
+  buildPrerequisiteRefresh,
   createInitialLearner,
   createSeededLearner,
   recordCompletion,
@@ -78,7 +79,10 @@ import {
   createReleaseReadinessRecord,
   setReleaseReadinessCheck,
 } from "./domain/releaseReadiness"
-import { createActiveLearningSession } from "./domain/session"
+import {
+  createActiveLearningSession,
+  createPrerequisiteDetourSession,
+} from "./domain/session"
 import { createActiveMockExam, gradeMockExam } from "./domain/mockExam"
 import {
   completeOfficialExam2015Review,
@@ -613,6 +617,91 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Next step")
     expect(container.textContent).toContain("Remove words or units")
     expect(container.textContent).not.toContain("Diese Eingabe")
+  })
+
+  it("passes the latest local question snapshot into a prerequisite detour", () => {
+    const task: LearningTask = {
+      id: "review:detour-source",
+      kind: "review",
+      title: "Daten aus Tabellen sicher verbinden",
+      description: "Eine laufende Aufgabe mit Voraussetzung.",
+      topicIds: ["data-tables"],
+      prerequisiteIds: ["arithmetic-equations"],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:detour-source",
+      contentLocale: "de",
+    }
+    const source = createActiveLearningSession(task)
+    source.activeSeconds = 41
+    source.question.submissions = 1
+    source.question.mistakes = 1
+    const onPrerequisite = vi.fn()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={source}
+          onBack={() => undefined}
+          onFinish={() => undefined}
+          onPrerequisite={onPrerequisite}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+
+    const input = container.querySelector("#answer")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing answer input")
+    act(() => setInputValue(input, "123"))
+    act(() => buttonWithText(container, "Voraussetzungen ansehen").click())
+    const prerequisite = container.querySelector(".prerequisite-help-button")
+    if (!(prerequisite instanceof HTMLButtonElement)) throw new Error("Missing prerequisite action")
+    act(() => prerequisite.click())
+
+    expect(onPrerequisite).toHaveBeenCalledOnce()
+    const [topicId, snapshot] = onPrerequisite.mock.calls[0]!
+    expect(topicId).toBe("arithmetic-equations")
+    expect(snapshot).toMatchObject({
+      id: source.id,
+      activeSeconds: 41,
+      question: {
+        answer: "123",
+        submissions: 1,
+        mistakes: 1,
+        activeHelp: ["prerequisites"],
+      },
+    })
+  })
+
+  it("marks a prerequisite refresh as temporary and removes deeper prerequisite jumps", () => {
+    const learner = createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))
+    const source = createActiveLearningSession(buildAssignments(learner)[0]!)
+    const detour = createPrerequisiteDetourSession(
+      buildPrerequisiteRefresh(learner, "time-fractions"),
+      source,
+    )
+    const onBack = vi.fn()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={detour}
+          onBack={onBack}
+          onFinish={() => undefined}
+          onPrerequisite={() => undefined}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain("KURZE AUFFRISCHUNG")
+    expect(container.textContent).toContain("Deine Aufgabe und dein Stand bleiben gespeichert")
+    expect(container.textContent).not.toContain("Voraussetzungen ansehen")
+    const back = container.querySelector(".back-button")
+    if (!(back instanceof HTMLButtonElement)) throw new Error("Missing detour back button")
+    expect(back.textContent).toContain("Zurück zu meiner Aufgabe")
+    act(() => back.click())
+    expect(onBack).toHaveBeenCalledOnce()
   })
 
   it("keeps a saved exam date in edit mode and never suggests a past cohort date", () => {

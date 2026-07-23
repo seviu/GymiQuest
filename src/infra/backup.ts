@@ -44,7 +44,10 @@ import {
   officialExamDefinition,
 } from "../domain/officialExams"
 import type { OfficialExamBlueprint } from "../domain/officialExam"
-import type { ActiveLearningSession } from "../domain/session"
+import type {
+  ActiveLearningSession,
+  LearningSessionSnapshot,
+} from "../domain/session"
 import {
   normalizeLearnerCourseIndex,
   type LearnerCourseIndex,
@@ -91,7 +94,7 @@ import {
 
 const BACKUP_FORMAT = "gymiquest-encrypted-backup"
 const BACKUP_VERSION = 1
-const PAYLOAD_VERSION = 5
+const PAYLOAD_VERSION = 6
 const PBKDF2_ITERATIONS = 250_000
 const MAX_BACKUP_CHARACTERS = 10_000_000
 const encoder = new TextEncoder()
@@ -156,7 +159,7 @@ export class BackupError extends Error {
 }
 
 export interface GymiQuestBackupPayload {
-  version: 5
+  version: 6
   createdAt: string
   learner: LearnerState
   activeSession?: ActiveLearningSession
@@ -1229,31 +1232,42 @@ function assertSupportedBackupCurriculum(value: unknown): void {
 }
 
 function assertSupportedBackupTaskCurriculum(value: unknown): void {
+  if (!isRecord(value) || !isRecord(value.activeSession)) return
+  const sessions = [value.activeSession]
+  const returnContext = value.activeSession.prerequisiteDetour
   if (
-    !isRecord(value) ||
-    !isRecord(value.activeSession) ||
-    !isRecord(value.activeSession.task) ||
-    value.activeSession.task.curriculum === undefined ||
-    !isRecord(value.activeSession.task.curriculum)
+    isRecord(returnContext) &&
+    returnContext.kind === "prerequisite-refresh" &&
+    isRecord(returnContext.origin)
   ) {
-    return
+    sessions.push(returnContext.origin)
   }
-  const curriculum = value.activeSession.task.curriculum
-  if (
-    typeof curriculum.courseId !== "string" ||
-    !isBoundedString(curriculum.courseId) ||
-    !isPositiveInteger(curriculum.version, 1_000_000) ||
-    resolveTaskCurriculumPackage(value.activeSession.task)
-  ) {
-    return
+
+  for (const session of sessions) {
+    if (
+      !isRecord(session.task) ||
+      session.task.curriculum === undefined ||
+      !isRecord(session.task.curriculum)
+    ) {
+      continue
+    }
+    const curriculum = session.task.curriculum
+    if (
+      typeof curriculum.courseId !== "string" ||
+      !isBoundedString(curriculum.courseId) ||
+      !isPositiveInteger(curriculum.version, 1_000_000) ||
+      resolveTaskCurriculumPackage(session.task)
+    ) {
+      continue
+    }
+    throw new BackupError(
+      "unsupported-curriculum",
+      `Die pausierte Aufgabe gehört zum Lehrplanpaket „${curriculum.courseId}“ (Version ${curriculum.version}), das diese App-Version nicht unterstützt.`,
+    )
   }
-  throw new BackupError(
-    "unsupported-curriculum",
-    `Die pausierte Aufgabe gehört zum Lehrplanpaket „${curriculum.courseId}“ (Version ${curriculum.version}), das diese App-Version nicht unterstützt.`,
-  )
 }
 
-function isSessionShape(value: unknown): value is ActiveLearningSession {
+function isSessionSnapshotShape(value: unknown): value is LearningSessionSnapshot {
   if (
     !isRecord(value) ||
     value.schemaVersion !== 1 ||
@@ -1320,6 +1334,32 @@ function isSessionShape(value: unknown): value is ActiveLearningSession {
   )
 }
 
+function isSessionShape(value: unknown): value is ActiveLearningSession {
+  if (!isSessionSnapshotShape(value)) return false
+  if (!isRecord(value) || value.prerequisiteDetour === undefined) return true
+  const detour = value.prerequisiteDetour
+  return Boolean(
+    value.task.kind === "repair" &&
+    value.task.purpose === "prerequisite-refresh" &&
+    isRecord(detour) &&
+    detour.kind === "prerequisite-refresh" &&
+    isSessionSnapshotShape(detour.origin) &&
+    !(
+      isRecord(detour.origin) &&
+      detour.origin.prerequisiteDetour !== undefined
+    )
+  )
+}
+
+function sessionTasksMatchLearnerCurriculum(
+  session: ActiveLearningSession,
+  learner: LearnerState,
+): boolean {
+  if (!taskMatchesLearnerCurriculum(session.task, learner)) return false
+  const origin = session.prerequisiteDetour?.origin
+  return !origin || taskMatchesLearnerCurriculum(origin.task, learner)
+}
+
 function isActiveMockShape(value: unknown): value is ActiveMockExam {
   const officialDefinition = isRecord(value) &&
     value.source === "official-archive" &&
@@ -1383,33 +1423,40 @@ function parsePayload(value: unknown): GymiQuestBackupPayload {
   assertSupportedBackupTaskCurriculum(value)
   if (
     !isRecord(value) ||
-    (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== PAYLOAD_VERSION) ||
+    (
+      value.version !== 1 &&
+      value.version !== 2 &&
+      value.version !== 3 &&
+      value.version !== 4 &&
+      value.version !== 5 &&
+      value.version !== PAYLOAD_VERSION
+    ) ||
     !isDateString(value.createdAt) ||
     !isLearnerShape(value.learner) ||
     (value.activeSession !== undefined && !isSessionShape(value.activeSession)) ||
     (value.activeMock !== undefined && !isActiveMockShape(value.activeMock)) ||
     (value.activeArchivePractice !== undefined && !isActiveArchivePractice(value.activeArchivePractice)) ||
-    ((value.version === 4 || value.version === PAYLOAD_VERSION) && value.germanCourse !== undefined && !isGermanCourseShape(value.germanCourse)) ||
-    ((value.version === 4 || value.version === PAYLOAD_VERSION) && value.courseIndex !== undefined && !isLearnerCourseIndexShape(value.courseIndex)) ||
-    (value.version === PAYLOAD_VERSION && value.germanSourcePractice !== undefined && !isGermanSourcePracticeState(value.germanSourcePractice))
+    ((value.version === 4 || value.version === 5 || value.version === PAYLOAD_VERSION) && value.germanCourse !== undefined && !isGermanCourseShape(value.germanCourse)) ||
+    ((value.version === 4 || value.version === 5 || value.version === PAYLOAD_VERSION) && value.courseIndex !== undefined && !isLearnerCourseIndexShape(value.courseIndex)) ||
+    ((value.version === 5 || value.version === PAYLOAD_VERSION) && value.germanSourcePractice !== undefined && !isGermanSourcePracticeState(value.germanSourcePractice))
   ) {
     throw new BackupError("invalid-format", "Die entschlüsselte Sicherung ist unvollständig.")
   }
 
   const learner = value.learner as LearnerState
-  const germanCourse = (value.version === 4 || value.version === PAYLOAD_VERSION) && value.germanCourse
+  const germanCourse = (value.version === 4 || value.version === 5 || value.version === PAYLOAD_VERSION) && value.germanCourse
     ? normalizeGermanCourseState(value.germanCourse)
     : undefined
-  const courseIndex = (value.version === 4 || value.version === PAYLOAD_VERSION) && value.courseIndex
+  const courseIndex = (value.version === 4 || value.version === 5 || value.version === PAYLOAD_VERSION) && value.courseIndex
     ? normalizeLearnerCourseIndex(value.courseIndex)
     : undefined
-  const germanSourcePractice = value.version === PAYLOAD_VERSION && value.germanSourcePractice
+  const germanSourcePractice = (value.version === 5 || value.version === PAYLOAD_VERSION) && value.germanSourcePractice
     ? normalizeGermanSourcePracticeState(value.germanSourcePractice)
     : undefined
   if (
     value.activeSession &&
-    !taskMatchesLearnerCurriculum(
-      (value.activeSession as ActiveLearningSession).task,
+    !sessionTasksMatchLearnerCurriculum(
+      value.activeSession as ActiveLearningSession,
       learner,
     )
   ) {
@@ -1419,7 +1466,7 @@ function parsePayload(value: unknown): GymiQuestBackupPayload {
     )
   }
   if (
-    ((value.version === 4 || value.version === PAYLOAD_VERSION) && value.germanCourse && !germanCourse) ||
+    ((value.version === 4 || value.version === 5 || value.version === PAYLOAD_VERSION) && value.germanCourse && !germanCourse) ||
     (germanCourse && germanCourse.learnerId !== learner.learnerId)
   ) {
     throw new BackupError(
