@@ -39,6 +39,9 @@ test("switches the first-run experience to English and keeps it after reload", a
 
   await expect(page.getByText("Question 1 of 9")).toBeVisible()
   await expect(page.getByText("Start check: no grade and no intermediate results.", { exact: false })).toBeVisible()
+  const moreOptions = page.locator(".question-secondary-actions > summary")
+  await expect(moreOptions).toContainText("More options")
+  await moreOptions.click()
   await expect(page.getByRole("link", { name: "Report an error in this exercise" })).toBeVisible()
   await expect(page.getByText("Aufgabe 1 von 9")).toHaveCount(0)
 })
@@ -125,6 +128,7 @@ test("persists Italian through onboarding and into the first generated question"
 
   await expect(page.getByText("Domanda 1 di 9")).toBeVisible()
   await expect(page.getByText("Verifica iniziale: nessun voto e nessun risultato intermedio.", { exact: false })).toBeVisible()
+  await page.locator(".question-secondary-actions > summary").click()
   await expect(page.getByRole("link", { name: "Segnala un errore in questo esercizio" })).toBeVisible()
   await expect(page.getByText("Aufgabe 1 von 9")).toHaveCount(0)
   await expect(page.getByText("Question 1 of 9")).toHaveCount(0)
@@ -170,6 +174,7 @@ test("persists Spanish through onboarding and into the first generated question"
 
   await expect(page.getByText("Pregunta 1 de 9")).toBeVisible()
   await expect(page.getByText("Prueba inicial: sin nota ni resultados intermedios.", { exact: false })).toBeVisible()
+  await page.locator(".question-secondary-actions > summary").click()
   await expect(page.getByRole("link", { name: "Informar de un error en este ejercicio" })).toBeVisible()
   await expect(page.getByText("Aufgabe 1 von 9")).toHaveCount(0)
   await expect(page.getByText("Question 1 of 9")).toHaveCount(0)

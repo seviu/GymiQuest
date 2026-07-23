@@ -186,6 +186,7 @@ interface AppCopy {
     difficultyBands: Record<DifficultyBand, string>
     notationTitle: string
     notationBody: (partCount: number) => string
+    moreOptions: string
     reportIssue: string
     questionPauseBody: string
     keepTrying: string
@@ -450,6 +451,7 @@ const englishCopy: AppCopy = {
     },
     notationTitle: "What does □ mean?",
     notationBody: (partCount) => `The box is the numerator: the number of ${partCount} equal time parts being asked for. Enter only that number below.`,
+    moreOptions: "More options",
     reportIssue: "Report an error in this exercise",
     questionPauseBody: "The exercise will end. No more training exercises from this topic will appear until a companion has explained and reopened it.",
     keepTrying: "Keep trying",
@@ -757,6 +759,7 @@ const spanishCopy: AppCopy = {
     },
     notationTitle: "¿Qué significa □?",
     notationBody: (partCount) => `La casilla es el numerador: indica cuántas de las ${partCount} partes iguales de tiempo se buscan. Escribe solo ese número abajo.`,
+    moreOptions: "Más opciones",
     reportIssue: "Informar de un error en este ejercicio",
     questionPauseBody: "El ejercicio terminará. No aparecerán más ejercicios de este tema hasta que un acompañante lo haya explicado y reabierto.",
     keepTrying: "Seguir intentándolo",
@@ -1064,6 +1067,7 @@ const italianCopy: AppCopy = {
     },
     notationTitle: "Che cosa significa □?",
     notationBody: (partCount) => `La casella è il numeratore: indica quante delle ${partCount} parti di tempo uguali stiamo cercando. Inserisci sotto soltanto quel numero.`,
+    moreOptions: "Altre opzioni",
     reportIssue: "Segnala un errore in questo esercizio",
     questionPauseBody: "L'esercizio termina. Non compariranno altri esercizi su questo argomento finché una persona adulta non lo avrà spiegato e riaperto.",
     keepTrying: "Continua a provare",
@@ -1371,6 +1375,7 @@ const germanCopy: AppCopy = {
     },
     notationTitle: "Was bedeutet □?",
     notationBody: (partCount) => `Das Kästchen ist der Zähler: die gesuchte Anzahl der ${partCount} gleich grossen Zeitteile. Trage unten nur diese Zahl ein.`,
+    moreOptions: "Weitere Optionen",
     reportIssue: "Fehler in dieser Aufgabe melden",
     questionPauseBody: "Die Aufgabe wird beendet. Bis eine Begleitperson das Thema erklärt und wieder freigibt, erscheint keine weitere Trainingsaufgabe dazu.",
     keepTrying: "Weiterprobieren",

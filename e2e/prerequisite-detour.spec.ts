@@ -123,6 +123,10 @@ async function readStoredMathState(page: Page): Promise<{
 }
 
 async function openPrerequisiteDetour(page: Page): Promise<void> {
+  const helpPanel = page.locator(".help-panel")
+  if (!await helpPanel.evaluate((element) => (element as HTMLDetailsElement).open)) {
+    await helpPanel.locator("summary").click()
+  }
   await page.getByRole("button", { name: "Voraussetzungen ansehen" }).click()
   await page.getByRole("button", { name: /Rechenketten/u }).click()
   await expect(page.getByText("KURZE AUFFRISCHUNG")).toBeVisible()
@@ -130,6 +134,10 @@ async function openPrerequisiteDetour(page: Page): Promise<void> {
 }
 
 async function finishCurrentQuestionWithSolution(page: Page): Promise<void> {
+  const helpPanel = page.locator(".help-panel")
+  if (!await helpPanel.evaluate((element) => (element as HTMLDetailsElement).open)) {
+    await helpPanel.locator("summary").click()
+  }
   await page.getByRole("button", { name: "Schritt für Schritt" }).click()
   await page.getByRole("button", { name: "Verstanden, mit Lösung weiter" }).click()
 }
@@ -156,6 +164,9 @@ test("preserves and returns to the exact question across prerequisite help", asy
   await page.getByRole("button", { name: /Zurück zu meiner Aufgabe/u }).click()
   await expect(page.locator("#answer")).toHaveValue("123")
   await expect(page.locator("#answer")).toBeFocused()
+  await expect(page.locator(".help-panel")).toHaveAttribute("open", "")
+  await expect(page.getByText("VORAUSSETZUNGEN", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Rechenketten/u })).toBeVisible()
 
   const afterCancel = await readStoredMathState(page)
   expect(afterCancel.session).toMatchObject({

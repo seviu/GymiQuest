@@ -259,6 +259,8 @@ Structured calculation line types:
 
 The learner can add, reorder, and delete lines. The system stores the full change history for feedback but grades the submitted state.
 
+**Current child-first exercise workspace:** the generated practice surface now centres one problem card instead of keeping a permanent help rail beside it. The visible path is progress, prompt, model, answer, feedback, and the one current Check or Continue action. The five existing help routes remain inside a collapsed native disclosure and reopen automatically when a saved question already contains used help; the learner's preferred route stays first and is labelled in real DOM. Reporting an exercise defect and asking an adult to pause the topic remain available under a separate options disclosure. The visual difficulty band is no longer shown to the child, while the selected band stays in the deterministic task and result evidence. Progress exposes native progressbar semantics, and continuing moves focus to the next prompt. These are composition changes only: answer grading, format validation, mistake counts, help evidence, concept repair, prerequisite detours, assessment finality, placement silence, persistence, and XP are unchanged.
+
 ### 7.5 Hint and explanation flow
 
 Hints are a ladder, not a binary reveal:

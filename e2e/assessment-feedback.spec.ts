@@ -141,6 +141,7 @@ test(`defers an assessment ${assessmentCase.label} until the final review, inclu
     "Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.",
     { exact: true },
   )).toBeVisible()
+  await expect(page.getByRole("button", { name: "Antwort abgeben" })).toHaveCount(0)
   await expect(page.locator(".diagnostic-next-step")).toHaveCount(0)
   await expect(page.getByText("Richtige Antwort", { exact: true })).toHaveCount(0)
   await expect(page.getByText(assessmentQuestion.explanation, { exact: true })).toHaveCount(0)
@@ -153,6 +154,7 @@ test(`defers an assessment ${assessmentCase.label} until the final review, inclu
 
   await expect(page.locator("#answer")).toHaveValue(assessmentCase.answer)
   await expect(page.locator("#answer")).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Antwort abgeben" })).toHaveCount(0)
   await expect(page.getByText("Richtige Antwort", { exact: true })).toHaveCount(0)
   await expect(page.getByText(assessmentQuestion.explanation, { exact: true })).toHaveCount(0)
 

@@ -7431,6 +7431,7 @@ function HelpPanel({
   onContinueWithSolution: () => void
 }) {
   const { locale, copy } = useLocalization()
+  const [helpOpen, setHelpOpen] = useState(activeHelp.length > 0)
   const visibleHelp = activeHelp[activeHelp.length - 1]
   const preferredKind: HelpKind = {
     concise: "hint",
@@ -7453,22 +7454,33 @@ function HelpPanel({
   ]
 
   return (
-    <aside className="help-panel">
-      <div className="help-heading">
+    <details
+      className="help-panel"
+      open={helpOpen}
+      onToggle={(event) => setHelpOpen(event.currentTarget.open)}
+    >
+      <summary className="help-heading">
         <span aria-hidden="true">?</span>
         <div><strong>{copy.player.helpTitle}</strong><small>{copy.player.helpSubtitle}</small></div>
-      </div>
+        <b aria-hidden="true">⌄</b>
+      </summary>
       <div className="help-options">
         {orderedHelpOptions.map((option) => (
           <button
             type="button"
             key={option.kind}
             className={`${visibleHelp === option.kind ? "active " : ""}${option.kind === preferredKind ? "recommended" : ""}`.trim()}
-            data-recommended={option.kind === preferredKind ? copy.player.recommended : undefined}
+            aria-label={option.kind === preferredKind
+              ? `${option.label} · ${copy.player.recommended}`
+              : option.label}
+            aria-pressed={visibleHelp === option.kind}
             title={option.kind === preferredKind ? copy.player.recommendedTitle(option.label) : undefined}
             onClick={() => option.kind === "concept" ? onConceptRepair() : onUseHelp(option.kind)}
           >
-            {option.label}
+            <span className="help-option-label">{option.label}</span>
+            {option.kind === preferredKind && (
+              <span className="help-recommended-badge">{copy.player.recommended}</span>
+            )}
           </button>
         ))}
       </div>
@@ -7498,7 +7510,7 @@ function HelpPanel({
           )}
         </div>
       )}
-    </aside>
+    </details>
   )
 }
 
@@ -7970,6 +7982,7 @@ export function QuestionStage({
   const isPlacement = task.kind === "placement"
   const isSilentCheck = isAssessment || isPlacement
   const assessmentAnswerSubmitted = isAssessment && feedback !== null
+  const questionFinalized = feedback === "correct" || assessmentAnswerSubmitted
   const usesPracticeSteps = shouldUsePracticeSteps(task, question)
   const usesGeometryConstruction = shouldUseGeometryConstruction(task, question)
   const practiceSteps = usesPracticeSteps ? question.practiceSteps : []
@@ -8307,10 +8320,16 @@ export function QuestionStage({
   }
 
   const progress = ((questionIndex + 1) / questions.length) * 100
+  const promptRef = useRef<HTMLHeadingElement>(null)
+  const previousQuestionIndex = useRef(questionIndex)
 
   useEffect(() => {
     window.scrollTo(0, 0)
     setConfirmTeacherSupport(false)
+    if (previousQuestionIndex.current !== questionIndex) {
+      previousQuestionIndex.current = questionIndex
+      promptRef.current?.focus()
+    }
   }, [questionIndex])
 
   if (conceptRepair && conceptRepairQuestions) {
@@ -8332,45 +8351,25 @@ export function QuestionStage({
         <div className="question-topline">
           <span>{copy.player.questionProgress(questionIndex + 1, questions.length)}</span>
           <span className="question-context">
-            {question.generation && !task.pacing && (
-              <strong className={`difficulty-pill ${question.generation.difficultyBand}`}>
-                {copy.player.difficultyBands[question.generation.difficultyBand]}
-              </strong>
-            )}
             <span>{localizedTopic.shortTitle}</span>
           </span>
         </div>
-        <div className="thin-progress"><span style={{ width: `${progress}%` }} /></div>
-        <h1>{question.prompt}</h1>
+        <div
+          className="thin-progress"
+          role="progressbar"
+          aria-label={copy.player.questionProgress(questionIndex + 1, questions.length)}
+          aria-valuemin={1}
+          aria-valuemax={questions.length}
+          aria-valuenow={questionIndex + 1}
+        >
+          <span style={{ width: `${progress}%` }} />
+        </div>
+        <h1 ref={promptRef} tabIndex={-1}>{question.prompt}</h1>
         {question.visual?.kind === "clock" && (
           <p className="question-notation-note">
             <strong>{copy.player.notationTitle}</strong>
             <span>{copy.player.notationBody(question.visual.denominator ?? 1)}</span>
           </p>
-        )}
-        <div className="question-meta-actions">
-          <a href={exerciseReportUrl} target="_blank" rel="noopener noreferrer">
-            <span aria-hidden="true">⚑</span>
-            {copy.player.reportIssue}
-            <span aria-hidden="true">↗</span>
-          </a>
-          {!isPlacement && onRequestTeacherSupport && !confirmTeacherSupport && (
-            <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(true)}>
-              {copy.player.notUnderstood}
-            </button>
-          )}
-        </div>
-        {confirmTeacherSupport && onRequestTeacherSupport && (
-          <div className="topic-help-confirmation" role="alert">
-            <div>
-              <strong>{copy.player.pauseTopic(localizedTopic.shortTitle)}</strong>
-              <p>{copy.player.questionPauseBody}</p>
-            </div>
-            <div>
-              <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(false)}>{copy.player.keepTrying}</button>
-              <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(question.topicId)}>{copy.player.pauseAndReport}</button>
-            </div>
-          </div>
         )}
         {!usesGeometryConstruction && <QuestionVisual question={question} />}
 
@@ -8526,21 +8525,23 @@ export function QuestionStage({
               </div>
             </>
           )}
-          <div className="answer-submit-row">
-            <button className="primary-button" type="submit" disabled={!answerReady || feedback === "correct" || assessmentAnswerSubmitted}>
-              {isAssessment
-                ? copy.player.submitAnswer
-                : isPlacement
-                  ? copy.player.saveAnswer
-                  : usesPracticeSteps
-                    ? activePracticeStepIndex === practiceSteps.length - 1
-                      ? copy.player.checkCalculation
-                      : copy.player.checkStep(activePracticeStepIndex + 1)
-                    : usesGeometryConstruction
-                      ? copy.player.checkConstruction
-                      : copy.player.checkAnswer}
-            </button>
-          </div>
+          {feedback !== "correct" && !assessmentAnswerSubmitted && (
+            <div className="answer-submit-row">
+              <button className="primary-button" type="submit" disabled={!answerReady}>
+                {isAssessment
+                  ? copy.player.submitAnswer
+                  : isPlacement
+                    ? copy.player.saveAnswer
+                    : usesPracticeSteps
+                      ? activePracticeStepIndex === practiceSteps.length - 1
+                        ? copy.player.checkCalculation
+                        : copy.player.checkStep(activePracticeStepIndex + 1)
+                      : usesGeometryConstruction
+                        ? copy.player.checkConstruction
+                        : copy.player.checkAnswer}
+              </button>
+            </div>
+          )}
         </form>
 
         <div className="feedback-region" aria-live="polite">
@@ -8590,6 +8591,52 @@ export function QuestionStage({
           )}
         </div>
 
+        {!isSilentCheck && !questionFinalized && (
+          <HelpPanel
+            key={`help:${question.id}`}
+            question={question}
+            activeHelp={activeHelp}
+            prerequisites={topics[question.topicId].prerequisites}
+            helpStyle={helpStyle}
+            onUseHelp={useHelp}
+            onConceptRepair={startConceptRepair}
+            onPrerequisite={onPrerequisite}
+            onContinueWithSolution={() => finishQuestion(false)}
+          />
+        )}
+
+        <details className="question-secondary-actions" key={`options:${question.id}`}>
+          <summary>
+            <span aria-hidden="true">•••</span>
+            <strong>{copy.player.moreOptions}</strong>
+            <b aria-hidden="true">⌄</b>
+          </summary>
+          <div className="question-meta-actions">
+            <a href={exerciseReportUrl} target="_blank" rel="noopener noreferrer">
+              <span aria-hidden="true">⚑</span>
+              {copy.player.reportIssue}
+              <span aria-hidden="true">↗</span>
+            </a>
+            {!questionFinalized && !isPlacement && onRequestTeacherSupport && !confirmTeacherSupport && (
+              <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(true)}>
+                {copy.player.notUnderstood}
+              </button>
+            )}
+          </div>
+          {!questionFinalized && confirmTeacherSupport && onRequestTeacherSupport && (
+            <div className="topic-help-confirmation" role="alert">
+              <div>
+                <strong>{copy.player.pauseTopic(localizedTopic.shortTitle)}</strong>
+                <p>{copy.player.questionPauseBody}</p>
+              </div>
+              <div>
+                <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(false)}>{copy.player.keepTrying}</button>
+                <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(question.topicId)}>{copy.player.pauseAndReport}</button>
+              </div>
+            </div>
+          )}
+        </details>
+
         {isAssessment && (
           <p className="assessment-note"><span aria-hidden="true">◆</span> {copy.player.assessmentModeNote}</p>
         )}
@@ -8597,19 +8644,6 @@ export function QuestionStage({
           <p className="assessment-note placement-note"><span aria-hidden="true">◎</span> {copy.player.placementModeNote}</p>
         )}
       </section>
-
-      {!isSilentCheck && (
-        <HelpPanel
-          question={question}
-          activeHelp={activeHelp}
-          prerequisites={topics[question.topicId].prerequisites}
-          helpStyle={helpStyle}
-          onUseHelp={useHelp}
-          onConceptRepair={startConceptRepair}
-          onPrerequisite={onPrerequisite}
-          onContinueWithSolution={() => finishQuestion(false)}
-        />
-      )}
     </div>
   )
 }

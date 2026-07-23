@@ -145,6 +145,7 @@ test("keeps a corrected input-format slip out of lesson grading and recovery", a
   await page.getByRole("button", { name: "Prüfen" }).click()
 
   await expect(page.locator(".feedback.format")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Prüfen" })).toBeVisible()
   await expect(page.locator(".format-retry-note")).toHaveText("Das zählt nicht als Fehler.")
   await expect(answer).toHaveAttribute("aria-invalid", "true")
   await expect.poll(() => readActiveQuestion(page)).toMatchObject({
@@ -161,10 +162,12 @@ test("keeps a corrected input-format slip out of lesson grading and recovery", a
   await page.reload()
   await expect(answer).toHaveValue(formatAnswer)
   await expect(page.locator(".feedback.format")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Prüfen" })).toBeVisible()
 
   await answer.fill(correctAnswer)
   await page.getByRole("button", { name: "Prüfen" }).click()
   await expect(page.getByText("Richtig.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Prüfen" })).toHaveCount(0)
   await page.getByRole("button", { name: "Abschliessen" }).click()
   await waitForCompletion(page)
 

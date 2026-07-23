@@ -512,11 +512,13 @@ test("reports a generated task, pauses its topic, shows an honest mock trend, re
   await lessonCard.getByRole("button", { name: "Starten" }).click()
 
   const reportLink = page.getByRole("link", { name: /Fehler in dieser Aufgabe melden/u })
-  for (let pageIndex = 0; pageIndex < 8 && !await reportLink.isVisible(); pageIndex += 1) {
+  const secondaryActions = page.locator(".question-secondary-actions")
+  for (let pageIndex = 0; pageIndex < 8 && !await secondaryActions.isVisible(); pageIndex += 1) {
     const continueButton = page.getByRole("button", { name: /^(Weiter|Jetzt üben)$/u })
     await expect(continueButton).toBeVisible()
     await continueButton.click()
   }
+  await secondaryActions.locator("summary").click()
   await expect(reportLink).toBeVisible()
 
   const reportPagePromise = context.waitForEvent("page")

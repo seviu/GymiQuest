@@ -174,6 +174,19 @@ test("keeps lesson introduction and active practice WCAG A/AA clean", async ({ p
   await page.getByRole("button", { name: "Jetzt üben", exact: true }).click()
   await expect(page.locator("#answer")).toBeVisible()
   await expectNoWcagViolations(page, "active practice")
+
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.locator(".help-panel > summary").click()
+  await page.locator(".question-secondary-actions > summary").click()
+  await expectNoHorizontalOverflow(page, "expanded question tools at 320px")
+  await expectNoWcagViolations(page, "expanded question tools at 320px")
+
+  await page.getByRole("button", { name: "Schritt für Schritt" }).click()
+  await page.getByRole("button", { name: "Verstanden, mit Lösung weiter" }).click()
+  await expect(page.getByText("Aufgabe 2 von 3")).toBeVisible()
+  await expect(page.locator(".question-card h1")).toBeFocused()
+  await expect(page.locator(".help-panel")).not.toHaveAttribute("open", "")
+  await expect(page.locator(".question-secondary-actions")).not.toHaveAttribute("open", "")
 })
 
 test("keeps concept, exam, and parent entry surfaces WCAG A/AA clean", async ({ page }) => {

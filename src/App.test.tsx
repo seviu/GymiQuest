@@ -141,6 +141,14 @@ function buttonWithText(container: HTMLElement, text: string): HTMLButtonElement
   return button
 }
 
+function helpButtonWithLabel(container: HTMLElement, text: string): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll(".help-options button")).find(
+    (candidate) => candidate.querySelector(".help-option-label")?.textContent?.trim() === text,
+  )
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing help button: ${text}`)
+  return button
+}
+
 function buttonWithStrongText(container: HTMLElement, text: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll("button")).find(
     (candidate) => candidate.querySelector("strong")?.textContent?.trim() === text,
@@ -2566,6 +2574,7 @@ describe("assessment UI flow", () => {
     const answerUnit = question.response.unit
     const onSessionChange = vi.fn()
     const onFinish = vi.fn<(event: LearningEvent) => void>()
+    const onRequestTeacherSupport = vi.fn()
 
     act(() => {
       root.render(
@@ -2575,6 +2584,7 @@ describe("assessment UI flow", () => {
           onFinish={onFinish}
           onPrerequisite={() => undefined}
           onSessionChange={onSessionChange}
+          onRequestTeacherSupport={onRequestTeacherSupport}
         />,
       )
     })
@@ -2591,6 +2601,7 @@ describe("assessment UI flow", () => {
 
     expect(container.querySelector(".feedback.format")).not.toBeNull()
     expect(container.textContent).toContain("Das zählt nicht als Fehler.")
+    expect(buttonWithText(container, "Prüfen").disabled).toBe(false)
     expect(input.getAttribute("aria-invalid")).toBe("true")
     expect(input.getAttribute("aria-describedby")).toContain("format-retry-feedback")
     expect(container.querySelector("#format-retry-feedback")).not.toBeNull()
@@ -2607,6 +2618,18 @@ describe("assessment UI flow", () => {
         new Event("submit", { bubbles: true, cancelable: true }),
       )
     })
+    expect(container.querySelector(".answer-submit-row")).toBeNull()
+    expect(container.querySelector(".help-panel")).toBeNull()
+    const secondaryActions = container.querySelector(".question-secondary-actions")
+    const secondarySummary = secondaryActions?.querySelector("summary")
+    if (!(secondaryActions instanceof HTMLDetailsElement) || !(secondarySummary instanceof HTMLElement)) {
+      throw new Error("Missing final-response options")
+    }
+    act(() => secondarySummary.click())
+    expect(secondaryActions.open).toBe(true)
+    expect(secondaryActions.querySelector("a")?.textContent).toContain("Fehler in dieser Aufgabe melden")
+    expect(secondaryActions.textContent).not.toContain("Ich verstehe dieses Thema noch nicht")
+    expect(onRequestTeacherSupport).not.toHaveBeenCalled()
     act(() => buttonWithText(container, "Abschliessen").click())
 
     expect(onFinish).toHaveBeenCalledOnce()
@@ -2664,6 +2687,12 @@ describe("assessment UI flow", () => {
     })
 
     expect(container.querySelector(".difficulty-pill")).toBeNull()
+    const firstProgress = container.querySelector(".thin-progress")
+    expect(firstProgress?.getAttribute("role")).toBe("progressbar")
+    expect(firstProgress?.getAttribute("aria-label")).toBe("Aufgabe 1 von 3")
+    expect(firstProgress?.getAttribute("aria-valuemin")).toBe("1")
+    expect(firstProgress?.getAttribute("aria-valuemax")).toBe("3")
+    expect(firstProgress?.getAttribute("aria-valuenow")).toBe("1")
     const input = container.querySelector("#answer")
     if (!(input instanceof HTMLInputElement)) throw new Error("Missing adaptive lesson input")
     const correctAnswer = String(firstQuestion.response.value).replace(".", ",")
@@ -2723,9 +2752,10 @@ describe("assessment UI flow", () => {
       },
     })
     const expectedNextQuestion = generateQuestionsForTask(savedSession.task)[1]!
-    expect(container.querySelector(".question-card h1")?.textContent).toBe(
-      expectedNextQuestion.prompt,
-    )
+    const nextPrompt = container.querySelector(".question-card h1")
+    expect(nextPrompt?.textContent).toBe(expectedNextQuestion.prompt)
+    expect(document.activeElement).toBe(nextPrompt)
+    expect(container.querySelector(".thin-progress")?.getAttribute("aria-valuenow")).toBe("2")
 
     act(() => root.unmount())
     root = createRoot(container)
@@ -3403,11 +3433,49 @@ describe("assessment UI flow", () => {
     })
 
     const options = Array.from(container.querySelectorAll(".help-options button"))
+    const helpPanel = container.querySelector(".help-panel")
+    if (!(helpPanel instanceof HTMLDetailsElement)) throw new Error("Missing help disclosure")
     expect(options).toHaveLength(5)
-    expect(options[0]?.textContent).toBe("Schritt für Schritt")
+    expect(helpPanel.open).toBe(false)
+    expect(options[0]?.querySelector(".help-option-label")?.textContent).toBe("Schritt für Schritt")
     expect(options[0]?.classList.contains("recommended")).toBe(true)
-    expect(options[0]?.getAttribute("data-recommended")).toBe("Dein Einstieg")
-    expect(options.map((option) => option.textContent)).toContain("Die Idee von Grund auf")
+    expect(options[0]?.getAttribute("aria-pressed")).toBe("false")
+    expect(options[0]?.querySelector(".help-recommended-badge")?.textContent).toBe("Dein Einstieg")
+    expect(options.map((option) => option.querySelector(".help-option-label")?.textContent)).toContain("Die Idee von Grund auf")
+  })
+
+  it("opens persisted help while a fresh question starts with help collapsed", () => {
+    const review: LearningTask = {
+      id: "review:mass-units:persisted-help-ui",
+      kind: "review",
+      title: "kg und g wiederholen",
+      description: "Eine gespeicherte Hilfe bleibt auffindbar.",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:mass-units:persisted-help-ui",
+    }
+    const session = createActiveLearningSession(review)
+    session.question.activeHelp = ["hint"]
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={session}
+          onBack={() => undefined}
+          onFinish={() => undefined}
+          onPrerequisite={() => undefined}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+
+    const helpPanel = container.querySelector(".help-panel")
+    if (!(helpPanel instanceof HTMLDetailsElement)) throw new Error("Missing persisted help disclosure")
+    expect(helpPanel.open).toBe(true)
+    expect(helpButtonWithLabel(container, "Ein kleiner Hinweis").getAttribute("aria-pressed")).toBe("true")
+    expect(container.textContent).toContain("NÄCHSTER SCHRITT")
   })
 
   it("repairs a concept with a fresh teach-back check and preserves the original work", () => {
@@ -3452,7 +3520,7 @@ describe("assessment UI flow", () => {
     const originalInput = container.querySelector("#answer")
     if (!(originalInput instanceof HTMLInputElement)) throw new Error("Missing original answer")
     act(() => setInputValue(originalInput, "mein gespeicherter Entwurf"))
-    act(() => buttonWithText(container, "Die Idee von Grund auf").click())
+    act(() => helpButtonWithLabel(container, "Die Idee von Grund auf").click())
 
     expect(container.textContent).toContain("Wir bauen die Idee gemeinsam neu auf.")
     expect(container.textContent).toContain("Deine ursprüngliche Antwort bleibt gespeichert")
@@ -3723,6 +3791,7 @@ describe("assessment UI flow", () => {
 
   it("uses a final submit action and defers the explanation for a correct assessment answer", () => {
     const onFinish = vi.fn<(event: LearningEvent) => void>()
+    const onRequestTeacherSupport = vi.fn()
     const question = generateQuestionsForTask(assessment)[0]!
     if (question.response.kind !== "number") throw new Error("Expected a numeric test question")
     const correctValue = question.response.value
@@ -3735,6 +3804,7 @@ describe("assessment UI flow", () => {
           onFinish={onFinish}
           onPrerequisite={() => undefined}
           onSessionChange={() => undefined}
+          onRequestTeacherSupport={onRequestTeacherSupport}
         />,
       )
     })
@@ -3757,6 +3827,17 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Antwort gespeichert. Der Rückblick folgt nach dem Abschluss.")
     expect(container.textContent).not.toContain(question.explanation)
     expect(container.textContent).not.toContain("Ich verstehe es noch nicht")
+    expect(container.querySelector(".answer-submit-row")).toBeNull()
+    const secondaryActions = container.querySelector(".question-secondary-actions")
+    const secondarySummary = secondaryActions?.querySelector("summary")
+    if (!(secondaryActions instanceof HTMLDetailsElement) || !(secondarySummary instanceof HTMLElement)) {
+      throw new Error("Missing final assessment options")
+    }
+    act(() => secondarySummary.click())
+    expect(secondaryActions.open).toBe(true)
+    expect(secondaryActions.querySelector("a")?.textContent).toContain("Fehler in dieser Aufgabe melden")
+    expect(secondaryActions.textContent).not.toContain("Ich verstehe dieses Thema noch nicht")
+    expect(onRequestTeacherSupport).not.toHaveBeenCalled()
 
     act(() => buttonWithText(container, "Abschliessen").click())
     expect(onFinish).toHaveBeenCalledOnce()
@@ -4010,6 +4091,8 @@ describe("assessment UI flow", () => {
     expect(container.querySelector(".assessment-submission-comparison")).toBeNull()
     expect(container.textContent).not.toContain("Richtige Antwort")
     expect(container.textContent).not.toContain(question.explanation)
+    expect(container.querySelector(".difficulty-pill")).toBeNull()
+    expect(container.querySelector(".answer-submit-row")).toBeNull()
 
     act(() => buttonWithText(container, "Abschliessen").click())
     const event = onFinish.mock.calls[0]![0]
@@ -5660,6 +5743,14 @@ describe("assessment UI flow", () => {
     expect(new URL(reportLink.href).pathname).toBe("/exercise-report")
     expect(new URL(reportLink.href).searchParams.get("data")).toBeTruthy()
 
+    const secondaryActions = container.querySelector(".question-secondary-actions")
+    const secondarySummary = secondaryActions?.querySelector("summary")
+    if (!(secondaryActions instanceof HTMLDetailsElement) || !(secondarySummary instanceof HTMLElement)) {
+      throw new Error("Missing secondary question actions")
+    }
+    expect(secondaryActions.open).toBe(false)
+    act(() => secondarySummary.click())
+    expect(secondaryActions.open).toBe(true)
     act(() => buttonWithText(container, "Ich verstehe dieses Thema noch nicht").click())
     expect(container.textContent).toContain("erscheint keine weitere Trainingsaufgabe dazu")
     act(() => buttonWithText(container, "Pausieren und melden").click())
