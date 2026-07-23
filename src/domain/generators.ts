@@ -572,6 +572,12 @@ export function parseFractionAnswer(
     : { numerator, denominator }
 }
 
+export function isZeroDenominatorFractionAnswer(value: string): boolean {
+  const normalized = value.trim().replace(/\s/g, "")
+  const match = normalized.match(/^-?\d+\/(-?\d+)$/)
+  return match !== null && Number(match[1]) === 0
+}
+
 export function parseIntegerSetAnswer(value: string): number[] | undefined {
   const normalized = value.trim()
   if (!normalized || !/^[+\-\d\s,;]+$/.test(normalized)) return undefined

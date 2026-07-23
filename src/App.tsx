@@ -97,6 +97,7 @@ import {
   buildErrorCompass,
   chooseQuestionDiagnostic,
   completeQuestionDiagnostic,
+  isInputValidationDiagnostic,
   type ErrorCompass,
   type QuestionDiagnosticDraft,
 } from "./domain/errorPatterns"
@@ -7400,6 +7401,7 @@ function PracticeStepWorkbench({
   statuses,
   activeStepIndex,
   disabled,
+  formatFeedbackId,
   onChange,
 }: {
   steps: PracticeStep[]
@@ -7407,6 +7409,7 @@ function PracticeStepWorkbench({
   statuses?: Record<string, PracticeStepStatus>
   activeStepIndex: number
   disabled: boolean
+  formatFeedbackId?: string
   onChange: (stepId: string, value: string) => void
 }) {
   const { copy } = useLocalization()
@@ -7446,8 +7449,11 @@ function PracticeStepWorkbench({
                     autoComplete="off"
                     value={answers[step.id] ?? ""}
                     disabled={disabled || index !== activeStepIndex}
-                    aria-invalid={status === "attention"}
-                    aria-describedby={step.unit ? unitId : undefined}
+                    aria-invalid={status === "attention" || status === "format"}
+                    aria-describedby={[
+                      step.unit ? unitId : undefined,
+                      status === "format" ? formatFeedbackId : undefined,
+                    ].filter(Boolean).join(" ") || undefined}
                     autoFocus={index === activeStepIndex}
                     onChange={(event) => onChange(step.id, event.target.value)}
                   />
@@ -7815,6 +7821,15 @@ export function QuestionStage({
     ? Math.min(verifiedPracticeStepIds.length, practiceSteps.length - 1)
     : 0
   const activePracticeStep = practiceSteps[activePracticeStepIndex]
+  const isCountedLegacyFormatFeedback = submissions > 0 &&
+    firstDiagnostic?.kind === "format"
+  const hasPracticeFormatFeedback = Boolean(
+    usesPracticeSteps &&
+    feedback === "wrong" &&
+    !isCountedLegacyFormatFeedback &&
+    activePracticeStep &&
+    parseNumericAnswer(practiceAnswers[activePracticeStep.id] ?? "") === undefined,
+  )
   const practiceGrade = usesPracticeSteps && feedback === "wrong"
     ? gradePracticeSteps(
         practiceSteps.slice(0, activePracticeStepIndex + 1),
@@ -7827,7 +7842,9 @@ export function QuestionStage({
         verifiedPracticeStepIds.includes(step.id)
           ? "correct"
           : feedback === "wrong" && index === activePracticeStepIndex
-            ? "attention"
+            ? hasPracticeFormatFeedback
+              ? "format"
+              : "attention"
             : "pending",
       ])) as Record<string, PracticeStepStatus>
     : undefined
@@ -7844,7 +7861,12 @@ export function QuestionStage({
   const unit = question.response.kind === "number" ? question.response.unit : undefined
   const diagnosis = feedback === "wrong" && (!isSilentCheck || isAssessment)
     ? usesPracticeSteps
-      ? localizeSupportIssue(practiceGrade?.issue, question, contentLocale, "practice")
+      ? localizeSupportIssue(
+          practiceGrade?.issue,
+          question,
+          contentLocale,
+          hasPracticeFormatFeedback ? "practice-format" : "practice",
+        )
       : usesGeometryConstruction
         ? localizeSupportIssue(
             constructionGrade?.issue,
@@ -7854,6 +7876,22 @@ export function QuestionStage({
           )
         : diagnoseWrongAnswerForLocale(question, answer, contentLocale)
     : undefined
+  const diagnosisIsInputValidation = diagnosis !== undefined &&
+    "kind" in diagnosis &&
+    isInputValidationDiagnostic(diagnosis)
+  const hasFormatFeedback = !isSilentCheck && feedback === "wrong" && (
+    hasPracticeFormatFeedback || diagnosisIsInputValidation
+  ) && !isCountedLegacyFormatFeedback
+  const coordinateXHasFormatFeedback = Boolean(
+    hasFormatFeedback &&
+    coordinateDraft &&
+    parseNumericAnswer(coordinateDraft.x) === undefined,
+  )
+  const coordinateYHasFormatFeedback = Boolean(
+    hasFormatFeedback &&
+    coordinateDraft &&
+    parseNumericAnswer(coordinateDraft.y) === undefined,
+  )
   const answerReady = usesPracticeSteps
     ? Boolean(activePracticeStep && practiceAnswers[activePracticeStep.id]?.trim())
     : usesGeometryConstruction
@@ -7964,7 +8002,6 @@ export function QuestionStage({
         return
       }
 
-      const attempt = submissions + 1
       const diagnostic = correct
         ? undefined
         : {
@@ -7981,16 +8018,17 @@ export function QuestionStage({
                     : "Der Rechenweg braucht noch einen Zwischenschritt."
             ),
           }
+      const isInputValidation = !isSilentCheck && isInputValidationDiagnostic(diagnostic)
       updateQuestion((current) => ({
         ...current,
-        submissions: attempt,
+        submissions: current.submissions + (isInputValidation ? 0 : 1),
         mistakes: current.mistakes + (
-          correct || current.submissions > 0 ? 0 : 1
+          correct || isInputValidation || current.submissions > 0 ? 0 : 1
         ),
         verifiedPracticeSteps: correct
           ? [...verifiedPracticeStepIds, activePracticeStep.id]
           : verifiedPracticeStepIds,
-        firstDiagnostic: correct
+        firstDiagnostic: correct || isInputValidation
           ? current.firstDiagnostic
           : chooseQuestionDiagnostic(current.firstDiagnostic, diagnostic),
         feedback: correct ? "correct" : "wrong",
@@ -8048,6 +8086,14 @@ export function QuestionStage({
         mistakeTotal: nextMistakes,
         diagnostic,
       })
+      return
+    }
+
+    if (!correct && !isSilentCheck && isInputValidationDiagnostic(diagnostic)) {
+      updateQuestion((current) => ({
+        ...current,
+        feedback: "wrong",
+      }))
       return
     }
 
@@ -8173,6 +8219,7 @@ export function QuestionStage({
               statuses={practiceStatuses}
               activeStepIndex={activePracticeStepIndex}
               disabled={feedback === "correct" || assessmentAnswerSubmitted}
+              formatFeedbackId={hasFormatFeedback ? "format-retry-feedback" : undefined}
               onChange={(stepId, value) => {
                 updateQuestion((current) => ({
                   ...current,
@@ -8212,6 +8259,8 @@ export function QuestionStage({
                   value={coordinateDraft?.x ?? ""}
                   disabled={feedback === "correct" || assessmentAnswerSubmitted}
                   aria-label={copy.player.coordinateX}
+                  aria-invalid={coordinateXHasFormatFeedback || undefined}
+                  aria-describedby={coordinateXHasFormatFeedback ? "format-retry-feedback" : undefined}
                   onChange={(event) => {
                     const value = event.target.value
                     updateQuestion((current) => {
@@ -8236,6 +8285,8 @@ export function QuestionStage({
                   value={coordinateDraft?.y ?? ""}
                   disabled={feedback === "correct" || assessmentAnswerSubmitted}
                   aria-label={copy.player.coordinateY}
+                  aria-invalid={coordinateYHasFormatFeedback || undefined}
+                  aria-describedby={coordinateYHasFormatFeedback ? "format-retry-feedback" : undefined}
                   onChange={(event) => {
                     const value = event.target.value
                     updateQuestion((current) => {
@@ -8293,6 +8344,7 @@ export function QuestionStage({
                   }
                   value={answer}
                   disabled={feedback === "correct" || assessmentAnswerSubmitted}
+                  aria-invalid={hasFormatFeedback || undefined}
                   onChange={(event) => {
                     const value = event.target.value
                     updateQuestion((current) => ({
@@ -8301,7 +8353,10 @@ export function QuestionStage({
                       feedback: current.feedback === "wrong" ? null : current.feedback,
                     }))
                   }}
-                  aria-describedby={unit ? "answer-unit" : undefined}
+                  aria-describedby={[
+                    unit ? "answer-unit" : undefined,
+                    hasFormatFeedback ? "format-retry-feedback" : undefined,
+                  ].filter(Boolean).join(" ") || undefined}
                   autoFocus
                 />
                 {unit && <span id="answer-unit">{unit}</span>}
@@ -8327,15 +8382,23 @@ export function QuestionStage({
 
         <div className="feedback-region" aria-live="polite">
           {feedback === "wrong" && (
-            <div className="feedback wrong diagnostic-feedback">
+            <div
+              className={`feedback wrong diagnostic-feedback${hasFormatFeedback ? " format" : ""}`}
+              id={hasFormatFeedback ? "format-retry-feedback" : undefined}
+            >
               <div>
                 <span>{isAssessment ? copy.player.incorrect : diagnosis?.title ?? copy.player.wrongAnswerTitle}</span>
                 {isAssessment ? (
                   <p>{copy.player.assessmentAnswerRecorded}</p>
                 ) : (
                   <>
-                    <p>{diagnosis?.message ?? copy.player.wrongAnswerMessage}</p>
-                    {diagnosis && (
+                    <p>
+                      {diagnosis?.message ?? copy.player.wrongAnswerMessage}
+                      {hasFormatFeedback && (
+                        <> <strong className="format-retry-note">{copy.player.formatRetryNote}</strong></>
+                      )}
+                    </p>
+                    {diagnosis && !hasFormatFeedback && (
                       <strong className="diagnostic-next-step">
                         <span>{copy.player.nextStep}</span>
                         {diagnosis.nextStep}

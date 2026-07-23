@@ -1,5 +1,6 @@
 import type { GeneratedQuestion, QuestionDiagnosticKind, TopicId } from "./model"
 import {
+  isZeroDenominatorFractionAnswer,
   isCorrectAnswer,
   parseCoordinateAnswer,
   parseFractionAnswer,
@@ -230,6 +231,14 @@ export function diagnoseWrongAnswer(
   if (question.response.kind === "fraction") {
     const parsed = parseFractionAnswer(answer)
     if (!parsed) {
+      if (isZeroDenominatorFractionAnswer(answer)) {
+        return {
+          kind: "fraction-structure",
+          title: "Ein Nenner darf nicht null sein.",
+          message: "Durch null kann man nicht teilen; der eingegebene Ausdruck beschreibt deshalb keinen Bruchwert.",
+          nextStep: "Setze die Anzahl der gleich grossen Teile in den Nenner; sie muss grösser als null sein.",
+        }
+      }
       return {
         kind: "format",
         title: "Schreibe den Bruch mit einem Schrägstrich.",
@@ -269,6 +278,15 @@ export function diagnoseWrongAnswer(
   if (question.response.kind === "integer-set") {
     const parsed = parseIntegerSetAnswer(answer)
     if (!parsed) {
+      const entries = parseIntegerSequenceAnswer(answer)
+      if (entries && new Set(entries).size !== entries.length) {
+        return {
+          kind: "incomplete-enumeration",
+          title: "Eine Zahl steht doppelt in der Liste.",
+          message: "Eine Lösungsmenge enthält jede passende Zahl genau einmal.",
+          nextStep: "Streiche doppelte Einträge und prüfe danach, ob noch eine passende Zahl fehlt.",
+        }
+      }
       return {
         kind: "format",
         title: "Schreibe jede Zahl genau einmal.",
@@ -294,12 +312,22 @@ export function diagnoseWrongAnswer(
   if (question.response.kind === "integer-sequence") {
     const expected = question.response.values
     const parsed = parseIntegerSequenceAnswer(answer)
-    if (!parsed || parsed.length !== expected.length) {
+    if (!parsed) {
       return {
         kind: "format",
         title: "Für jeden Kipp-Schritt wird eine Fläche gebraucht.",
         message: `Schreibe genau ${expected.length} ganze Zahlen in der Reihenfolge des Weges.`,
         nextStep: "Trenne die Flächen mit Kommas, zum Beispiel 2, 3, 1, 4.",
+      }
+    }
+    if (parsed.length !== expected.length) {
+      return {
+        kind: parsed.length < expected.length ? "stopped-early" : "concept",
+        title: `Der Weg braucht genau ${expected.length} Flächen.`,
+        message: parsed.length < expected.length
+          ? "Mindestens ein Kipp-Schritt fehlt noch."
+          : "Die Liste enthält mehr Flächen als der eingezeichnete Weg Kipp-Schritte hat.",
+        nextStep: "Gehe den Weg Pfeil für Pfeil durch und notiere nach jedem Kippen genau eine Grundfläche.",
       }
     }
 

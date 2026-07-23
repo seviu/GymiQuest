@@ -10,6 +10,7 @@ import {
 } from "../domain/answerDiagnosis"
 import {
   isCorrectAnswer,
+  isZeroDenominatorFractionAnswer,
   parseCoordinateAnswer,
   parseFractionAnswer,
   parseIntegerSequenceAnswer,
@@ -111,6 +112,14 @@ export function localizeAnswerDiagnosis(
         nextStep: text("Write the fraction in that order and simplify numerator and denominator by the same factor.", "Scrivi la frazione in quest'ordine e semplifica numeratore e denominatore per lo stesso fattore.", "Escribe la fracción en ese orden y simplifica el numerador y el denominador por el mismo factor."),
       }
     case "incomplete-enumeration":
+      if (diagnosis.title === "Eine Zahl steht doppelt in der Liste.") {
+        return {
+          ...diagnosis,
+          title: text("One number appears twice in the list.", "Un numero compare due volte nell'elenco.", "Un número aparece dos veces en la lista."),
+          message: text("A solution set contains each valid number exactly once.", "Un insieme di soluzioni contiene ogni numero valido una sola volta.", "Un conjunto de soluciones contiene cada número válido exactamente una vez."),
+          nextStep: text("Remove duplicate entries, then check whether another valid number is still missing.", "Elimina i duplicati, poi controlla se manca ancora un altro numero valido.", "Elimina los duplicados y comprueba si todavía falta otro número válido."),
+        }
+      }
       return {
         ...diagnosis,
         title: text("Your numbers fit, but the list is not complete yet.", "I tuoi numeri vanno bene, ma l'elenco non è ancora completo.", "Tus números encajan, pero la lista aún no está completa."),
@@ -118,6 +127,18 @@ export function localizeAnswerDiagnosis(
         nextStep: text("Work systematically through the allowed digits in every place, then check divisibility, the bound, digit sum, and place condition.", "Esamina sistematicamente le cifre consentite in ogni posizione, poi controlla divisibilità, limite, somma delle cifre e condizione sulle posizioni.", "Recorre sistemáticamente las cifras permitidas en cada posición y comprueba la divisibilidad, el límite, la suma de cifras y la condición de posición."),
       }
     case "stopped-early":
+      if (question.response.kind === "integer-sequence") {
+        return {
+          ...diagnosis,
+          title: text(
+            `The route needs exactly ${question.response.values.length} faces.`,
+            `Il percorso richiede esattamente ${question.response.values.length} facce.`,
+            `El recorrido necesita exactamente ${question.response.values.length} caras.`,
+          ),
+          message: text("At least one tilt step is still missing.", "Manca ancora almeno un passaggio di rotolamento.", "Todavía falta al menos un paso de giro."),
+          nextStep: text("Follow the arrows one by one and record exactly one base face after every tilt.", "Segui le frecce una alla volta e annota esattamente una faccia di base dopo ogni rotolamento.", "Sigue las flechas una a una y anota exactamente una cara de base después de cada giro."),
+        }
+      }
       return {
         ...diagnosis,
         title: text("You stopped at an intermediate value.", "Ti sei fermato a un valore intermedio.", "Te has detenido en un valor intermedio."),
@@ -161,9 +182,39 @@ export function localizeSupportIssue(
   issue: SupportIssue | undefined,
   question: GeneratedQuestion,
   locale: LearningLocale,
-  kind: "practice" | "construction-method" | "construction-precision",
+  kind: "practice" | "practice-format" | "construction-method" | "construction-precision",
 ): SupportIssue | undefined {
-  if (!issue || locale === "de") return issue
+  if (!issue) return issue
+  if (kind === "practice-format") {
+    if (locale === "de") {
+      return {
+        ...issue,
+        nextStep: "Entferne Wörter und Einheiten und prüfe den Schritt nochmals.",
+      }
+    }
+    return {
+      ...issue,
+      title: localizedText(
+        locale,
+        issue.stepNumber ? `Check the entry in step ${issue.stepNumber}.` : "Check this entry.",
+        issue.stepNumber ? `Controlla l'inserimento nel passaggio ${issue.stepNumber}.` : "Controlla questo inserimento.",
+        issue.stepNumber ? `Comprueba la entrada del paso ${issue.stepNumber}.` : "Comprueba esta entrada.",
+      ),
+      message: localizedText(
+        locale,
+        "Enter only the number. The unit is already shown beside the field.",
+        "Inserisci soltanto il numero. L'unità è già indicata accanto al campo.",
+        "Introduce solo el número. La unidad ya aparece junto al campo.",
+      ),
+      nextStep: localizedText(
+        locale,
+        "Remove words and units, then check the step again.",
+        "Rimuovi parole e unità, poi controlla di nuovo il passaggio.",
+        "Quita las palabras y las unidades y vuelve a comprobar el paso.",
+      ),
+    }
+  }
+  if (locale === "de") return issue
   if (kind === "practice") {
     const step = issue.stepNumber
       ? question.practiceSteps?.[issue.stepNumber - 1]
@@ -260,6 +311,14 @@ export function diagnoseWrongAnswerForLocale(
   if (question.response.kind === "fraction") {
     const parsed = parseFractionAnswer(answer)
     if (!parsed) {
+      if (isZeroDenominatorFractionAnswer(answer)) {
+        return {
+          kind: "fraction-structure",
+          title: text("A denominator cannot be zero.", "Il denominatore non può essere zero.", "El denominador no puede ser cero."),
+          message: text("You cannot divide by zero, so this expression does not describe a fraction value.", "Non si può dividere per zero, quindi questa espressione non descrive il valore di una frazione.", "No se puede dividir entre cero, así que esta expresión no describe el valor de una fracción."),
+          nextStep: text("Use the number of equal parts as the denominator; it must be greater than zero.", "Usa come denominatore il numero di parti uguali; deve essere maggiore di zero.", "Usa como denominador el número de partes iguales; debe ser mayor que cero."),
+        }
+      }
       return {
         kind: "format",
         title: text("Write the fraction with a slash.", "Scrivi la frazione con una barra.", "Escribe la fracción con una barra."),
@@ -284,6 +343,15 @@ export function diagnoseWrongAnswerForLocale(
   if (question.response.kind === "integer-set") {
     const parsed = parseIntegerSetAnswer(answer)
     if (!parsed) {
+      const entries = parseIntegerSequenceAnswer(answer)
+      if (entries && new Set(entries).size !== entries.length) {
+        return localizeAnswerDiagnosis({
+          kind: "incomplete-enumeration",
+          title: "Eine Zahl steht doppelt in der Liste.",
+          message: "",
+          nextStep: "",
+        }, question, locale)
+      }
       return {
         kind: "format",
         title: text("Write each number exactly once.", "Scrivi ogni numero una sola volta.", "Escribe cada número una sola vez."),
@@ -306,13 +374,23 @@ export function diagnoseWrongAnswerForLocale(
   if (question.response.kind === "integer-sequence") {
     const expected = question.response.values
     const parsed = parseIntegerSequenceAnswer(answer)
-    if (!parsed || parsed.length !== expected.length) {
+    if (!parsed) {
       return {
         kind: "format",
         title: text("One face is needed for every tipping step.", "Serve una faccia per ogni ribaltamento.", "Se necesita una cara por cada vuelco."),
         message: text(`Enter exactly ${expected.length} whole numbers in path order.`, `Inserisci esattamente ${expected.length} numeri interi nell'ordine del percorso.`, `Introduce exactamente ${expected.length} números enteros en el orden del recorrido.`),
         nextStep: text("Separate the faces with commas, for example 2, 3, 1, 4.", "Separa le facce con virgole, per esempio 2, 3, 1, 4.", "Separa las caras con comas, por ejemplo 2, 3, 1, 4."),
       }
+    }
+    if (parsed.length !== expected.length) {
+      return parsed.length < expected.length
+        ? localizeAnswerDiagnosis({
+            kind: "stopped-early",
+            title: "",
+            message: "",
+            nextStep: "",
+          }, question, locale)
+        : conceptDiagnosis(question, locale)
     }
     const firstWrong = parsed.findIndex((entry, index) => entry !== expected[index])
     return {

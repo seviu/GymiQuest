@@ -203,6 +203,7 @@ interface AppCopy {
     incorrect: string
     wrongAnswerTitle: string
     wrongAnswerMessage: string
+    formatRetryNote: string
     nextStep: string
     correct: string
     finish: string
@@ -466,6 +467,7 @@ const englishCopy: AppCopy = {
     incorrect: "Incorrect.",
     wrongAnswerTitle: "That answer is not correct yet.",
     wrongAnswerMessage: "Check your working or choose exactly as much help as you need.",
+    formatRetryNote: "This does not count as a mistake.",
     nextStep: "Next step",
     correct: "Correct.",
     finish: "Finish",
@@ -772,6 +774,7 @@ const spanishCopy: AppCopy = {
     incorrect: "Incorrecta.",
     wrongAnswerTitle: "Esa respuesta aún no es correcta.",
     wrongAnswerMessage: "Revisa tus cálculos o elige exactamente la ayuda que necesitas.",
+    formatRetryNote: "No cuenta como error.",
     nextStep: "Siguiente paso",
     correct: "Correcto.",
     finish: "Terminar",
@@ -1078,6 +1081,7 @@ const italianCopy: AppCopy = {
     incorrect: "Risposta errata.",
     wrongAnswerTitle: "La risposta non è ancora corretta.",
     wrongAnswerMessage: "Controlla il procedimento oppure scegli esattamente l'aiuto che ti serve.",
+    formatRetryNote: "Non conta come errore.",
     nextStep: "Passaggio successivo",
     correct: "Corretto.",
     finish: "Termina",
@@ -1384,6 +1388,7 @@ const germanCopy: AppCopy = {
     incorrect: "Falsch.",
     wrongAnswerTitle: "Die Antwort stimmt noch nicht.",
     wrongAnswerMessage: "Prüfe deinen Rechenweg oder nimm genau so viel Hilfe, wie du brauchst.",
+    formatRetryNote: "Das zählt nicht als Fehler.",
     nextStep: "Als Nächstes",
     correct: "Richtig.",
     finish: "Abschliessen",

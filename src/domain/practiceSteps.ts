@@ -5,7 +5,7 @@ import type {
 } from "./model"
 import { isCorrectNumericInput, parseNumericAnswer } from "./generators"
 
-export type PracticeStepStatus = "pending" | "correct" | "attention"
+export type PracticeStepStatus = "pending" | "correct" | "attention" | "format"
 
 export interface PracticeStepIssue {
   stepId: string

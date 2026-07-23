@@ -48,6 +48,10 @@ describe("wrong-answer diagnosis", () => {
       kind: "fraction-structure",
       title: "Zähler und Nenner sind vertauscht.",
     })
+    expect(diagnoseWrongAnswer(question, "3/0")).toMatchObject({
+      kind: "fraction-structure",
+      title: "Ein Nenner darf nicht null sein.",
+    })
   })
 
   it("explains input format without treating it as a mathematical misconception", () => {
@@ -55,6 +59,47 @@ describe("wrong-answer diagnosis", () => {
     expect(diagnoseWrongAnswer(question, "zwölf kg")).toMatchObject({
       kind: "format",
       title: "Diese Eingabe ist noch keine Zahl.",
+    })
+  })
+
+  it("keeps duplicate sets and incomplete paths as gradeable learning misses", () => {
+    const setQuestion = generateQuestion("number-constraints", "format:integer-set")
+    if (setQuestion.response.kind !== "integer-set") throw new Error("Expected integer-set response")
+    const duplicated = [
+      setQuestion.response.values[0],
+      setQuestion.response.values[0],
+    ].join(", ")
+    expect(diagnoseWrongAnswer(setQuestion, duplicated)).toMatchObject({
+      kind: "incomplete-enumeration",
+      title: "Eine Zahl steht doppelt in der Liste.",
+    })
+    expect(diagnoseWrongAnswer(setQuestion, "1234 und 1324")).toMatchObject({
+      kind: "format",
+    })
+
+    const sequenceValues = [2, 3, 1, 4]
+    const sequenceQuestion: GeneratedQuestion = {
+      id: "format:integer-sequence",
+      topicId: "spatial-rolling",
+      prompt: "Welche Flächen liegen nach jedem Kipp-Schritt unten?",
+      answerLabel: "Flächenfolge",
+      response: {
+        kind: "integer-sequence",
+        values: sequenceValues,
+      },
+      hint: "Verfolge jeden Kipp-Schritt.",
+      easierExplanation: "Notiere nach jedem Pfeil eine Fläche.",
+      explanation: "2, 3, 1, 4",
+      workedSteps: ["2", "3", "1", "4"],
+    }
+    expect(diagnoseWrongAnswer(
+      sequenceQuestion,
+      sequenceValues.slice(0, -1).join(", "),
+    )).toMatchObject({
+      kind: "stopped-early",
+    })
+    expect(diagnoseWrongAnswer(sequenceQuestion, "1, zwei, 3")).toMatchObject({
+      kind: "format",
     })
   })
 

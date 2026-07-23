@@ -614,8 +614,9 @@ describe("assessment UI flow", () => {
     })
 
     expect(container.textContent).toContain("This entry is not a number yet.")
-    expect(container.textContent).toContain("Next step")
-    expect(container.textContent).toContain("Remove words or units")
+    expect(container.textContent).toContain("Enter only the number")
+    expect(container.textContent).toContain("This does not count as a mistake.")
+    expect(container.textContent).not.toContain("Remove words or units")
     expect(container.textContent).not.toContain("Diese Eingabe")
   })
 
@@ -1956,6 +1957,50 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain("Ein kleiner Hinweis")
   })
 
+  it("keeps malformed placement input final, silent, and insecure", () => {
+    const learner = createInitialLearner(new Date("2026-07-14T12:00:00.000Z"))
+    const placement = buildPlacementTask(learner)
+    const onSessionChange = vi.fn()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={createActiveLearningSession(placement)}
+          onBack={() => undefined}
+          onFinish={() => undefined}
+          onPrerequisite={() => undefined}
+          onSessionChange={onSessionChange}
+        />,
+      )
+    })
+
+    const input = container.querySelector("input")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing placement input")
+    act(() => setInputValue(input, "keine Zahl"))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+
+    expect(container.textContent).toContain("Aufgabe 2 von 9")
+    expect(container.textContent).not.toContain("Falsch.")
+    expect(container.querySelector(".feedback.format")).toBeNull()
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      mistakes: 1,
+      results: [{
+        attempts: 1,
+        independentlySolved: false,
+        solved: false,
+        submittedAnswer: "keine Zahl",
+        diagnostic: {
+          kind: "format",
+          resolved: false,
+        },
+      }],
+    })
+  })
+
   it("explains provisional placement without awarding XP", () => {
     const now = new Date("2026-07-14T12:00:00.000Z")
     const learner = createInitialLearner(now)
@@ -2391,6 +2436,321 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain(question.explanation)
   })
 
+  it("treats an input-format retry as validation rather than a learning mistake", () => {
+    const task: LearningTask = {
+      id: "review:mass-units:format-slip",
+      kind: "review",
+      title: "kg und g wiederholen",
+      description: "Antwortformat und Rechenidee getrennt behandeln",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:mass-units:format-slip",
+    }
+    const question = generateQuestionsForTask(task)[0]!
+    if (question.response.kind !== "number") throw new Error("Expected numeric review question")
+    const answerUnit = question.response.unit
+    const onSessionChange = vi.fn()
+    const onFinish = vi.fn<(event: LearningEvent) => void>()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={createActiveLearningSession(task)}
+          onBack={() => undefined}
+          onFinish={onFinish}
+          onPrerequisite={() => undefined}
+          onSessionChange={onSessionChange}
+        />,
+      )
+    })
+
+    const input = container.querySelector("#answer")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing review input")
+    const correctAnswer = String(question.response.value).replace(".", ",")
+    act(() => setInputValue(input, `${correctAnswer} ${answerUnit ?? "kg"}`))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+
+    expect(container.querySelector(".feedback.format")).not.toBeNull()
+    expect(container.textContent).toContain("Das zählt nicht als Fehler.")
+    expect(input.getAttribute("aria-invalid")).toBe("true")
+    expect(input.getAttribute("aria-describedby")).toContain("format-retry-feedback")
+    expect(container.querySelector("#format-retry-feedback")).not.toBeNull()
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      submissions: 0,
+      mistakes: 0,
+      feedback: "wrong",
+    })
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question.firstDiagnostic).toBeUndefined()
+
+    act(() => setInputValue(input, correctAnswer))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    act(() => buttonWithText(container, "Abschliessen").click())
+
+    expect(onFinish).toHaveBeenCalledOnce()
+    const event = onFinish.mock.calls[0]![0]
+    expect(event).toMatchObject({
+      mistakes: 0,
+      independentlyCompleted: true,
+    })
+    expect(event.questionResults[0]).toMatchObject({
+      attempts: 1,
+      independentlySolved: true,
+      solved: true,
+    })
+    expect(event.questionResults[0]?.diagnostic).toBeUndefined()
+  })
+
+  it("counts the first mathematical miss after a free format correction", () => {
+    const task: LearningTask = {
+      id: "review:mass-units:format-then-concept",
+      kind: "review",
+      title: "kg und g wiederholen",
+      description: "Nur mathematische Fehler werten",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:mass-units:format-slip",
+    }
+    const question = generateQuestionsForTask(task)[0]!
+    if (question.response.kind !== "number") throw new Error("Expected numeric review question")
+    const correctAnswer = String(question.response.value).replace(".", ",")
+    const answerUnit = question.response.unit
+    const mathematicalWrongAnswer = String(question.response.value + 12_345)
+    const onSessionChange = vi.fn()
+    const onFinish = vi.fn<(event: LearningEvent) => void>()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={createActiveLearningSession(task)}
+          onBack={() => undefined}
+          onFinish={onFinish}
+          onPrerequisite={() => undefined}
+          onSessionChange={onSessionChange}
+        />,
+      )
+    })
+
+    const input = container.querySelector("#answer")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing review input")
+    act(() => setInputValue(input, `${correctAnswer} ${answerUnit ?? "kg"}`))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      submissions: 0,
+      mistakes: 0,
+    })
+
+    act(() => setInputValue(input, mathematicalWrongAnswer))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      submissions: 1,
+      mistakes: 1,
+      firstDiagnostic: {
+        kind: "concept",
+      },
+    })
+
+    act(() => setInputValue(input, correctAnswer))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    act(() => buttonWithText(container, "Abschliessen").click())
+
+    expect(onFinish.mock.calls[0]![0]).toMatchObject({
+      mistakes: 1,
+      independentlyCompleted: false,
+      questionResults: [{
+        attempts: 2,
+        independentlySolved: false,
+        diagnostic: {
+          kind: "concept",
+          resolved: true,
+        },
+      }],
+    })
+  })
+
+  it("does not relabel a format mistake already counted by an older paused session", () => {
+    const task: LearningTask = {
+      id: "review:mass-units:legacy-format-slip",
+      kind: "review",
+      title: "kg und g wiederholen",
+      description: "Historische Wertung unverändert fortsetzen",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:mass-units:format-slip",
+    }
+    const question = generateQuestionsForTask(task)[0]!
+    if (question.response.kind !== "number") throw new Error("Expected numeric review question")
+    const correctAnswer = String(question.response.value).replace(".", ",")
+    const session = createActiveLearningSession(task)
+    session.question.answer = `${correctAnswer} ${question.response.unit ?? "kg"}`
+    session.question.submissions = 1
+    session.question.mistakes = 1
+    session.question.feedback = "wrong"
+    session.question.firstDiagnostic = {
+      kind: "format",
+      title: "Diese Eingabe ist noch keine Zahl.",
+    }
+    const onFinish = vi.fn<(event: LearningEvent) => void>()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={session}
+          onBack={() => undefined}
+          onFinish={onFinish}
+          onPrerequisite={() => undefined}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.querySelector(".feedback.wrong")).not.toBeNull()
+    expect(container.querySelector(".feedback.format")).toBeNull()
+    expect(container.textContent).not.toContain("Das zählt nicht als Fehler.")
+
+    const input = container.querySelector("#answer")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing review input")
+    act(() => setInputValue(input, correctAnswer))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    act(() => buttonWithText(container, "Abschliessen").click())
+
+    expect(onFinish.mock.calls[0]![0]).toMatchObject({
+      mistakes: 1,
+      independentlyCompleted: false,
+      questionResults: [{
+        attempts: 2,
+        independentlySolved: false,
+        diagnostic: {
+          kind: "format",
+          resolved: true,
+        },
+      }],
+    })
+  })
+
+  it("keeps format validation outside guided-step scoring and flawless lesson XP", () => {
+    const task: LearningTask = {
+      id: "lesson:reverse-chains:format-slip",
+      kind: "lesson",
+      title: "Rückwärtsketten verstehen",
+      description: "Schritt für Schritt",
+      topicIds: ["reverse-chains"],
+      prerequisiteIds: [],
+      maxXp: 25,
+      questionCount: 1,
+      seed: "lesson:reverse-chains:format-slip",
+    }
+    const question = generateQuestionsForTask(task)[0]!
+    const steps = question.practiceSteps ?? []
+    expect(steps).toHaveLength(4)
+    const session = createActiveLearningSession(task)
+    session.phase = "questions"
+    const onSessionChange = vi.fn()
+    const onFinish = vi.fn<(event: LearningEvent) => void>()
+
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={session}
+          onBack={() => undefined}
+          onFinish={onFinish}
+          onPrerequisite={() => undefined}
+          onSessionChange={onSessionChange}
+        />,
+      )
+    })
+
+    const firstInput = container.querySelector(`#answer-step-${steps[0]!.id}`)
+    if (!(firstInput instanceof HTMLInputElement)) throw new Error("Missing first guided step")
+    act(() => setInputValue(firstInput, `${steps[0]!.value} kg`))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+
+    expect(container.querySelector(".practice-step.format")).not.toBeNull()
+    expect(container.querySelector(".feedback.format")).not.toBeNull()
+    expect(firstInput.getAttribute("aria-invalid")).toBe("true")
+    expect(firstInput.getAttribute("aria-describedby")).toContain("format-retry-feedback")
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      submissions: 0,
+      mistakes: 0,
+      verifiedPracticeSteps: [],
+    })
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question.firstDiagnostic).toBeUndefined()
+
+    for (const step of steps) {
+      const input = container.querySelector(`#answer-step-${step.id}`)
+      if (!(input instanceof HTMLInputElement)) throw new Error(`Missing guided step ${step.id}`)
+      act(() => setInputValue(input, String(step.value)))
+      act(() => {
+        container.querySelector("form")?.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        )
+      })
+    }
+    act(() => buttonWithText(container, "Abschliessen").click())
+
+    expect(onFinish).toHaveBeenCalledOnce()
+    const event = onFinish.mock.calls[0]![0]
+    expect(event).toMatchObject({
+      mistakes: 0,
+      independentlyCompleted: true,
+    })
+    expect(event.questionResults[0]).toMatchObject({
+      attempts: 1,
+      independentlySolved: true,
+      solved: true,
+      verifiedStepIds: steps.map((step) => step.id),
+    })
+    expect(event.questionResults[0]?.diagnostic).toBeUndefined()
+
+    const result = recordCompletion(
+      createSeededLearner(new Date(event.completedAt)),
+      task,
+      event,
+    )
+    expect(result.award).toMatchObject({
+      totalXp: 33,
+      reason: "lesson-flawless",
+    })
+    expect(result.state.mastery["reverse-chains"].status).toBe("mastered")
+    expect(buildAssignments(result.state, new Date(event.completedAt)).some(
+      (assignment) => assignment.purpose === "lesson-recovery" &&
+        assignment.topicIds.includes("reverse-chains"),
+    )).toBe(false)
+  })
+
   it("grades a complete constrained-number set in any order and preserves the typed set", () => {
     const task: LearningTask = {
       id: "lesson:number-constraints:set-ui",
@@ -2547,6 +2907,24 @@ describe("assessment UI flow", () => {
       throw new Error("Missing coordinate inputs")
     }
 
+    act(() => setInputValue(xInput, "keine Zahl"))
+    act(() => setInputValue(yInput, String(correctY)))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+    expect(container.querySelector(".feedback.format")).not.toBeNull()
+    expect(xInput.getAttribute("aria-invalid")).toBe("true")
+    expect(yInput.getAttribute("aria-invalid")).toBeNull()
+    expect(xInput.getAttribute("aria-describedby")).toBe("format-retry-feedback")
+    expect(yInput.getAttribute("aria-describedby")).toBeNull()
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question).toMatchObject({
+      submissions: 0,
+      mistakes: 0,
+    })
+
+    act(() => setInputValue(yInput, ""))
     act(() => setInputValue(xInput, String(correctX + 10)))
     expect(buttonWithText(container, "Prüfen").disabled).toBe(true)
     act(() => setInputValue(yInput, String(correctY)))
@@ -3401,7 +3779,61 @@ describe("assessment UI flow", () => {
     expect(event.questionResults[0]?.independentlySolved).toBe(false)
     expect(event.questionResults[0]?.solved).toBe(false)
     expect(event.questionResults[0]?.difficultyBand).toBe("exam")
+    expect(event.questionResults[0]?.submittedAnswer).toBe("0")
     expect(event.questionResults[0]?.diagnostic).toMatchObject({ resolved: false })
+  })
+
+  it("keeps a malformed assessment submission final and gradeable", () => {
+    const task: LearningTask = {
+      ...assessment,
+      id: "assessment:ui-test:format-final",
+      seed: "assessment:ui-test:format-final",
+    }
+    const question = generateQuestionsForTask(task)[0]!
+    const onFinish = vi.fn<(event: LearningEvent) => void>()
+    act(() => {
+      root.render(
+        <TaskPlayer
+          initialSession={createActiveLearningSession(task)}
+          onBack={() => undefined}
+          onFinish={onFinish}
+          onPrerequisite={() => undefined}
+          onSessionChange={() => undefined}
+        />,
+      )
+    })
+    act(() => buttonWithText(container, "Standortbestimmung starten").click())
+
+    const input = container.querySelector("input")
+    if (!(input instanceof HTMLInputElement)) throw new Error("Missing assessment input")
+    act(() => setInputValue(input, "keine Zahl"))
+    act(() => {
+      container.querySelector("form")?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      )
+    })
+
+    expect(input.disabled).toBe(true)
+    expect(container.textContent).toContain("Falsch.")
+    expect(container.querySelector(".feedback.format")).toBeNull()
+    expect(container.querySelector(".diagnostic-next-step")).toBeNull()
+    expect(container.textContent).not.toContain(question.explanation)
+
+    act(() => buttonWithText(container, "Abschliessen").click())
+    expect(onFinish.mock.calls[0]![0]).toMatchObject({
+      mistakes: 1,
+      independentlyCompleted: false,
+      questionResults: [{
+        attempts: 1,
+        independentlySolved: false,
+        solved: false,
+        submittedAnswer: "keine Zahl",
+        diagnostic: {
+          kind: "format",
+          resolved: false,
+        },
+      }],
+    })
   })
 
   it("shows topic evidence and the scheduled recovery only after completion", () => {

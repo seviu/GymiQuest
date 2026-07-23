@@ -228,6 +228,28 @@ const diagnosticPriority: Record<QuestionDiagnosticKind, number> = {
   "construction-method": 3,
 }
 
+const diagnosticLearningImpact = {
+  format: "input-validation",
+  "unit-conversion": "learning-miss",
+  "fraction-structure": "learning-miss",
+  "incomplete-enumeration": "learning-miss",
+  "stopped-early": "learning-miss",
+  "coordinate-order": "learning-miss",
+  "construction-method": "learning-miss",
+  "construction-precision": "learning-miss",
+  concept: "learning-miss",
+} as const satisfies Record<
+  QuestionDiagnosticKind,
+  "input-validation" | "learning-miss"
+>
+
+export function isInputValidationDiagnostic(
+  diagnostic: Pick<QuestionDiagnosticDraft, "kind"> | undefined,
+): boolean {
+  return diagnostic !== undefined &&
+    diagnosticLearningImpact[diagnostic.kind] === "input-validation"
+}
+
 export function chooseQuestionDiagnostic(
   current: QuestionDiagnosticDraft | undefined,
   next: QuestionDiagnosticDraft | undefined,

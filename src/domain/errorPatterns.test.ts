@@ -5,6 +5,7 @@ import {
   buildErrorCompass,
   chooseQuestionDiagnostic,
   completeQuestionDiagnostic,
+  isInputValidationDiagnostic,
 } from "./errorPatterns"
 
 const now = new Date("2026-07-14T12:00:00.000Z")
@@ -39,6 +40,16 @@ function event(
 }
 
 describe("error compass", () => {
+  it("separates input validation from gradeable learning diagnostics", () => {
+    expect(isInputValidationDiagnostic({
+      kind: "format",
+    })).toBe(true)
+    expect(isInputValidationDiagnostic({
+      kind: "unit-conversion",
+    })).toBe(false)
+    expect(isInputValidationDiagnostic(undefined)).toBe(false)
+  })
+
   it("keeps the most meaningful first diagnostic and records whether it was resolved", () => {
     const format = { kind: "format" as const, title: "Die Eingabe war noch nicht lesbar." }
     const units = { kind: "unit-conversion" as const, title: "Die 1000er-Richtung ist vertauscht." }

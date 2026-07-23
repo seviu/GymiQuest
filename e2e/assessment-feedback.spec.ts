@@ -27,7 +27,17 @@ const assessmentQuestion = generateQuestionsForTask(assessmentTask)[0]!
 if (assessmentQuestion.response.kind !== "number") {
   throw new Error("The assessment feedback regression requires a numeric question.")
 }
-const incorrectAnswer = String(assessmentQuestion.response.value + 1_000)
+const assessmentCases = [
+  {
+    label: "mathematical miss",
+    answer: String(assessmentQuestion.response.value + 1_000),
+  },
+  {
+    label: "malformed final submission",
+    answer: "keine Zahl",
+    diagnosticKind: "format",
+  },
+] as const
 
 async function seedAssessment(page: Page): Promise<void> {
   await page.goto("/")
@@ -116,12 +126,13 @@ async function waitForCompletion(page: Page): Promise<void> {
   }, assessmentTask.id)
 }
 
-test("defers assessment corrections until the final review, including after reload", async ({ page }) => {
+for (const assessmentCase of assessmentCases) {
+test(`defers an assessment ${assessmentCase.label} until the final review, including after reload`, async ({ page }) => {
   await seedAssessment(page)
   await page.getByRole("button", { name: "Standortbestimmung starten" }).click()
 
   const answer = page.locator("#answer")
-  await answer.fill(incorrectAnswer)
+  await answer.fill(assessmentCase.answer)
   await page.getByRole("button", { name: "Antwort abgeben" }).click()
 
   await expect(answer).toBeDisabled()
@@ -140,7 +151,7 @@ test("defers assessment corrections until the final review, including after relo
   await waitForSubmittedAnswer(page)
   await page.reload()
 
-  await expect(page.locator("#answer")).toHaveValue(incorrectAnswer)
+  await expect(page.locator("#answer")).toHaveValue(assessmentCase.answer)
   await expect(page.locator("#answer")).toBeDisabled()
   await expect(page.getByText("Richtige Antwort", { exact: true })).toHaveCount(0)
   await expect(page.getByText(assessmentQuestion.explanation, { exact: true })).toHaveCount(0)
@@ -168,6 +179,10 @@ test("defers assessment corrections until the final review, including after relo
           attempts: number
           solved: boolean
           submittedAnswer?: string
+          diagnostic?: {
+            kind: string
+            resolved: boolean
+          }
         }>
       }>
       xpLedger: Array<{
@@ -193,12 +208,19 @@ test("defers assessment corrections until the final review, including after relo
     questionResults: [{
       attempts: 1,
       solved: false,
-      submittedAnswer: incorrectAnswer,
+      submittedAnswer: assessmentCase.answer,
     }],
   })
+  if ("diagnosticKind" in assessmentCase) {
+    expect(outcome.event?.questionResults[0]?.diagnostic).toMatchObject({
+      kind: assessmentCase.diagnosticKind,
+      resolved: false,
+    })
+  }
   expect(outcome.award).toMatchObject({
     taskKind: "assessment",
     reason: "assessment-complete",
     totalXp: assessmentTask.maxXp,
   })
 })
+}

@@ -7205,6 +7205,11 @@ button.profile-chip:hover {
   background: rgba(255, 235, 230, 0.58);
 }
 
+.practice-step.format {
+  border-color: rgba(66, 139, 202, 0.62);
+  background: rgba(231, 243, 252, 0.7);
+}
+
 .practice-step.locked {
   color: #72858f;
   background: #f6f8f6;
@@ -7235,6 +7240,11 @@ button.profile-chip:hover {
 .practice-step.attention .practice-step-number {
   color: #8a3d29;
   background: var(--coral-soft);
+}
+
+.practice-step.format .practice-step-number {
+  color: var(--blue-dark);
+  background: var(--sky);
 }
 
 .practice-step-copy {
@@ -7276,6 +7286,10 @@ button.profile-chip:hover {
 
 .practice-step-input input[aria-invalid="true"] {
   border-color: var(--coral);
+}
+
+.practice-step.format .practice-step-input input[aria-invalid="true"] {
+  border-color: var(--blue);
 }
 
 .practice-step-input input:disabled {
@@ -7766,8 +7780,24 @@ button.profile-chip:hover {
   background: var(--coral-soft);
 }
 
+.feedback.wrong.format {
+  color: var(--blue-dark);
+  background: var(--sky);
+}
+
 .feedback.wrong > button {
   margin-top: 14px;
+}
+
+.format-retry-note {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 900;
+}
+
+.feedback.format p {
+  margin-top: 7px;
+  color: var(--blue-dark);
 }
 
 .diagnostic-next-step {
