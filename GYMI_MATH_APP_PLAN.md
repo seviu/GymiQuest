@@ -328,6 +328,8 @@ Each concept has prerequisite links. For example, inverse proportionality can ro
 
 **Current web planning slice:** Home now shows the learner's selected normal session length, a civil-date exam countdown, and an evidence-based readiness band (`Im Aufbau`, `Am Festigen`, or `Prüfungsnah`). The band summarizes learned topics, retention, independent confirmation, and any strict-mock evidence; it is explicitly not a grade prediction. Progress shows every saved preference and provides the edit entry point.
 
+**Current child-first Home hierarchy:** the learning plan is first in DOM and visual order, with exactly one actionable next step: a running exam, a saved learning session, the next checkpoint recovery, or the first generated assignment. Later assignments remain visible as a non-actionable queue and are promoted automatically after the current round. The checkpoint explanation and derived daily quest are native disclosures, optional concept/exam tools are compact shortcuts, and the former stack of course, countdown, XP, review, expedition, and badge cards follows the plan behind one progress summary. This is presentation only: assignment order, saved sessions, XP, mastery, review timing, assessment cadence, quests, achievements, collection, and adult evidence keep their existing sources of truth.
+
 ### 7.8 Exam setup
 
 Offer:

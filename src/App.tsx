@@ -560,8 +560,26 @@ function goalProgressLabel(goal: DailyQuestGoal, locale: AppLocale = "de"): stri
   return `${Math.min(goal.current, goal.target)}/${goal.target}`
 }
 
-function DailyQuestCard({ quest }: { quest: DailyQuest }) {
+function DailyQuestCard({
+  quest,
+  embedded = false,
+}: {
+  quest: DailyQuest
+  embedded?: boolean
+}) {
   const { locale, t } = useLocalization()
+  const goals = (
+    <div className="daily-quest-goals">
+      {quest.goals.map((goal) => (
+        <div className={goal.complete ? "complete" : ""} key={goal.id}>
+          <span aria-hidden="true">{goal.complete ? "✓" : "○"}</span>
+          <p><strong>{goal.title}</strong><small>{goal.description}</small></p>
+          <b>{goalProgressLabel(goal, locale)}</b>
+        </div>
+      ))}
+    </div>
+  )
+  if (embedded) return goals
   if (quest.isRestDay) {
     return (
       <section className="daily-quest-card rest" aria-labelledby="daily-quest-title">
@@ -587,15 +605,7 @@ function DailyQuestCard({ quest }: { quest: DailyQuest }) {
         </div>
         <strong>{quest.completedGoals}/{quest.goals.length}</strong>
       </div>
-      <div className="daily-quest-goals">
-        {quest.goals.map((goal) => (
-          <div className={goal.complete ? "complete" : ""} key={goal.id}>
-            <span aria-hidden="true">{goal.complete ? "✓" : "○"}</span>
-            <p><strong>{goal.title}</strong><small>{goal.description}</small></p>
-            <b>{goalProgressLabel(goal, locale)}</b>
-          </div>
-        ))}
-      </div>
+      {goals}
     </section>
   )
 }
@@ -607,6 +617,7 @@ function CheckpointTrailCard({
   onStart,
   onResume,
   minimalFocus = false,
+  showAction = true,
 }: {
   trail: CheckpointTrail
   nextTask?: LearningTask
@@ -614,6 +625,7 @@ function CheckpointTrailCard({
   onStart: (task: LearningTask) => void
   onResume: () => void
   minimalFocus?: boolean
+  showAction?: boolean
 }) {
   const { locale, t } = useLocalization()
   const actionable = trail.steps.filter((step) => step.status === "pending").length
@@ -687,23 +699,25 @@ function CheckpointTrailCard({
         ))}
       </ol>
 
-      <div className="checkpoint-trail-action">
+      <div className={`checkpoint-trail-action${showAction ? "" : " informational"}`}>
         <p>
           <strong>{t("home.checkpoint.secureTopics", { secure: trail.secureTopics, total: trail.assessedTopics })}</strong>{" "}
           {t("home.checkpoint.secureBody")}
         </p>
-        {activeTask ? (
-          <button className="primary-button" type="button" onClick={onResume}>
-            {minimalFocus ? t("home.checkpoint.resumeReview") : t("home.checkpoint.resumeReturn")}
-          </button>
-        ) : nextTask ? (
-          <button className="primary-button" type="button" onClick={() => onStart(nextTask)}>
-            {minimalFocus ? t("home.checkpoint.startReview") : t("home.checkpoint.startReturn")}
-          </button>
-        ) : onlyPaused ? (
-          <small>{t("home.checkpoint.companionNote")}</small>
-        ) : (
-          <small>{minimalFocus ? t("home.checkpoint.nextReview") : t("home.checkpoint.nextReturn")}</small>
+        {showAction && (
+          activeTask ? (
+            <button className="primary-button" type="button" onClick={onResume}>
+              {minimalFocus ? t("home.checkpoint.resumeReview") : t("home.checkpoint.resumeReturn")}
+            </button>
+          ) : nextTask ? (
+            <button className="primary-button" type="button" onClick={() => onStart(nextTask)}>
+              {minimalFocus ? t("home.checkpoint.startReview") : t("home.checkpoint.startReturn")}
+            </button>
+          ) : onlyPaused ? (
+            <small>{t("home.checkpoint.companionNote")}</small>
+          ) : (
+            <small>{minimalFocus ? t("home.checkpoint.nextReview") : t("home.checkpoint.nextReturn")}</small>
+          )
         )}
       </div>
     </section>
@@ -959,12 +973,16 @@ function TaskCard({
   onPrerequisite,
   checkpointNumber,
   minimalFocus = false,
+  featured = false,
+  sessionMinutes,
 }: {
   task: LearningTask
   onStart: (task: LearningTask) => void
   onPrerequisite: (topicId: TopicId) => void
   checkpointNumber?: number
   minimalFocus?: boolean
+  featured?: boolean
+  sessionMinutes?: number
 }) {
   const { locale, copy, t } = useLocalization()
   const prerequisites = task.prerequisiteIds.map((topicId) => topicForLocale(topicId, locale))
@@ -977,7 +995,7 @@ function TaskCard({
     : undefined
 
   return (
-    <article className={`task-card ${task.kind}${checkpointNumber ? " checkpoint-return" : ""}`}>
+    <article className={`task-card ${task.kind}${checkpointNumber ? " checkpoint-return" : ""}${featured ? " featured" : ""}`}>
       <div className="task-kind-icon" aria-hidden="true">{kindIcons[task.kind]}</div>
       <div className="task-copy">
         <div className="task-meta">
@@ -995,6 +1013,12 @@ function TaskCard({
         )}
         <h3>{presentation.title}</h3>
         <p>{presentation.description}</p>
+        {featured && (
+          <div className="task-facts">
+            <span>{task.questionCount} {copy.player.exercises}</span>
+            {sessionMinutes && <span>{sessionMinutes} {t("common.minutesShort")}</span>}
+          </div>
+        )}
         {difficultySummary && (
           <div className="difficulty-sequence" aria-label={t("home.task.difficultyAria", { difficulty: difficultySummary })}>
             <span>{t("home.task.difficulty")}</span>
@@ -1025,9 +1049,12 @@ function TaskCard({
         )}
       </div>
       <div className="task-action">
-        <span><strong>{task.maxXp}</strong> XP</span>
         <button className="primary-button compact" type="button" onClick={() => onStart(task)}>
-          {t("common.start")}
+          {checkpointNumber && task.kind === "review"
+            ? minimalFocus
+              ? t("home.checkpoint.startReview")
+              : t("home.checkpoint.startReturn")
+            : t("common.start")}
         </button>
       </div>
     </article>
@@ -1039,11 +1066,15 @@ function ResumeTaskCard({
   onResume,
   checkpointNumber,
   minimalFocus = false,
+  featured = false,
+  sessionMinutes,
 }: {
   session: ActiveLearningSession
   onResume: () => void
   checkpointNumber?: number
   minimalFocus?: boolean
+  featured?: boolean
+  sessionMinutes?: number
 }) {
   const { locale, t } = useLocalization()
   const { task } = session
@@ -1058,7 +1089,7 @@ function ResumeTaskCard({
         })
 
   return (
-    <article className={`task-card resume${checkpointNumber ? " checkpoint-return" : ""}`}>
+    <article className={`task-card resume${checkpointNumber ? " checkpoint-return" : ""}${featured ? " featured" : ""}`}>
       <div className="task-kind-icon" aria-hidden="true">▶</div>
       <div className="task-copy">
         <div className="task-meta">
@@ -1072,14 +1103,51 @@ function ResumeTaskCard({
         </div>
         <h3>{presentation.title}</h3>
         <p>{t("home.task.saved", { time: formatMinutes(session.activeSeconds) })}</p>
+        {featured && sessionMinutes && (
+          <div className="task-facts">
+            <span>{sessionMinutes} {t("common.minutesShort")}</span>
+          </div>
+        )}
       </div>
       <div className="task-action">
-        <span>{taskKindLabel(task, locale)}</span>
         <button className="primary-button compact" type="button" onClick={onResume}>
-          {t("home.task.resume")}
+          {checkpointNumber
+            ? minimalFocus
+              ? t("home.checkpoint.resumeReview")
+              : t("home.checkpoint.resumeReturn")
+            : t("home.task.resume")}
         </button>
       </div>
     </article>
+  )
+}
+
+function UpcomingTaskRow({
+  task,
+  checkpointNumber,
+  minimalFocus = false,
+}: {
+  task: LearningTask
+  checkpointNumber?: number
+  minimalFocus?: boolean
+}) {
+  const { locale, t } = useLocalization()
+  const presentation = taskPresentationForLocale(task, locale)
+  return (
+    <li className={`upcoming-task-row ${task.kind}`}>
+      <span className="upcoming-task-icon" aria-hidden="true">{kindIcons[task.kind]}</span>
+      <div>
+        <small>
+          {checkpointNumber && task.kind === "review"
+            ? minimalFocus
+              ? t("home.task.reviewAfter", { number: checkpointNumber })
+              : t("home.task.returnAfter", { number: checkpointNumber })
+            : taskKindLabel(task, locale)}
+        </small>
+        <strong>{presentation.title}</strong>
+      </div>
+      {task.dueAt && <span>{formatReviewDate(task.dueAt, locale)}</span>}
+    </li>
   )
 }
 
@@ -1153,21 +1221,6 @@ function MockModeCard({
   )
 }
 
-function ConceptLabShortcut({ onOpen }: { onOpen: () => void }) {
-  const { t } = useLocalization()
-  return (
-    <section className="concept-lab-shortcut" aria-labelledby="concept-lab-shortcut-title">
-      <div className="concept-lab-shortcut-mark" aria-hidden="true">↻</div>
-      <div>
-        <span className="eyebrow">{t("home.concept.eyebrow")}</span>
-        <h2 id="concept-lab-shortcut-title">{t("home.concept.title")}</h2>
-        <p>{t("home.concept.body")}</p>
-      </div>
-      <button className="secondary-button" type="button" onClick={onOpen}>{t("home.concept.open")}</button>
-    </section>
-  )
-}
-
 export function Home({
   learner,
   resumeSession,
@@ -1234,6 +1287,26 @@ export function Home({
   const nextCheckpointTask = assignments.find(
     (task) => task.kind === "review" && task.topicIds.some((topicId) => pendingCheckpointTopicIds.has(topicId)),
   )
+  const isPendingCheckpointTask = (task: LearningTask) => (
+    task.kind === "review" &&
+    task.topicIds.some((topicId) => pendingCheckpointTopicIds.has(topicId))
+  )
+  const orderedAssignments = nextCheckpointTask
+    ? [
+        nextCheckpointTask,
+        ...assignments.filter((task) => task.id !== nextCheckpointTask.id && isPendingCheckpointTask(task)),
+        ...assignments.filter((task) => !isPendingCheckpointTask(task)),
+      ]
+    : assignments
+  const primaryTask = orderedAssignments[0]
+  const queuedAssignments = resumeSession
+    ? orderedAssignments
+    : orderedAssignments.slice(1)
+  const progress = Math.round(courseProgress(learner) * 100)
+  const remainingAssessmentXp = Math.max(
+    0,
+    learner.assessmentThreshold - learner.xpSinceAssessment,
+  )
   const todayLabel = new Intl.DateTimeFormat(intlLocale, {
     weekday: "long",
     day: "numeric",
@@ -1242,12 +1315,6 @@ export function Home({
 
   return (
     <main className="home-shell">
-      <StatPanel
-        learner={learner}
-        onOpenCurriculum={onOpenCurriculum}
-        onOpenCollection={onOpenCollection}
-        now={now}
-      />
       <section className="plan-column">
         {subjectSelector}
         <div className="plan-intro">
@@ -1294,63 +1361,136 @@ export function Home({
           </div>
         </div>
 
-        {!examModeActive && dailyQuest && <DailyQuestCard quest={dailyQuest} />}
-
-        {!examModeActive && checkpointTrail && (
-          <CheckpointTrailCard
-            trail={checkpointTrail}
-            nextTask={nextCheckpointTask}
-            activeTask={activeCheckpointTask}
-            onStart={onStart}
-            onResume={onResume}
-            minimalFocus={minimalFocus}
-          />
-        )}
-
-        {!examModeActive && onOpenConceptLab && <ConceptLabShortcut onOpen={onOpenConceptLab} />}
-
-        <div className="task-list">
-          {resumeSession && !examModeActive && (
+        <section className="primary-plan-step" aria-labelledby="primary-plan-step-title">
+          <h2 className="eyebrow" id="primary-plan-step-title">{t("home.plan.primary")}</h2>
+          {examModeActive ? (
+            <MockModeCard
+              learner={learner}
+              activeMock={activeMock}
+              activeArchivePractice={activeArchivePractice}
+              onOpen={onOpenMock}
+            />
+          ) : resumeSession ? (
             <ResumeTaskCard
               session={resumeSession}
               onResume={onResume}
               checkpointNumber={activeCheckpointTask ? checkpointTrail?.assessmentNumber : undefined}
               minimalFocus={minimalFocus}
+              featured
+              sessionMinutes={learner.preferences.sessionMinutes}
             />
-          )}
-          {assignments.map((task) => (
+          ) : primaryTask ? (
             <TaskCard
-              key={task.id}
-              task={task}
+              task={primaryTask}
               onStart={onStart}
               onPrerequisite={onPrerequisite}
-              checkpointNumber={task.kind === "review" && task.topicIds.some(
+              checkpointNumber={primaryTask.kind === "review" && primaryTask.topicIds.some(
                 (topicId) => pendingCheckpointTopicIds.has(topicId),
               ) ? checkpointTrail?.assessmentNumber : undefined}
               minimalFocus={minimalFocus}
+              featured
+              sessionMinutes={learner.preferences.sessionMinutes}
             />
-          ))}
-        </div>
+          ) : (
+            <div className="empty-plan">
+              <span aria-hidden="true">✓</span>
+              <h2>{curriculumMastered ? t("home.plan.emptyMastered") : t("home.plan.empty")}</h2>
+              <p>
+                {curriculumMastered
+                  ? scheduledReviewAt
+                    ? t("home.plan.nextScheduled", { date: formatReviewDate(scheduledReviewAt, locale) })
+                    : t("home.plan.nextAutomatic")
+                  : t("home.plan.nextReview")}
+              </p>
+            </div>
+          )}
+        </section>
 
-        <MockModeCard
-          learner={learner}
-          activeMock={activeMock}
-          activeArchivePractice={activeArchivePractice}
-          onOpen={onOpenMock}
-        />
+        {!examModeActive && queuedAssignments.length > 0 && (
+          <details className="home-plan-disclosure upcoming-tasks">
+            <summary>
+              <span>
+                <strong>
+                  {queuedAssignments.length === 1
+                    ? t("home.plan.moreStepOne")
+                    : t("home.plan.moreStepMany", { count: queuedAssignments.length })}
+                </strong>
+                <small>{t("home.plan.moreStepBody")}</small>
+              </span>
+              <b aria-hidden="true">⌄</b>
+            </summary>
+            <ol className="upcoming-task-list">
+              {queuedAssignments.map((task) => (
+                <UpcomingTaskRow
+                  key={task.id}
+                  task={task}
+                  checkpointNumber={task.kind === "review" && task.topicIds.some(
+                    (topicId) => pendingCheckpointTopicIds.has(topicId),
+                  ) ? checkpointTrail?.assessmentNumber : undefined}
+                  minimalFocus={minimalFocus}
+                />
+              ))}
+            </ol>
+          </details>
+        )}
 
-        {assignments.length === 0 && !resumeSession && !examModeActive && (
-          <div className="empty-plan">
-            <span aria-hidden="true">✓</span>
-            <h2>{curriculumMastered ? t("home.plan.emptyMastered") : t("home.plan.empty")}</h2>
-            <p>
-              {curriculumMastered
-                ? scheduledReviewAt
-                  ? t("home.plan.nextScheduled", { date: formatReviewDate(scheduledReviewAt, locale) })
-                  : t("home.plan.nextAutomatic")
-                : t("home.plan.nextReview")}
-            </p>
-          </div>
+        {!examModeActive && checkpointTrail && (
+          <details className="home-plan-disclosure checkpoint-context">
+            <summary>
+              <span>
+                <strong>{t("home.plan.checkpointDetails")}</strong>
+                <small>{t("home.plan.checkpointDetailsBody")}</small>
+              </span>
+              <b aria-hidden="true">⌄</b>
+            </summary>
+            <CheckpointTrailCard
+              trail={checkpointTrail}
+              nextTask={nextCheckpointTask}
+              activeTask={activeCheckpointTask}
+              onStart={onStart}
+              onResume={onResume}
+              minimalFocus={minimalFocus}
+              showAction={false}
+            />
+          </details>
+        )}
+
+        {!examModeActive && !resumeSession && dailyQuest?.isRestDay && (
+          <section className="home-plan-disclosure daily-rest-summary">
+            <span className="eyebrow">{t("home.daily.restEyebrow")}</span>
+            <strong>{t("home.daily.restTitle")}</strong>
+            <small>{t("home.daily.restBody")}</small>
+          </section>
+        )}
+
+        {!examModeActive && !resumeSession && dailyQuest && !dailyQuest.isRestDay && (
+          <details className="home-plan-disclosure daily-quest-disclosure">
+            <summary>
+              <span>
+                <span className="eyebrow">{t("home.daily.eyebrow")}</span>
+                <strong>{t("home.daily.title")}</strong>
+                <small>{t("home.daily.body")}</small>
+              </span>
+              <span className="home-disclosure-status">
+                <span>{dailyQuest.completedGoals}/{dailyQuest.goals.length}</span>
+                <b aria-hidden="true">⌄</b>
+              </span>
+            </summary>
+            <DailyQuestCard quest={dailyQuest} embedded />
+          </details>
+        )}
+
+        {!examModeActive && !resumeSession && (
+          <nav className="home-shortcuts" aria-label={t("home.plan.optionalTools")}>
+            {onOpenConceptLab && (
+              <button className="secondary-button" type="button" onClick={onOpenConceptLab}>
+                {t("home.concept.open")}
+              </button>
+            )}
+            <button className="secondary-button" type="button" onClick={onOpenMock}>
+              {t("home.mock.open")}
+            </button>
+          </nav>
         )}
 
         <div className="plan-footer">
@@ -1368,6 +1508,27 @@ export function Home({
           )}
         </div>
       </section>
+
+      <details className="home-progress-disclosure">
+        <summary>
+          <span>
+            <span className="eyebrow">{t("home.stats.aria")}</span>
+            <strong>{progress}% · {learner.totalXp} XP</strong>
+            <small>
+              {remainingAssessmentXp === 0
+                ? `${t("home.stats.nextAssessment")}: ${t("home.stats.ready")}`
+                : `${t("home.stats.nextAssessment")}: ${t("home.stats.xpRemaining", { xp: remainingAssessmentXp })}`}
+            </small>
+          </span>
+          <b aria-hidden="true">⌄</b>
+        </summary>
+        <StatPanel
+          learner={learner}
+          onOpenCurriculum={onOpenCurriculum}
+          onOpenCollection={onOpenCollection}
+          now={now}
+        />
+      </details>
     </main>
   )
 }

@@ -152,10 +152,14 @@ test("keeps the checkpoint return trail actionable and WCAG A/AA clean", async (
   await createFoundationsLearner(page, `A11y-Checkpoint-${test.info().project.name}`)
   await seedCheckpointRecovery(page)
 
-  await expect(page.getByRole("heading", { name: "Aus dem Check wird ein klarer Rückweg." })).toBeVisible()
   await expect(page.getByText("RÜCKWEG AUS CHECK 1")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Nächsten Rückweg starten" })).toHaveCount(1)
   await expectNoHorizontalOverflow(page, "checkpoint return trail")
   await expectNoWcagViolations(page, "checkpoint return trail")
+
+  await page.locator(".checkpoint-context > summary").click()
+  await expect(page.getByRole("heading", { name: "Aus dem Check wird ein klarer Rückweg." })).toBeVisible()
+  await expectNoWcagViolations(page, "expanded checkpoint return context")
 
   await page.getByRole("button", { name: "Nächsten Rückweg starten" }).click()
   await expect(page.locator(".question-card")).toBeVisible()
@@ -241,9 +245,10 @@ test("persists minimal focus while keeping the learning plan, XP, and reviews vi
   const root = page.locator("html")
   await expect(root).toHaveAttribute("data-visual-mode", "focus")
   await expect(page.getByRole("heading", { name: "Dein Lernplan" })).toBeVisible()
-  await expect(page.getByText("GESAMT GESAMMELT")).toBeVisible()
-  await expect(page.getByText("Nächste Standortbestimmung", { exact: true })).toBeVisible()
+  await expect(page.locator(".home-progress-disclosure > summary")).toContainText("0 XP")
+  await expect(page.locator(".home-progress-disclosure > summary")).toContainText("Nächste Standortbestimmung")
   await expect(page.locator(".task-card")).not.toHaveCount(0)
+  await expect(page.locator(".primary-plan-step .primary-button")).toBeInViewport()
   await expect(page.getByRole("button", { name: "Konzept-Labor öffnen" })).toBeVisible()
   await expect(page.getByText("HEUTIGE QUEST")).toHaveCount(0)
   await expect(page.getByText("MATHE-EXPEDITION")).toHaveCount(0)
@@ -302,6 +307,7 @@ test("supports keyboard activation, reduced motion, high contrast, and 320px ref
   await expectNoHorizontalOverflow(page, "high-contrast learning plan at 320px")
   await expectNoWcagViolations(page, "high-contrast learning plan at 320px")
 
+  await page.locator(".home-progress-disclosure > summary").click()
   await page.getByRole("button", { name: /Sammlung öffnen/u }).click()
   await expect(page.getByRole("heading", { name: "Lernarbeit wird zu einer sichtbaren Reise." })).toBeVisible()
   await expectNoHorizontalOverflow(page, "expedition collection at 320px")

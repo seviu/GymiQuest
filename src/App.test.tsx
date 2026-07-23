@@ -22,6 +22,10 @@ import {
 import { decodeExerciseReport, isMathematicsExerciseReport } from "./domain/exerciseReport"
 import { generateArchiveQuestion } from "./domain/archiveGenerators"
 import {
+  createActiveArchivePractice,
+  submitArchivePracticeForReview,
+} from "./domain/archivePractice"
+import {
   buildAreaFractionModel,
   buildCornerCutoutModel,
   buildCuboidSurfaceModel,
@@ -879,8 +883,10 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("GESAMT GESAMMELT")
     expect(container.textContent).toContain("94XP")
     expect(container.textContent).toContain("Nächste Standortbestimmung")
-    expect(container.textContent).toContain("WENN ETWAS NOCH NICHT KLICKT")
-    expect(container.querySelectorAll(".task-card")).toHaveLength(assignments.length)
+    expect(container.querySelectorAll(".task-card")).toHaveLength(1)
+    expect(container.querySelectorAll(".upcoming-task-row")).toHaveLength(assignments.length - 1)
+    expect(container.querySelector(".home-shell")?.firstElementChild?.classList.contains("plan-column")).toBe(true)
+    expect(container.querySelector(".home-progress-disclosure")?.hasAttribute("open")).toBe(false)
     expect(container.textContent).not.toContain("HEUTIGE QUEST")
     expect(container.textContent).not.toContain("MATHE-EXPEDITION")
     expect(container.textContent).not.toContain("ABZEICHEN")
@@ -905,6 +911,102 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain("Belohnungen für echte Lernarbeit")
     expect(container.textContent).not.toContain("Expedition öffnen")
     expect(container.querySelector(".achievements-panel")).toBeNull()
+  })
+
+  it("makes a saved session the only actionable learning step on Home", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const assignments = buildAssignments(learner, now)
+    const session = createActiveLearningSession(assignments[0]!)
+    const onResume = vi.fn()
+
+    act(() => {
+      root.render(
+        <Home
+          learner={learner}
+          resumeSession={session}
+          now={now}
+          onStart={() => undefined}
+          onResume={onResume}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenConceptLab={() => undefined}
+          onOpenMock={() => undefined}
+          onReset={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.querySelectorAll(".primary-plan-step .task-card")).toHaveLength(1)
+    expect(container.querySelectorAll(".upcoming-task-row")).toHaveLength(assignments.length - 1)
+    expect(container.querySelectorAll(".upcoming-tasks button")).toHaveLength(0)
+    expect(Array.from(container.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "Starten",
+    )).toBe(false)
+    expect(container.querySelector(".daily-quest-disclosure")).toBeNull()
+    expect(container.querySelector(".home-shortcuts")).toBeNull()
+    act(() => buttonWithText(container, "Fortsetzen").click())
+    expect(onResume).toHaveBeenCalledOnce()
+  })
+
+  it("keeps every pending checkpoint review ahead of ordinary queued work", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    learner.xpSinceAssessment = learner.assessmentThreshold
+    const assessmentTask = buildAssignments(learner, now)[0]!
+    const questions = generateQuestionsForTask(assessmentTask)
+    const missedTopicIds = [...new Set(questions.map((question) => question.topicId))].slice(0, 2)
+    expect(missedTopicIds).toHaveLength(2)
+    const result = recordCompletion(learner, assessmentTask, {
+      id: "event:assessment:multi-checkpoint-home",
+      taskId: assessmentTask.id,
+      taskKind: assessmentTask.kind,
+      topicIds: assessmentTask.topicIds,
+      completedAt: now.toISOString(),
+      activeSeconds: 180,
+      mistakes: 2,
+      hintsUsed: 0,
+      independentlyCompleted: false,
+      questionResults: questions.map((question) => {
+        const missed = missedTopicIds.includes(question.topicId)
+        return {
+          questionId: question.id,
+          topicId: question.topicId,
+          attempts: missed ? 2 : 1,
+          hintsUsed: 0,
+          activeSeconds: 30,
+          independentlySolved: !missed,
+        }
+      }),
+    })
+    const nextAssignments = buildAssignments(result.state, now)
+    const checkpointReviews = nextAssignments.filter((task) => (
+      task.kind === "review" &&
+      task.topicIds.some((topicId) => missedTopicIds.includes(topicId))
+    ))
+    expect(checkpointReviews).toHaveLength(2)
+
+    act(() => {
+      root.render(
+        <Home
+          learner={result.state}
+          now={now}
+          onStart={() => undefined}
+          onResume={() => undefined}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenMock={() => undefined}
+          onReset={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.querySelector(".primary-plan-step")?.textContent).toContain(
+      checkpointReviews[0]!.title,
+    )
+    expect(container.querySelector(".upcoming-task-row")?.textContent).toContain(
+      checkpointReviews[1]!.title,
+    )
   })
 
   it("keeps assessment misses visible as a checkpoint return trail until their reviews are completed", () => {
@@ -1134,8 +1236,7 @@ describe("assessment UI flow", () => {
       )
     })
 
-    expect(container.textContent).toContain("WENN ETWAS NOCH NICHT KLICKT")
-    expect(container.textContent).toContain("kein XP-Test")
+    expect(container.querySelector(".home-shortcuts")).not.toBeNull()
     act(() => buttonWithText(container, "Konzept-Labor öffnen").click())
     expect(onOpenConceptLab).toHaveBeenCalledOnce()
   })
@@ -4668,6 +4769,101 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain("HEUTIGE QUEST")
     expect(container.querySelectorAll(".task-card")).toHaveLength(0)
     act(() => buttonWithText(container, "Prüfung fortsetzen").click())
+    expect(onOpenMock).toHaveBeenCalledOnce()
+  })
+
+  it("makes a running archive practice the only actionable Home step", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    vi.setSystemTime(now)
+    const learner = createSeededLearner(now)
+    const activeArchivePractice = createActiveArchivePractice(
+      "zap-zh-lg-2022",
+      "home:running-archive",
+      now,
+    )
+    const onOpenMock = vi.fn()
+
+    act(() => {
+      root.render(
+        <Home
+          learner={learner}
+          activeArchivePractice={activeArchivePractice}
+          now={now}
+          onStart={() => undefined}
+          onResume={() => undefined}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenConceptLab={() => undefined}
+          onOpenMock={onOpenMock}
+          onReset={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain(
+      "Dein Archivtraining läuft. Solange die Uhr läuft, pausiert der normale Lernplan.",
+    )
+    expect(container.textContent).toContain("Das Archivtraining 2022 läuft weiter.")
+    expect(container.textContent).toContain("Noch 60:00")
+    expect(container.querySelectorAll(".primary-plan-step .mock-mode-card.running")).toHaveLength(1)
+    expect(container.querySelectorAll(".primary-plan-step button")).toHaveLength(1)
+    expect(container.querySelectorAll(".task-card")).toHaveLength(0)
+    expect(container.querySelector(".upcoming-tasks")).toBeNull()
+    expect(container.querySelector(".daily-quest-disclosure, .daily-rest-summary")).toBeNull()
+    expect(container.querySelector(".home-shortcuts")).toBeNull()
+
+    act(() => buttonWithText(container, "Archivtraining fortsetzen").click())
+    expect(onOpenMock).toHaveBeenCalledOnce()
+  })
+
+  it("makes an open archive self-review the only actionable Home step", () => {
+    const startedAt = new Date("2026-07-14T12:00:00.000Z")
+    const now = new Date("2026-07-14T12:40:00.000Z")
+    vi.setSystemTime(now)
+    const learner = createSeededLearner(now)
+    const activeArchivePractice = submitArchivePracticeForReview(
+      createActiveArchivePractice(
+        "zap-zh-lg-2022",
+        "home:archive-review",
+        startedAt,
+      ),
+      "submitted",
+      now,
+    )
+    const onOpenMock = vi.fn()
+
+    act(() => {
+      root.render(
+        <Home
+          learner={learner}
+          activeArchivePractice={activeArchivePractice}
+          now={now}
+          onStart={() => undefined}
+          onResume={() => undefined}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenConceptLab={() => undefined}
+          onOpenMock={onOpenMock}
+          onReset={() => undefined}
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain(
+      "Dein Archiv-Selbstreview ist offen. Der normale Lernplan wartet, bis du den Vergleich abgeschlossen hast.",
+    )
+    expect(container.textContent).toContain("Der Selbstvergleich 2022 ist noch offen.")
+    expect(container.textContent).toContain(
+      "Aufgaben, Lösungsblatt und bisherige Vergleiche sind lokal gespeichert.",
+    )
+    expect(container.querySelectorAll(".primary-plan-step .mock-mode-card.running")).toHaveLength(1)
+    expect(container.querySelectorAll(".primary-plan-step button")).toHaveLength(1)
+    expect(container.querySelectorAll(".task-card")).toHaveLength(0)
+    expect(container.querySelector(".upcoming-tasks")).toBeNull()
+    expect(container.querySelector(".daily-quest-disclosure, .daily-rest-summary")).toBeNull()
+    expect(container.querySelector(".home-shortcuts")).toBeNull()
+
+    act(() => buttonWithText(container, "Selbstreview fortsetzen").click())
     expect(onOpenMock).toHaveBeenCalledOnce()
   })
 
