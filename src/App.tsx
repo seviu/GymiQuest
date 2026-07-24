@@ -310,12 +310,13 @@ import {
   type LearnerCourseIndex,
 } from "./domain/courseIndex"
 import { subjectRuntimeFor } from "./domain/subjectRegistry"
-import type { SubjectId } from "./domain/subjectIdentity"
+import { courseKeys, type SubjectId } from "./domain/subjectIdentity"
 import { GermanCourseView } from "./subjects/german/GermanCourseView"
 import { germanCourseUiCopy } from "./subjects/german/uiCopy"
 import { GermanWritingReviewPanel } from "./subjects/german/GermanWritingReviewPanel"
 import { GermanComprehensionReviewPanel } from "./subjects/german/GermanComprehensionReviewPanel"
 import {
+  buildGermanAssignments,
   createInitialGermanCourseState,
   resolveGermanTopicSupport,
   saveGermanComprehensionHumanReview,
@@ -324,7 +325,11 @@ import {
 } from "./subjects/german/courseState"
 import { germanCoachingForTopic } from "./subjects/german/coaching"
 import { germanTopics } from "./subjects/german/content"
-import { germanTopicIds, type GermanTopicId } from "./subjects/german/package"
+import {
+  germanPilotTopicIds,
+  germanTopicIds,
+  type GermanTopicId,
+} from "./subjects/german/package"
 import {
   createGermanSourcePracticeState,
   type GermanSourcePracticeState,
@@ -1021,6 +1026,7 @@ function TaskCard({
           <div className="task-facts">
             <span>{task.questionCount} {copy.player.exercises}</span>
             {sessionMinutes && <span>{sessionMinutes} {t("common.minutesShort")}</span>}
+            <span>{t("home.task.maxXp", { xp: task.maxXp })}</span>
           </div>
         )}
         {difficultySummary && (
@@ -1567,15 +1573,66 @@ export function Home({
 }
 
 export function SubjectLabView({
+  learner,
+  germanCourse,
+  courseIndex,
   onBack,
   onOpenMathematics,
   onOpenGerman,
+  now = new Date(),
 }: {
+  learner: LearnerState
+  germanCourse: GermanCourseState
+  courseIndex: LearnerCourseIndex
   onBack: () => void
   onOpenMathematics: () => void
   onOpenGerman: () => void
+  now?: Date
 }) {
-  const { t } = useLocalization()
+  const { locale, t } = useLocalization()
+  const mathematicsTopics = curriculumTopicsForLearner(learner)
+  const mathematicsMastered = mathematicsTopics.filter(
+    (topic) => learner.mastery[topic.id].status === "mastered",
+  ).length
+  const mathematicsNextTask = buildAssignments(learner, now)[0]
+  const mathematicsNextTitle = mathematicsNextTask
+    ? taskPresentationForLocale(mathematicsNextTask, locale).title
+    : t("subjectLab.noTask")
+  const germanMastered = germanPilotTopicIds.filter(
+    (topicId) => Boolean(germanCourse.topicProgress[topicId].completedAt),
+  ).length
+  const germanNextAssignment = buildGermanAssignments(germanCourse, now)[0]
+  const germanNextTitle = !germanCourse.startCheck?.completedAt
+    ? germanCourseUiCopy[locale].startCheckTitle
+    : germanCourse.activeSession
+      ? germanTopics[germanCourse.activeSession.topicId].shortTitle
+      : germanCourse.activeExam ||
+          germanCourse.activeWriting ||
+          germanCourse.activeWritingRevision ||
+          germanCourse.activeComprehension
+        ? t("subjectLab.activeTask")
+        : germanNextAssignment?.title ?? t("subjectLab.noTask")
+  const activityLabel = (completedAt?: string, lastUsedAt?: string) => {
+    if (completedAt) {
+      return t("subjectLab.lastCompleted", {
+        date: formatSessionDate(completedAt, locale),
+      })
+    }
+    if (lastUsedAt) {
+      return t("subjectLab.lastOpened", {
+        date: formatSessionDate(lastUsedAt, locale),
+      })
+    }
+    return t("subjectLab.notOpened")
+  }
+  const mathematicsActivity = activityLabel(
+    courseIndex.lastCompletedAtByCourse[courseKeys.math],
+    courseIndex.lastUsedAtByCourse[courseKeys.math],
+  )
+  const germanActivity = activityLabel(
+    courseIndex.lastCompletedAtByCourse[courseKeys.german],
+    courseIndex.lastUsedAtByCourse[courseKeys.german],
+  )
   return (
     <main className="subject-lab-shell">
       <button className="curriculum-back" type="button" onClick={onBack}>
@@ -1593,6 +1650,32 @@ export function SubjectLabView({
             <span className="eyebrow">{t("subjectLab.step")}</span>
             <h2>{t("subjectLab.mathTitle")}</h2>
             <p>{t("home.concept.body")}</p>
+            <div
+              className="subject-lab-progress"
+              aria-label={t("home.stats.topicsLearned", {
+                mastered: mathematicsMastered,
+                total: mathematicsTopics.length,
+              })}
+            >
+              <div>
+                <strong>{mathematicsMastered}/{mathematicsTopics.length}</strong>
+                <span>{t("curriculum.topicsLearned")}</span>
+              </div>
+              <div
+                className="meter"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={mathematicsTopics.length}
+                aria-valuenow={mathematicsMastered}
+              >
+                <span style={{ width: `${mathematicsMastered / mathematicsTopics.length * 100}%` }} />
+              </div>
+            </div>
+            <div className="subject-lab-next">
+              <span>{t("progress.nextStep")}</span>
+              <strong>{mathematicsNextTitle}</strong>
+              <small>{mathematicsActivity}</small>
+            </div>
           </div>
           <button className="primary-button" type="button" onClick={onOpenMathematics}>
             {t("subjectLab.mathOpen")}
@@ -1604,6 +1687,32 @@ export function SubjectLabView({
             <span className="eyebrow">{t("subjectLab.step")}</span>
             <h2>{t("subjectLab.germanTitle")}</h2>
             <p>{t("subjectLab.germanBody")}</p>
+            <div
+              className="subject-lab-progress"
+              aria-label={t("home.stats.topicsLearned", {
+                mastered: germanMastered,
+                total: germanPilotTopicIds.length,
+              })}
+            >
+              <div>
+                <strong>{germanMastered}/{germanPilotTopicIds.length}</strong>
+                <span>{t("curriculum.topicsLearned")}</span>
+              </div>
+              <div
+                className="meter"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={germanPilotTopicIds.length}
+                aria-valuenow={germanMastered}
+              >
+                <span style={{ width: `${germanMastered / germanPilotTopicIds.length * 100}%` }} />
+              </div>
+            </div>
+            <div className="subject-lab-next">
+              <span>{t("progress.nextStep")}</span>
+              <strong>{germanNextTitle}</strong>
+              <small>{germanActivity}</small>
+            </div>
           </div>
           <button className="primary-button" type="button" onClick={onOpenGerman}>
             {t("subjectLab.germanOpen")}
@@ -2107,7 +2216,7 @@ function curriculumGroupCopy(
   }
 }
 
-function CurriculumView({
+export function CurriculumView({
   learner,
   examRunning = false,
   onBack,
@@ -2132,6 +2241,12 @@ function CurriculumView({
     (task) => task.kind === "assessment",
   )
   const learningBlocked = assessmentPending || examRunning
+  const firstIncompleteGroupId = curriculumGroups.find((group) => (
+    group.topicIds.some((topicId) => learner.mastery[topicId].status !== "mastered")
+  ))?.id ?? curriculumGroups.at(-1)!.id
+  const [openGroupIds, setOpenGroupIds] = useState<Set<(typeof curriculumGroups)[number]["id"]>>(
+    () => new Set([firstIncompleteGroupId]),
+  )
 
   return (
     <main className="curriculum-shell">
@@ -2181,15 +2296,50 @@ function CurriculumView({
       <div className="curriculum-groups">
         {curriculumGroups.map((group) => {
           const groupCopy = curriculumGroupCopy(group.id, locale)
+          const groupMastered = group.topicIds.filter(
+            (topicId) => learner.mastery[topicId].status === "mastered",
+          ).length
           return (
-          <section className="curriculum-group" key={group.id}>
-            <div className="curriculum-group-heading">
-              <div>
+          <details
+            className="curriculum-group"
+            key={group.id}
+            open={openGroupIds.has(group.id)}
+            onToggle={(event) => {
+              const open = event.currentTarget.open
+              setOpenGroupIds((current) => {
+                const next = new Set(current)
+                if (open) next.add(group.id)
+                else next.delete(group.id)
+                return next
+              })
+            }}
+          >
+            <summary className="curriculum-group-heading">
+              <div className="curriculum-group-copy">
                 <h2>{groupCopy.title}</h2>
                 <p>{groupCopy.description}</p>
               </div>
-              <span>{t("curriculum.topicCount", { count: group.topicIds.length })}</span>
-            </div>
+              <div className="curriculum-group-progress">
+                <div>
+                  <strong>{groupMastered}/{group.topicIds.length}</strong>
+                  <span>{t("curriculum.topicsLearned")}</span>
+                </div>
+                <div
+                  className="meter"
+                  role="progressbar"
+                  aria-label={t("curriculum.summaryAria", {
+                    mastered: groupMastered,
+                    total: group.topicIds.length,
+                  })}
+                  aria-valuemin={0}
+                  aria-valuemax={group.topicIds.length}
+                  aria-valuenow={groupMastered}
+                >
+                  <span style={{ width: `${groupMastered / group.topicIds.length * 100}%` }} />
+                </div>
+                <b aria-hidden="true">⌄</b>
+              </div>
+            </summary>
             <div className="curriculum-topic-list">
               {group.topicIds.map((topicId) => {
                 const topic = topicForLocale(topicId, locale)
@@ -2272,7 +2422,7 @@ function CurriculumView({
                 )
               })}
             </div>
-          </section>
+          </details>
         )})}
       </div>
     </main>
@@ -2287,6 +2437,27 @@ function formatSessionDate(value: string, locale: AppLocale = "de"): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value))
+}
+
+function xpAwardReasonLabel(award: XPAward, locale: AppLocale): string {
+  switch (award.reason) {
+    case "lesson-flawless":
+      return translateMessage(locale, "progress.xpReason.lessonFlawless")
+    case "lesson-full":
+      return translateMessage(locale, "progress.xpReason.lessonFull")
+    case "lesson-partial":
+      return translateMessage(locale, "progress.xpReason.lessonPartial")
+    case "lesson-recovery":
+      return translateMessage(locale, "progress.xpReason.lessonRecovery")
+    case "review-complete":
+      return translateMessage(locale, "progress.xpReason.review")
+    case "repair-complete":
+      return translateMessage(locale, "progress.xpReason.repair")
+    case "assessment-complete":
+      return translateMessage(locale, "progress.xpReason.assessment")
+    case "placement-complete":
+      return translateMessage(locale, "progress.xpReason.placement")
+  }
 }
 
 function weeklyMinutes(seconds: number): string {
@@ -2562,6 +2733,9 @@ export function ProgressView({
   const recentEvents = [...learner.learningEvents]
     .sort((left, right) => right.completedAt.localeCompare(left.completedAt))
     .slice(0, 8)
+  const xpAwardsByEventId = new Map(
+    learner.xpLedger.map((award) => [award.sourceEventId, award]),
+  )
   const recentMocks = [...learner.mockHistory]
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt))
     .slice(0, 5)
@@ -2978,6 +3152,7 @@ export function ProgressView({
               const independent = event.questionResults.filter(
                 (result) => result.independentlySolved,
               ).length
+              const award = xpAwardsByEventId.get(event.id)
               return (
                 <article key={event.id}>
                   <span className={`recent-kind ${event.taskKind}`} aria-hidden="true">{kindIcons[event.taskKind]}</span>
@@ -2986,6 +3161,16 @@ export function ProgressView({
                       {event.taskPurpose === "lesson-recovery" ? appCopy(locale).player.recovery : appCopy(locale).player.taskKinds[event.taskKind]} · {formatSessionDate(event.completedAt, locale)}
                     </span>
                     <strong>{event.topicIds.map((topicId) => topicForLocale(topicId, locale).shortTitle).join(" · ")}</strong>
+                  </div>
+                  <div className={`recent-reward${award ? "" : " unavailable"}`}>
+                    <strong>
+                      {award
+                        ? award.maxXp === undefined
+                          ? `+${award.totalXp} XP`
+                          : `${award.totalXp}/${award.maxXp} XP`
+                        : "—"}
+                    </strong>
+                    <span>{award ? xpAwardReasonLabel(award, locale) : t("progress.xpReason.unavailable")}</span>
                   </div>
                   <div className="recent-evidence">
                     <strong>{independent}/{event.questionResults.length}</strong>
@@ -12541,6 +12726,9 @@ function LearningApp() {
         />
       ) : showSubjectLab ? (
         <SubjectLabView
+          learner={learner}
+          germanCourse={germanCourse}
+          courseIndex={courseIndex}
           onBack={goHome}
           onOpenMathematics={() => openConceptLibrary()}
           onOpenGerman={() => switchSubject("german")}

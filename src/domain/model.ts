@@ -378,6 +378,8 @@ export interface XPAward {
   sourceEventId: string
   taskId: string
   taskKind: TaskKind
+  /** Persisted for new awards so history can show earned XP against the offered task value. */
+  maxXp?: number
   baseXp: number
   bonusXp: number
   totalXp: number

@@ -460,7 +460,11 @@ describe("learning engine", () => {
       questionCount: 2,
       pacing: { mode: "accelerated" },
     })
-    expect(result.award).toMatchObject({ totalXp: 25, reason: "lesson-full" })
+    expect(result.award).toMatchObject({
+      maxXp: lesson.maxXp,
+      totalXp: 25,
+      reason: "lesson-full",
+    })
     expect(result.state.mastery[topicId].status).toBe("learning")
     expect(immediateRecovery).toBeUndefined()
     expect(nextLessonRecoveryAt(result.state, now)).toBe(returnAt.toISOString())

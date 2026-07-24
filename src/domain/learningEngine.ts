@@ -996,6 +996,7 @@ function createAward(
     sourceEventId: event.id,
     taskId: task.id,
     taskKind: task.kind,
+    maxXp: task.maxXp,
     baseXp,
     bonusXp,
     totalXp: baseXp + bonusXp,

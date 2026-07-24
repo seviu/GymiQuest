@@ -7,6 +7,7 @@ import {
   CompletionView,
   ConceptPlayground,
   ConceptLibraryView,
+  CurriculumView,
   Home,
   MockExamPlayer,
   MockExamResultsView,
@@ -39,6 +40,10 @@ import {
 import { buildConceptRepairQuestions } from "./domain/conceptRepair"
 import { buildConceptLabRound } from "./domain/conceptLab"
 import { topics } from "./domain/content"
+import {
+  createLearnerCourseIndex,
+  markCourseCompleted,
+} from "./domain/courseIndex"
 import {
   buildAverageMotionModel,
   buildCatchUpMotionModel,
@@ -1296,7 +1301,20 @@ describe("assessment UI flow", () => {
   })
 
   it("makes the all-subject lab and its Mathematics concept space reachable from Home", () => {
-    const learner = createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const germanCourse = createInitialGermanCourseState(learner.learnerId, now)
+    let courseIndex = createLearnerCourseIndex(now)
+    courseIndex = markCourseCompleted(
+      courseIndex,
+      "math",
+      new Date("2026-07-13T10:00:00.000Z"),
+    )
+    courseIndex = markCourseCompleted(
+      courseIndex,
+      "german",
+      new Date("2026-07-12T09:00:00.000Z"),
+    )
     const onOpenSubjectLab = vi.fn()
     const onOpenMathematics = vi.fn()
     const onOpenGerman = vi.fn()
@@ -1328,6 +1346,10 @@ describe("assessment UI flow", () => {
     act(() => {
       root.render(
         <SubjectLabView
+          learner={learner}
+          germanCourse={germanCourse}
+          courseIndex={courseIndex}
+          now={now}
           onBack={() => undefined}
           onOpenMathematics={onOpenMathematics}
           onOpenGerman={onOpenGerman}
@@ -1339,10 +1361,62 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Wähle zuerst ein Fach.")
     expect(container.textContent).toContain("Mathematik")
     expect(container.textContent).toContain("Deutsch")
+    const mathematicsProgress = container.querySelector(
+      ".subject-lab-card.math [role='progressbar']",
+    )
+    const germanProgress = container.querySelector(
+      ".subject-lab-card.german [role='progressbar']",
+    )
+    expect(mathematicsProgress?.getAttribute("aria-valuenow")).toBe(
+      String(Object.values(learner.mastery).filter((mastery) => mastery.status === "mastered").length),
+    )
+    expect(germanProgress?.getAttribute("aria-valuenow")).toBe("0")
+    expect(container.textContent).toContain("Nächster Schritt")
+    expect(container.textContent).toContain("Dein Deutsch-Start-Check")
+    expect(container.textContent).toContain("Letzte Runde")
     act(() => buttonWithText(container, "Mathematik-Konzeptlabor öffnen").click())
     expect(onOpenMathematics).toHaveBeenCalledOnce()
     act(() => buttonWithText(container, "Deutsch-Übung öffnen").click())
     expect(onOpenGerman).toHaveBeenCalledOnce()
+  })
+
+  it("opens only the first incomplete curriculum group while keeping every group expandable", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const orderedTopics = Object.values(topics).sort(
+      (left, right) => left.courseOrder - right.courseOrder,
+    )
+    for (const topic of orderedTopics.slice(0, 7)) {
+      learner.mastery[topic.id].status = "mastered"
+    }
+
+    act(() => {
+      root.render(
+        <CurriculumView
+          learner={learner}
+          onBack={() => undefined}
+          onStartLesson={() => undefined}
+          onRefresh={() => undefined}
+          onOpenConcept={() => undefined}
+        />,
+      )
+    })
+
+    const groups = Array.from(
+      container.querySelectorAll<HTMLDetailsElement>(".curriculum-group"),
+    )
+    expect(groups).toHaveLength(3)
+    expect(groups[0]?.open).toBe(false)
+    expect(groups[1]?.open).toBe(true)
+    expect(groups[2]?.open).toBe(false)
+    expect(groups[0]?.querySelector("summary")?.textContent).toContain("7/7")
+    expect(groups[1]?.querySelector("[role='progressbar']")?.getAttribute("aria-valuemax")).toBe("7")
+
+    const firstSummary = groups[0]?.querySelector("summary")
+    if (!(firstSummary instanceof HTMLElement)) throw new Error("Missing curriculum group summary")
+    act(() => firstSummary.click())
+    expect(groups[0]?.open).toBe(true)
+    expect(groups[1]?.open).toBe(true)
   })
 
   it("moves from a concept trace through fading support to a fresh independent check", () => {
@@ -2096,6 +2170,80 @@ describe("assessment UI flow", () => {
     expect(
       container.querySelector(".task-card.lesson .difficulty-sequence"),
     ).toBeNull()
+  })
+
+  it("shows offered mathematics XP before a round and earned-versus-offered XP in history", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const task = buildAssignments(learner, now).find(
+      (assignment) => assignment.kind === "lesson",
+    )
+    if (!task) throw new Error("Missing lesson assignment")
+
+    act(() => {
+      root.render(
+        <Home
+          learner={learner}
+          now={now}
+          onStart={() => undefined}
+          onResume={() => undefined}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenMock={() => undefined}
+        />,
+      )
+    })
+    expect(container.textContent).toContain(`bis zu ${task.maxXp} XP`)
+
+    const questions = generateQuestionsForTask(task)
+    const result = recordCompletion(learner, task, {
+      id: "event:xp-history-ui",
+      taskId: task.id,
+      taskKind: task.kind,
+      topicIds: task.topicIds,
+      completedAt: new Date(now.getTime() + 60_000).toISOString(),
+      activeSeconds: 240,
+      mistakes: 0,
+      hintsUsed: 0,
+      independentlyCompleted: true,
+      questionResults: questions.map((question) => ({
+        questionId: question.id,
+        topicId: question.topicId,
+        attempts: 1,
+        hintsUsed: 0,
+        activeSeconds: Math.round(240 / questions.length),
+        independentlySolved: true,
+      })),
+    })
+
+    act(() => {
+      root.render(
+        <ProgressView
+          learner={result.state}
+          onBack={() => undefined}
+          now={new Date(now.getTime() + 60_000)}
+        />,
+      )
+    })
+    const reward = container.querySelector(".recent-reward")
+    expect(result.award.maxXp).toBe(task.maxXp)
+    expect(reward?.textContent).toContain(`${result.award.totalXp}/${task.maxXp} XP`)
+    expect(reward?.textContent).toContain("Fehlerfreie Runde")
+
+    const legacyState = structuredClone(result.state)
+    delete legacyState.xpLedger[0]!.maxXp
+    act(() => {
+      root.render(
+        <ProgressView
+          learner={legacyState}
+          onBack={() => undefined}
+          now={new Date(now.getTime() + 60_000)}
+        />,
+      )
+    })
+    expect(container.querySelector(".recent-reward")?.textContent).toContain(
+      `+${result.award.totalXp} XP`,
+    )
   })
 
   it("shows the mastered curriculum as an ongoing consolidation phase", () => {

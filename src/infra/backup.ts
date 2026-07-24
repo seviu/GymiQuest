@@ -801,6 +801,7 @@ function isXpAward(value: unknown): value is XPAward {
     isBoundedString(value.taskId) &&
     typeof value.taskKind === "string" &&
     validTaskKinds.has(value.taskKind) &&
+    (value.maxXp === undefined || isNonNegativeInteger(value.maxXp, 100_000)) &&
     isNonNegativeInteger(value.baseXp, 100_000) &&
     isNonNegativeInteger(value.bonusXp, 100_000) &&
     isNonNegativeInteger(value.totalXp, 200_000) &&
