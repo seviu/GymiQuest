@@ -1340,7 +1340,7 @@ function isSessionSnapshotShape(value: unknown): value is LearningSessionSnapsho
     )) &&
     (question.conceptRepair === undefined || (
       isRecord(question.conceptRepair) &&
-      (question.conceptRepair.version === 1 || question.conceptRepair.version === 2 || question.conceptRepair.version === 3 || question.conceptRepair.version === 4 || question.conceptRepair.version === 5) &&
+      (question.conceptRepair.version === 1 || question.conceptRepair.version === 2 || question.conceptRepair.version === 3 || question.conceptRepair.version === 4 || question.conceptRepair.version === 5 || question.conceptRepair.version === 6) &&
       isBoundedString(question.conceptRepair.seed, 1_000) &&
       typeof question.conceptRepair.stage === "string" &&
       validConceptRepairStages.has(question.conceptRepair.stage) &&

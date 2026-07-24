@@ -88,7 +88,7 @@ export const germanScoringRules: Readonly<Record<GermanScoringRuleId, GermanScor
     awardMode: "all-or-nothing",
     maximumPoints: 1,
     calibrationStatus: "source-informed-training-rule",
-    sourceNote: "Official 2024/2025 solutions contain exact-selection tasks, but their task-level conversions vary. GymiQuest awards one training point only for the exact option.",
+    sourceNote: "Official 2015–2026 solutions contain exact-selection tasks, but their task-level conversions vary. GymiQuest awards one training point only for the exact option.",
   }),
   "exact-matching-v1": Object.freeze({
     id: "exact-matching-v1",

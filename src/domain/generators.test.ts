@@ -153,13 +153,13 @@ describe("dynamic exercise generators", () => {
     expect(question?.prompt).toBe("Calculate as efficiently as possible:\n15 · 27 + 15 · 23")
   })
 
-  it("uses generation v5 for new task profiles while replaying v2-v4 requests", () => {
+  it("uses generation v6 for new task profiles while replaying v2-v5 requests", () => {
     expect(buildTaskGenerationProfile(["foundation", "exam"])).toEqual({
-      version: 5,
+      version: 6,
       difficultyBands: ["foundation", "exam"],
     })
 
-    for (const version of [2, 3, 4] as const) {
+    for (const version of [2, 3, 4, 5] as const) {
       const generation = { version, difficultyBand: "standard" as const }
       const first = generateQuestion("mass-units", "legacy-generation-replay", "legacy", generation)
       const replay = generateQuestion("mass-units", "legacy-generation-replay", "legacy", generation)
@@ -221,6 +221,53 @@ describe("dynamic exercise generators", () => {
         },
       }
     `)
+  })
+
+  it("pins byte-level v5 replay signatures across the complete Mathematics course", () => {
+    const stableHash = (value: unknown): string => {
+      let hash = 2_166_136_261
+      for (const character of JSON.stringify(value)) {
+        hash ^= character.charCodeAt(0)
+        hash = Math.imul(hash, 16_777_619)
+      }
+      return (hash >>> 0).toString(16).padStart(8, "0")
+    }
+    const signatures = Object.fromEntries(topicIds.map((topicId) => [
+      topicId,
+      stableHash(generateQuestion(
+        topicId,
+        `v5-golden:${topicId}`,
+        "v5-golden",
+        { version: 5, difficultyBand: "standard" },
+        "de",
+      )),
+    ]))
+
+    expect(signatures).toEqual({
+      "arithmetic-equations": "ec8cd75d",
+      "efficient-arithmetic": "6d1dcb34",
+      "mass-units": "3ff343f1",
+      "fraction-of-quantity": "21129a67",
+      "time-fractions": "c515485c",
+      "speed-distance-time": "ac6677aa",
+      "data-tables": "6c4fe3ed",
+      "money-calculations": "5aaef0b6",
+      "proportional-revenue": "98b5e9a6",
+      "integer-combinations": "98850209",
+      "number-constraints": "1de9f734",
+      "area-fractions": "08b1bd9c",
+      "composite-areas": "1d2ffc2c",
+      "tiling-costs": "94d06a30",
+      "reverse-fractions": "02d41129",
+      "reverse-chains": "0373e98d",
+      "inverse-proportion": "93b128de",
+      "changing-rates": "41a90995",
+      "geometric-loci": "86ef4f13",
+      "coordinate-transformations": "b5d9c5a4",
+      "cube-nets": "bf04ec90",
+      "spatial-rolling": "d403378f",
+      "cuboid-surface": "2c5c339e",
+    })
   })
 
   it("mixes expanded and existing families in v5 without leaking them into v4", () => {
@@ -329,8 +376,8 @@ describe("dynamic exercise generators", () => {
     expect(current.visual?.arrows?.length).toBeGreaterThan(1)
   })
 
-  it("keeps full spatial orientation and all three difficulty forms in v5", () => {
-    for (const version of [4, 5] as const) {
+  it("keeps full spatial orientation and all three difficulty forms in v4-v6", () => {
+    for (const version of [4, 5, 6] as const) {
       const variants = generateDifficultyVariants(
         "spatial-rolling",
         "spatial-v5-band-coverage",
@@ -348,7 +395,7 @@ describe("dynamic exercise generators", () => {
     }
 
     expect(generateDifficultyVariants("mass-units", "current-default").standard.generation?.version)
-      .toBe(5)
+      .toBe(6)
   })
 
   it("produces valid, exactly gradable instances across many seeds", () => {

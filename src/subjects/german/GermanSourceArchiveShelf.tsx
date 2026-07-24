@@ -7,7 +7,7 @@ import type {
 } from "../../infra/germanSourceArchive"
 import {
   germanSourceArchiveCatalog,
-  germanSourceArchiveDocumentKinds,
+  germanSourceArchiveDocumentKindsForEdition,
   germanSourceArchiveEditions,
   type GermanSourceArchiveDocumentKind,
   type GermanSourceArchiveEditionId,
@@ -50,8 +50,17 @@ export function GermanSourceArchiveShelf({
   const [importing, setImporting] = useState(false)
   const [status, setStatus] = useState<string>()
   const [error, setError] = useState<string>()
+  const [selectedEditionId, setSelectedEditionId] = useState<GermanSourceArchiveEditionId>(() => (
+    activePractice?.editionId ??
+    latestResult?.editionId ??
+    germanSourceArchiveEditions.find((edition) => (
+      germanSourceArchiveDocumentKindsForEdition(edition.editionId)
+        .some((kind) => Boolean(library[edition.editionId]?.[kind]))
+    ))?.editionId ??
+    germanSourceArchiveEditions[0].editionId
+  ))
   const importedCount = germanSourceArchiveEditions.reduce((total, edition) => (
-    total + germanSourceArchiveDocumentKinds.filter((kind) => Boolean(
+    total + germanSourceArchiveDocumentKindsForEdition(edition.editionId).filter((kind) => Boolean(
       library[edition.editionId]?.[kind],
     )).length
   ), 0)
@@ -67,7 +76,22 @@ export function GermanSourceArchiveShelf({
     try {
       const result = await onImport(files)
       setStatus(`${copy.imported(result.imported)}${result.rejected.length ? ` ${copy.rejected(result.rejected.length)}` : ""}`)
-      if (result.rejected.length) setError(result.rejected.join(" "))
+      if (result.rejected.length) {
+        setError(result.rejected.map((rejection) => (
+          copy.rejection(rejection.filename, rejection.code)
+        )).join(" "))
+      }
+      const newestImportedEdition = germanSourceArchiveEditions.find((edition) => (
+        result.importedEditionIds.includes(edition.editionId)
+      ))
+      if (newestImportedEdition) {
+        setSelectedEditionId((current) => (
+          result.importedEditionIds.includes(current)
+            ? current
+            : newestImportedEdition.editionId
+        ))
+        setReader(undefined)
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : copy.failure)
     } finally {
@@ -107,14 +131,36 @@ export function GermanSourceArchiveShelf({
       {status && <p className="official-library-status" role="status">{status}</p>}
       {error && <p className="official-import-error" role="alert">{error}</p>}
 
+      <div className="german-source-year-picker">
+        <label htmlFor="german-source-year">{copy.chooseYear}</label>
+        <select
+          id="german-source-year"
+          value={selectedEditionId}
+          onChange={(event) => {
+            setSelectedEditionId(event.currentTarget.value as GermanSourceArchiveEditionId)
+            setReader(undefined)
+          }}
+        >
+          {germanSourceArchiveEditions.map((edition) => (
+            <option key={edition.editionId} value={edition.editionId}>{edition.year}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="official-library-grid german-source-library-grid" aria-label={copy.yearsAria}>
-        {germanSourceArchiveEditions.map((edition) => {
+        {germanSourceArchiveEditions.filter((edition) => (
+          edition.editionId === selectedEditionId
+        )).map((edition) => {
           const documents = library[edition.editionId]
-          const readyCount = germanSourceArchiveDocumentKinds.filter((kind) => Boolean(documents?.[kind])).length
+          const documentKinds = germanSourceArchiveDocumentKindsForEdition(edition.editionId)
+          const readyCount = documentKinds.filter((kind) => Boolean(documents?.[kind])).length
           const languageReady = Boolean(
             documents?.["language-exam"] && documents["text-sheet"] && documents.solutions,
           )
-          const writingReady = Boolean(documents?.["essay-prompts"])
+          const writingReady = Boolean(
+            documents?.["essay-prompts"] &&
+            (!edition.documents["essay-guidance"] || documents["essay-guidance"]),
+          )
           const practiceAction = (mode: GermanSourcePracticeMode, ready: boolean) => {
             const isActive = activePractice?.editionId === edition.editionId && activePractice.mode === mode
             const disabled = isActive
@@ -139,14 +185,14 @@ export function GermanSourceArchiveShelf({
             )
           }
           return (
-            <article className={readyCount === 4 ? "ready" : ""} key={edition.editionId}>
+            <article className={readyCount === documentKinds.length ? "ready" : ""} key={edition.editionId}>
               <div className="official-library-year">
                 <strong>{edition.year}</strong>
-                <span>{copy.localCount(readyCount)}</span>
+                <span>{copy.localCount(readyCount, documentKinds.length)}</span>
               </div>
-              <p>{copy.facts}</p>
+              <p>{copy.facts(edition.languageExamTaskCount, edition.languageExamMaxPoints)}</p>
               <div className="official-library-actions german-source-library-actions">
-                {germanSourceArchiveDocumentKinds.map((kind) => documents?.[kind] ? (
+                {documentKinds.map((kind) => documents?.[kind] ? (
                   <button
                     type="button"
                     key={kind}
@@ -186,7 +232,7 @@ export function GermanSourceArchiveShelf({
           </header>
           <div className="official-library-reader-toolbar">
             <div className="official-library-reader-tabs" aria-label={copy.chooseDocumentAria}>
-              {germanSourceArchiveDocumentKinds.map((kind) => library[reader.editionId]?.[kind] && (
+              {germanSourceArchiveDocumentKindsForEdition(reader.editionId).map((kind) => library[reader.editionId]?.[kind] && (
                 <button
                   className={reader.kind === kind ? "active" : ""}
                   type="button"

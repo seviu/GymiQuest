@@ -13,9 +13,9 @@ describe("concept lab rounds", () => {
       expect(first.example.topicId, topicId).toBe(topicId)
       expect(first.check.topicId, topicId).toBe(topicId)
       expect(first.example.prompt, topicId).not.toBe(first.check.prompt)
-      expect(first.reference.generation?.version, topicId).toBe(5)
-      expect(first.example.generation?.version, topicId).toBe(first.reference.provenance ? 5 : 4)
-      expect(first.check.generation?.version, topicId).toBe(first.reference.provenance ? 5 : 4)
+      expect(first.reference.generation?.version, topicId).toBe(6)
+      expect(first.example.generation?.version, topicId).toBe(first.reference.provenance ? 6 : 4)
+      expect(first.check.generation?.version, topicId).toBe(first.reference.provenance ? 6 : 4)
       expect(first.example.generation?.difficultyBand, topicId).toBe("foundation")
       expect(first.check.generation?.difficultyBand, topicId).toBe("standard")
     }

@@ -192,7 +192,8 @@ test("keeps lesson introduction and active practice WCAG A/AA clean", async ({ p
 test("keeps concept, exam, and parent entry surfaces WCAG A/AA clean", async ({ page }) => {
   await createFoundationsLearner(page, `A11y-Routes-${test.info().project.name}`)
 
-  await page.getByRole("button", { name: "Konzept-Labor öffnen" }).click()
+  await page.getByRole("button", { name: "Fächerlabor öffnen" }).click()
+  await page.getByRole("button", { name: "Mathematik-Konzeptlabor öffnen" }).click()
   await expect(page.getByRole("heading", { name: "Wenn etwas noch nicht klickt, nimm die Idee auseinander." })).toBeVisible()
   await expectNoWcagViolations(page, "concept library")
 
@@ -222,7 +223,8 @@ test("persists spacious reading and a left-handed geometry workspace", async ({ 
   await expect(root).toHaveAttribute("data-reading-mode", "spacious")
   await expect(root).toHaveAttribute("data-geometry-controls", "left")
 
-  await page.getByRole("button", { name: "Konzept-Labor öffnen" }).click()
+  await page.getByRole("button", { name: "Fächerlabor öffnen" }).click()
+  await page.getByRole("button", { name: "Mathematik-Konzeptlabor öffnen" }).click()
   const lociCard = page.locator(".concept-library-card").filter({ hasText: "Geometrische Orte" })
   await lociCard.getByRole("button", { name: "Konzept öffnen" }).click()
   await expect(page.locator(".topic-hero")).toContainText("Geometrische Orte")
@@ -262,7 +264,7 @@ test("persists minimal focus while keeping the learning plan, XP, and reviews vi
   await expect(page.locator(".home-progress-disclosure > summary")).toContainText("Nächste Standortbestimmung")
   await expect(page.locator(".task-card")).not.toHaveCount(0)
   await expect(page.locator(".primary-plan-step .primary-button")).toBeInViewport()
-  await expect(page.getByRole("button", { name: "Konzept-Labor öffnen" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Fächerlabor öffnen" })).toBeVisible()
   await expect(page.getByText("HEUTIGE QUEST")).toHaveCount(0)
   await expect(page.getByText("MATHE-EXPEDITION")).toHaveCount(0)
   await expect(page.getByText("ABZEICHEN", { exact: true })).toHaveCount(0)
@@ -332,6 +334,8 @@ test("renders every dynamic topic through the production learner surface without
   await openAuthorValidationLab(page, `A11y-Matrix-${test.info().project.name}`)
   await expectNoHorizontalOverflow(page, "author validation lab")
   await expectNoWcagViolations(page, "author validation lab")
+  await page.setViewportSize({ width: 320, height: 900 })
+  await expectNoHorizontalOverflow(page, "author validation lab at 320px")
 
   const topicSelect = page.locator("#author-validation-topic")
   const topicOptions = await topicSelect.locator("option").evaluateAll((options) => options.map((option) => ({
@@ -345,7 +349,7 @@ test("renders every dynamic topic through the production learner surface without
 
   for (const [index, topic] of topicOptions.entries()) {
     const bandLabel = bandLabels[index % bandLabels.length]!
-    const context = `${topic.value} (${bandLabel}) learner surface`
+    const context = `${topic.value} (${bandLabel}) learner surface at 320px`
     await test.step(context, async () => {
       await topicSelect.selectOption(topic.value)
       const bandButton = page.getByRole("button", { name: bandLabel, exact: true })

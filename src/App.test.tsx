@@ -17,6 +17,7 @@ import {
   ProfileSetupView,
   ProgressView,
   ReleaseReadinessView,
+  SubjectLabView,
   TaskPlayer,
 } from "./App"
 import { decodeExerciseReport, isMathematicsExerciseReport } from "./domain/exerciseReport"
@@ -64,8 +65,10 @@ import {
   buildAssignments,
   buildPlacementTask,
   buildPrerequisiteRefresh,
+  completePlacementWithoutCheck,
   createInitialLearner,
   createSeededLearner,
+  DEEP_RECOVERY_BREAK_HOURS,
   recordCompletion,
   requestTeacherSupport,
 } from "./domain/learningEngine"
@@ -780,33 +783,100 @@ describe("assessment UI flow", () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  it("requires explicit confirmation before deleting local progress", () => {
-    const onReset = vi.fn()
+  it("keeps reset controls in profile settings and requires explicit confirmation", () => {
+    const learner = createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))
+    const onResetMathematics = vi.fn()
+    const onResetGerman = vi.fn()
+    const onResetAll = vi.fn()
+    act(() => {
+      root.render(
+        <ProfileSetupView
+          learner={learner}
+          mode="edit"
+          onSave={async () => undefined}
+          onResetMathematics={onResetMathematics}
+          onResetGerman={onResetGerman}
+          onResetAll={onResetAll}
+          now={new Date("2026-07-14T12:00:00.000Z")}
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain("PROFILEINSTELLUNGEN · LERNSTAND")
+    expect(container.textContent).toContain("Mathematik-Lernstand zurücksetzen")
+    expect(container.textContent).toContain("Deutsch-Lernstand zurücksetzen")
+    expect(container.textContent).toContain("Testprofil zurücksetzen und Onboarding neu starten")
+
+    act(() => buttonWithText(container, "Mathematik-Lernstand zurücksetzen").click())
+    expect(onResetMathematics).not.toHaveBeenCalled()
+    expect(container.textContent).toContain("Deutsch-Lernstand, Profil, Begleitpersonen-PIN")
+    act(() => buttonWithText(container, "Abbrechen").click())
+    expect(container.textContent).not.toContain("Nur Mathematik zurücksetzen?")
+
+    act(() => buttonWithText(container, "Deutsch-Lernstand zurücksetzen").click())
+    expect(onResetGerman).not.toHaveBeenCalled()
+    expect(container.textContent).toContain("Mathematik, Profil, Begleitpersonen-PIN")
+    act(() => buttonWithText(container, "Deutsch zurücksetzen").click())
+    expect(onResetGerman).toHaveBeenCalledOnce()
+
+    act(() => buttonWithText(container, "Testprofil zurücksetzen und Onboarding neu starten").click())
+    expect(onResetAll).not.toHaveBeenCalled()
+    expect(container.textContent).toContain("Das getrennte Freigabeprotokoll bleibt erhalten")
+    act(() => buttonWithText(container, "Profil zurücksetzen").click())
+    expect(onResetAll).toHaveBeenCalledOnce()
+  })
+
+  it("explains when a struggling idea is resting before a fresh recovery round", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const started = completePlacementWithoutCheck(createInitialLearner(now), now)
+    const lesson = buildAssignments(started, now).find((task) => task.kind === "lesson")
+    if (!lesson) throw new Error("Expected an initial lesson")
+    const completed = recordCompletion(started, lesson, {
+      id: "event:home-recovery-break",
+      taskId: lesson.id,
+      taskKind: lesson.kind,
+      topicIds: lesson.topicIds,
+      completedAt: now.toISOString(),
+      activeSeconds: 120,
+      mistakes: 2,
+      hintsUsed: 0,
+      independentlyCompleted: false,
+      questionResults: Array.from({ length: lesson.questionCount }, (_, index) => ({
+        questionId: `${lesson.id}:question:${index}`,
+        topicId: lesson.topicIds[index % lesson.topicIds.length]!,
+        attempts: index === 0 ? 3 : 1,
+        hintsUsed: 0,
+        activeSeconds: 30,
+        independentlySolved: index !== 0,
+      })),
+    })
+    let restingLearner = completed.state
+    for (const mastery of Object.values(restingLearner.mastery)) {
+      if (mastery.status === "available") {
+        restingLearner = requestTeacherSupport(restingLearner, mastery.topicId, now)
+      }
+    }
+
+    expect(buildAssignments(restingLearner, now)).toHaveLength(0)
     act(() => {
       root.render(
         <Home
-          learner={createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))}
+          learner={restingLearner}
+          now={now}
           onStart={() => undefined}
           onResume={() => undefined}
           onPrerequisite={() => undefined}
           onOpenCurriculum={() => undefined}
           onOpenMock={() => undefined}
-          onReset={onReset}
+          onReset={() => undefined}
         />,
       )
     })
 
-    act(() => buttonWithText(container, "Lokalen Fortschritt zurücksetzen").click())
-    expect(onReset).not.toHaveBeenCalled()
-    expect(container.textContent).toContain("Lektionen, Reviews, XP, Probeprüfungen, Archivtrainings und Verlauf")
-    expect(container.textContent).toContain("Das getrennte Freigabeprotokoll bleibt erhalten")
-
-    act(() => buttonWithText(container, "Abbrechen").click())
-    expect(container.textContent).not.toContain("Fortschritt löschen?")
-
-    act(() => buttonWithText(container, "Lokalen Fortschritt zurücksetzen").click())
-    act(() => buttonWithText(container, "Fortschritt löschen").click())
-    expect(onReset).toHaveBeenCalledOnce()
+    expect(container.textContent).toContain("Eine Idee macht kurz Pause.")
+    expect(container.textContent).toContain("Kurze Pause – dann frisch weiter.")
+    expect(container.textContent).toContain("dieselbe Idee mit neuen Zahlen")
+    expect(container.querySelector(".primary-plan-step .task-card")).toBeNull()
   })
 
   it("shows an adaptive daily quest and durable local badge progress", () => {
@@ -1225,9 +1295,11 @@ describe("assessment UI flow", () => {
     expect(learner).toEqual(original)
   })
 
-  it("keeps the standalone concept library separate from XP and reachable from home", () => {
+  it("makes the all-subject lab and its Mathematics concept space reachable from Home", () => {
     const learner = createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))
-    const onOpenConceptLab = vi.fn()
+    const onOpenSubjectLab = vi.fn()
+    const onOpenMathematics = vi.fn()
+    const onOpenGerman = vi.fn()
 
     act(() => {
       root.render(
@@ -1237,7 +1309,7 @@ describe("assessment UI flow", () => {
           onResume={() => undefined}
           onPrerequisite={() => undefined}
           onOpenCurriculum={() => undefined}
-          onOpenConceptLab={onOpenConceptLab}
+          onOpenConceptLab={onOpenSubjectLab}
           onOpenMock={() => undefined}
           onReset={() => undefined}
         />,
@@ -1245,8 +1317,32 @@ describe("assessment UI flow", () => {
     })
 
     expect(container.querySelector(".home-shortcuts")).not.toBeNull()
-    act(() => buttonWithText(container, "Konzept-Labor öffnen").click())
-    expect(onOpenConceptLab).toHaveBeenCalledOnce()
+    expect(container.textContent).toContain("Wähle deinen nächsten Weg.")
+    expect(container.textContent).toContain("Ein beliebiges Mathematikthema üben")
+    expect(container.textContent).toContain("Echte oder Probeprüfung versuchen")
+    const labCard = container.querySelector(".home-shortcut-card.lab")
+    if (!(labCard instanceof HTMLButtonElement)) throw new Error("Missing subject lab card")
+    act(() => labCard.click())
+    expect(onOpenSubjectLab).toHaveBeenCalledOnce()
+
+    act(() => {
+      root.render(
+        <SubjectLabView
+          onBack={() => undefined}
+          onOpenMathematics={onOpenMathematics}
+          onOpenGerman={onOpenGerman}
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain("ÜBUNGSLABOR · ALLE FÄCHER")
+    expect(container.textContent).toContain("Wähle zuerst ein Fach.")
+    expect(container.textContent).toContain("Mathematik")
+    expect(container.textContent).toContain("Deutsch")
+    act(() => buttonWithText(container, "Mathematik-Konzeptlabor öffnen").click())
+    expect(onOpenMathematics).toHaveBeenCalledOnce()
+    act(() => buttonWithText(container, "Deutsch-Übung öffnen").click())
+    expect(onOpenGerman).toHaveBeenCalledOnce()
   })
 
   it("moves from a concept trace through fading support to a fresh independent check", () => {
@@ -2230,7 +2326,13 @@ describe("assessment UI flow", () => {
     expect(pacedLessonReviewMeta).not.toBeNull()
     expect(pacedLessonReviewMeta?.textContent).not.toContain("Aufbau")
 
-    const recovery = buildAssignments(result.state, now).find(
+    const recoveryAt = new Date(
+      now.getTime() + DEEP_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000,
+    )
+    expect(buildAssignments(result.state, now).some(
+      (candidate) => candidate.purpose === "lesson-recovery",
+    )).toBe(false)
+    const recovery = buildAssignments(result.state, recoveryAt).find(
       (candidate) => candidate.purpose === "lesson-recovery",
     )!
     const recoveryQuestions = generateQuestionsForTask(recovery)
@@ -2240,7 +2342,7 @@ describe("assessment UI flow", () => {
       taskKind: recovery.kind,
       taskPurpose: recovery.purpose,
       topicIds: recovery.topicIds,
-      completedAt: now.toISOString(),
+      completedAt: recoveryAt.toISOString(),
       activeSeconds: 80,
       mistakes: 1,
       hintsUsed: 0,
@@ -2277,7 +2379,7 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain("Wiederholungs-XP")
     expect(
       container.querySelector(".session-review-question small")?.textContent,
-    ).toContain("Standard")
+    ).toContain("Aufbau")
   })
 
   it("debriefs a difficult review without changing its fixed smaller XP", () => {
@@ -2362,12 +2464,17 @@ describe("assessment UI flow", () => {
     }
     expect(reviewEvidence.open).toBe(false)
     expect(feedbackDisclosure.open).toBe(false)
+    const recoveryActions = container.querySelector(".completion-recovery-actions")
+    const retryVariant = buttonWithText(container, "Neue Variante lösen")
+    const openIdea = buttonWithText(container, "Grundidee öffnen")
+    expect(recoveryActions?.contains(retryVariant)).toBe(true)
+    expect(recoveryActions?.contains(openIdea)).toBe(true)
+    expect(reviewEvidence.contains(retryVariant)).toBe(false)
+    expect(reviewEvidence.contains(openIdea)).toBe(false)
     const reviewEvidenceSummary = reviewEvidence.querySelector(":scope > summary")
     if (!(reviewEvidenceSummary instanceof HTMLElement)) throw new Error("Missing review evidence summary")
     act(() => reviewEvidenceSummary.click())
     expect(reviewEvidence.open).toBe(true)
-    expect(reviewEvidence.contains(buttonWithText(container, "Neue Variante lösen"))).toBe(true)
-    expect(reviewEvidence.contains(buttonWithText(container, "Grundidee öffnen"))).toBe(true)
     const feedbackSummary = feedbackDisclosure.querySelector("summary")
     if (!(feedbackSummary instanceof HTMLElement)) throw new Error("Missing feedback disclosure summary")
     act(() => feedbackSummary.click())
@@ -4570,8 +4677,8 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Zürich ZAP1 Mathematik · Paket v1")
     expect(container.textContent).toContain("Struktur vollständig")
     expect(container.textContent).toContain("69Generatorfelder im Release-Gate")
-    expect(container.querySelector('[aria-label="0 von 76 Prüffeldern in dieser Sitzung geprüft"]')).not.toBeNull()
-    expect(container.textContent).toContain("V5-Archivvorlagen")
+    expect(container.querySelector('[aria-label="0 von 86 Prüffeldern in dieser Sitzung geprüft"]')).not.toBeNull()
+    expect(container.textContent).toContain("Archiv-inspirierte Vorlagen")
     expect(container.textContent).toContain("KANONISCHE ANTWORT")
     expect(container.textContent).toContain("Vollständigen Lösungsweg prüfen")
 
@@ -4614,7 +4721,7 @@ describe("assessment UI flow", () => {
     const validationCheck = container.querySelector(".author-validation-check")
     if (!(validationCheck instanceof HTMLButtonElement)) throw new Error("Missing author validation check button")
     act(() => validationCheck.click())
-    expect(container.querySelector('[aria-label="1 von 76 Prüffeldern in dieser Sitzung geprüft"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="1 von 86 Prüffeldern in dieser Sitzung geprüft"]')).not.toBeNull()
     act(() => buttonWithText(container, "Nächstes offenes Prüffeld").click())
     expect(container.textContent).toContain("Variante")
 
@@ -5951,14 +6058,15 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Unterstützen, ohne Druck aufzubauen.")
   })
 
-  it("requires confirmation before resetting the test profile to onboarding", () => {
+  it("requires confirmation in profile settings before resetting to onboarding", () => {
     const onReset = vi.fn()
     act(() => {
       root.render(
-        <ProgressView
+        <ProfileSetupView
           learner={createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))}
-          onBack={() => undefined}
-          onReset={onReset}
+          mode="edit"
+          onSave={async () => undefined}
+          onResetAll={onReset}
           now={new Date("2026-07-14T12:00:00.000Z")}
         />,
       )
@@ -5972,14 +6080,16 @@ describe("assessment UI flow", () => {
     expect(onReset).toHaveBeenCalledOnce()
   })
 
-  it("separates Mathematics-only reset from the complete profile reset", () => {
+  it("keeps destructive reset controls out of the Progress overview", () => {
     const onResetSubject = vi.fn()
     const onReset = vi.fn()
+    const onEditProfile = vi.fn()
     act(() => {
       root.render(
         <ProgressView
           learner={createSeededLearner(new Date("2026-07-14T12:00:00.000Z"))}
           onBack={() => undefined}
+          onEditProfile={onEditProfile}
           onResetSubject={onResetSubject}
           onReset={onReset}
           now={new Date("2026-07-14T12:00:00.000Z")}
@@ -5987,14 +6097,11 @@ describe("assessment UI flow", () => {
       )
     })
 
-    act(() => buttonWithText(container, "Mathematik-Lernstand zurücksetzen").click())
-    expect(container.textContent).toContain("Deutsch-Lernstand, Profil, Begleitpersonen-PIN")
-    expect(container.textContent).toContain("importierte PDFs und App-Einstellungen bleiben erhalten")
+    expect(container.textContent).not.toContain("Mathematik-Lernstand zurücksetzen")
+    expect(container.textContent).not.toContain("Testprofil zurücksetzen und Onboarding neu starten")
     expect(onResetSubject).not.toHaveBeenCalled()
     expect(onReset).not.toHaveBeenCalled()
-
-    act(() => buttonWithText(container, "Mathematik zurücksetzen").click())
-    expect(onResetSubject).toHaveBeenCalledOnce()
-    expect(onReset).not.toHaveBeenCalled()
+    act(() => buttonWithText(container, "Plan anpassen").click())
+    expect(onEditProfile).toHaveBeenCalledOnce()
   })
 })

@@ -14,7 +14,7 @@ export const mathSubjectRuntime: SubjectRuntime<LearningTask, GeneratedQuestion>
   shortTitle: ACTIVE_CURRICULUM_PACKAGE.shortTitle,
   generator: Object.freeze({
     id: "zh-zap1-math",
-    version: 5,
+    version: 6,
   }),
   topics: Object.freeze(ACTIVE_CURRICULUM_PACKAGE.topicIds.map((topicId) => topics[topicId])),
   lessons: Object.freeze(ACTIVE_CURRICULUM_PACKAGE.topicIds.map((topicId) => {

@@ -36,7 +36,11 @@ describe("German source-only practice", () => {
       pageNumbers: { "language-exam": 1, "text-sheet": 1 },
     })
     expect(practice.pageNumbers.solutions).toBeUndefined()
-    expect(germanSourcePracticeDocumentKinds(practice.mode, practice.phase)).toEqual([
+    expect(germanSourcePracticeDocumentKinds(
+      practice.editionId,
+      practice.mode,
+      practice.phase,
+    )).toEqual([
       "language-exam",
       "text-sheet",
     ])
@@ -110,6 +114,43 @@ describe("German source-only practice", () => {
       writingReviewChecks: ["clear-structure", "proofread"],
     })
     expect(isGermanSourcePracticeResult(result)).toBe(true)
+  })
+
+  it("unlocks the supplied 2015 essay correction guidance only during review", () => {
+    const active = createActiveGermanSourcePractice(
+      "zap-zh-lg-german-2015",
+      "writing",
+      "source:writing:guidance",
+      start,
+    )
+    expect(germanSourcePracticeDocumentKinds(
+      active.editionId,
+      active.mode,
+      active.phase,
+    )).toEqual(["essay-prompts"])
+    expect(navigateGermanSourcePractice(active, "essay-guidance", 1, start)).toBe(active)
+
+    const submitted = submitGermanSourcePractice(
+      active,
+      "submitted",
+      new Date(start.getTime() + 1_800_000),
+    )
+    expect(germanSourcePracticeDocumentKinds(
+      submitted.editionId,
+      submitted.mode,
+      submitted.phase,
+    )).toEqual(["essay-prompts", "essay-guidance"])
+    expect(submitted.pageNumbers["essay-guidance"]).toBe(1)
+    expect(navigateGermanSourcePractice(
+      submitted,
+      "essay-guidance",
+      1,
+      new Date(start.getTime() + 1_801_000),
+    )).toMatchObject({
+      currentDocumentKind: "essay-guidance",
+      phase: "review",
+    })
+    expect(isActiveGermanSourcePractice(submitted)).toBe(true)
   })
 
   it("stores a completed result without accepting scoring-shaped or malformed records", () => {

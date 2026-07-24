@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { encodeGeometryConstructionAnswer } from "./geometryConstruction"
 import { createInitialLearner, recordMockExamResult } from "./learningEngine"
 import {
+  ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION,
   FULL_MOCK_DURATION_SECONDS,
   FIXED_BAND_MOCK_BLUEPRINT_VERSION,
   FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION,
@@ -198,6 +199,16 @@ describe("generated strict mock exams", () => {
       fullOrientation.seed,
       FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION,
     )
+    const archiveExpansion = createActiveMockExam(
+      "archive-expansion-replay",
+      start,
+      FULL_MOCK_DURATION_SECONDS,
+      ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION,
+    )
+    const archiveExpansionBlueprint = buildGeneratedMockBlueprint(
+      archiveExpansion.seed,
+      ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION,
+    )
 
     expect(isReplayableMockExam(legacy)).toBe(true)
     expect(legacy.blueprintVersion).toBe(1)
@@ -217,31 +228,54 @@ describe("generated strict mock exams", () => {
     expect(fullOrientationBlueprint.tasks.every((task) => task.parts.every((part) => (
       part.generation?.version === 4
     )))).toBe(true)
-    expect(current.blueprintVersion).toBe(5)
+    expect(isReplayableMockExam(archiveExpansion)).toBe(true)
+    expect(archiveExpansion.blueprintVersion).toBe(5)
+    expect(archiveExpansionBlueprint.tasks.every((task) => task.parts.every((part) => (
+      part.generation?.version === 5
+    )))).toBe(true)
+    expect(current.blueprintVersion).toBe(6)
     expect(currentBlueprint.tasks.every((task) => task.parts.every((part) => (
-      part.generation?.version === 5 &&
+      part.generation?.version === 6 &&
       part.generation?.difficultyBand === "exam" &&
       generateMockPartQuestion(part).generation?.difficultyBand === "exam"
     )))).toBe(true)
   })
 
-  it("brings v5 archive families into new generated mock exams", () => {
-    const seenFamilies = new Set<string>()
+  it("keeps v5 mock coverage replayable and brings every v6 gap into new mocks", () => {
+    const v5Families = new Set<string>()
+    const currentFamilies = new Set<string>()
     for (let index = 0; index < 120; index += 1) {
-      const blueprint = buildGeneratedMockBlueprint(`archive-expansion-mock:${index}`)
-      for (const part of blueprint.tasks.flatMap((task) => task.parts)) {
+      const v5Blueprint = buildGeneratedMockBlueprint(
+        `archive-expansion-mock:${index}`,
+        ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION,
+      )
+      for (const part of v5Blueprint.tasks.flatMap((task) => task.parts)) {
         const provenance = generateMockPartQuestion(part).provenance
-        if (provenance) seenFamilies.add(provenance.familyId)
+        if (provenance) v5Families.add(provenance.familyId)
+      }
+      const currentBlueprint = buildGeneratedMockBlueprint(`archive-coverage-mock:${index}`)
+      for (const part of currentBlueprint.tasks.flatMap((task) => task.parts)) {
+        const provenance = generateMockPartQuestion(part).provenance
+        if (provenance) currentFamilies.add(provenance.familyId)
       }
     }
 
-    expect(seenFamilies).toEqual(new Set([
+    expect(v5Families).toEqual(new Set([
       "archive-v5-efficient-compensation",
       "archive-v5-travel-timing",
       "archive-v5-duration-price-table",
       "archive-v5-repeated-digit-filter",
       "archive-v5-cuboid-missing-edge",
     ]))
+    for (const familyId of [
+      "archive-v6-relational-systems",
+      "archive-v6-voxel-solids",
+      "archive-v6-recurring-cycles",
+      "archive-v6-number-walls",
+      "archive-v6-number-line",
+    ]) {
+      expect(currentFamilies).toContain(familyId)
+    }
   }, 30_000)
 
   it("uses an absolute deadline that survives reload and reaches zero", () => {

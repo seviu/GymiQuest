@@ -1,5 +1,6 @@
 import { topics } from "./content"
 import { archiveExpansionFamilyCatalog } from "./archiveGeneratorExpansion"
+import { archiveCoverageFamilyCatalog } from "./archiveGeneratorCoverage"
 import {
   ACTIVE_CURRICULUM_PACKAGE,
   curriculumPackageReference,
@@ -17,12 +18,15 @@ import {
 } from "./model"
 
 export const AUTHOR_VALIDATION_TASK_PREFIX = "author-validation:"
-export const AUTHOR_VALIDATION_GENERATION_VERSION = 5
+export const AUTHOR_VALIDATION_GENERATION_VERSION = 6
 
 export type AuthorValidationKey = `${TopicId}:${DifficultyBand}`
 export type AuthorValidationTemplateKey = `${string}:${string}`
 
-export const authorValidationArchiveTemplates = archiveExpansionFamilyCatalog.flatMap((family) => (
+export const authorValidationArchiveTemplates = [
+  ...archiveExpansionFamilyCatalog,
+  ...archiveCoverageFamilyCatalog,
+].flatMap((family) => (
   family.templateIds.map((templateId) => ({
     familyId: family.familyId,
     topicId: family.topicId,

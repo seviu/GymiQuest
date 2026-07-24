@@ -206,7 +206,6 @@ export function GermanCourseView({
   onSubjectChange,
   onEditProfile,
   onOpenCompanion,
-  onResetSubject,
   now = new Date(),
 }: {
   state: GermanCourseState
@@ -219,10 +218,10 @@ export function GermanCourseView({
   onSubjectChange: () => void
   onEditProfile: () => void
   onOpenCompanion: () => void
-  onResetSubject: () => void
+  onResetSubject?: () => void
   now?: Date
 }) {
-  const { locale, intlLocale, t, copy: appCopy } = useLocalization()
+  const { locale, intlLocale, copy: appCopy } = useLocalization()
   const copy = germanCourseUiCopy[locale]
   const examCopy = germanExamUiCopy[locale]
   const writingCopy = germanWritingUiCopy[locale]
@@ -233,7 +232,6 @@ export function GermanCourseView({
   const [sessionVisible, setSessionVisible] = useState(false)
   const [introductionVisible, setIntroductionVisible] = useState(false)
   const [completionAward, setCompletionAward] = useState<GermanXpEvent>()
-  const [confirmReset, setConfirmReset] = useState(false)
   const [examVisible, setExamVisible] = useState(false)
   const [examIntroductionVisible, setExamIntroductionVisible] = useState(false)
   const [examResultVisible, setExamResultVisible] = useState(false)
@@ -667,17 +665,6 @@ export function GermanCourseView({
         </section>
         <button className="secondary-button" type="button" onClick={onEditProfile}>{copy.editProfile}</button>
         <button className="secondary-button" type="button" onClick={onOpenCompanion}>{copy.openCompanion}</button>
-        {confirmReset ? (
-          <div className="reset-confirmation" role="alert">
-            <p><strong>{copy.resetTitle}</strong><span>{copy.resetBody}</span></p>
-            <div>
-              <button className="text-button" type="button" onClick={() => setConfirmReset(false)}>{t("common.cancel")}</button>
-              <button className="danger-button" type="button" onClick={onResetSubject}>{copy.resetConfirm}</button>
-            </div>
-          </div>
-        ) : (
-          <button className="text-button" type="button" onClick={() => setConfirmReset(true)}>{copy.resetOpen}</button>
-        )}
       </aside>
       <section className="german-plan-column">
         <span className="eyebrow">{copy.homeEyebrow}</span>

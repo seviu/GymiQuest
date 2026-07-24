@@ -15,14 +15,14 @@ Official tasks are calibration and golden-test sources. Public training content 
 | 2019 | `2019_mathematik_aufgaben_lg.pdf` | 12 | `2019_mathematik_loesung_lg.pdf` | 1 | Searchable tasks and answer text |
 | 2020 | `2020_mathematik_aufgaben_lg.pdf` | 12 | `2020_mathematik_lg.pdf` | 1 | Image-only; every task page inspected from rendered images |
 | 2021 | `2021_mathematik_aufgaben.pdf` | 12 | `2021_mathematik_loesungen.pdf` | 1 | Image-only; every task page inspected from rendered images |
-| 2022 | `2022_mathematik_aufgaben.pdf` | 11 | `2022_mathematik_loesungen.pdf` | 1 | Searchable tasks and answer text |
+| 2022 | `2022_mathematik_aufgaben.pdf` | 11 | `2022_mathematik_loesungen.pdf` | 1 | Image-only; every task page inspected from rendered images |
 | 2023 | `2023_mathematik_aufgaben_lg.pdf` | 12 | `2023_mathematik_loesungen_lg.pdf` | 12 | Searchable tasks and detailed rubric |
 | 2024 | `2024_mathematik_aufgaben_lg.pdf` | 12 | `2024_mathematik_loesungen_lg.pdf` | 11 | Searchable tasks and detailed rubric |
 | 2025 | `2025_mathematik_aufgaben.pdf` | 12 | `2025_mathematik_loesungen.pdf` | 15 | Searchable tasks, detailed rubric, and correction addendum |
 
 All files are under `/Users/svieira/Downloads`. Each paper has 60 minutes, nine tasks, and 36 available points.
 
-The private runtime catalog verifies the exact local sources below. A machine audit on 15 July 2026 matched all 22 SHA-256 values and all 22 page counts against the files above.
+The private runtime catalog verifies the exact local sources below. A second machine audit on 23 July 2026 matched all 22 SHA-256 values and all 22 page counts against the files above.
 
 | Year | Aufgaben SHA-256 | Lösungen SHA-256 |
 |---:|---|---|
@@ -43,7 +43,7 @@ The private runtime catalog verifies the exact local sources below. A machine au
 - The app can select many PDFs at once, identify them by content rather than filename, and store each task/solution document under its verified year in IndexedDB.
 - All 11 years are available in a local page reader. The 2016–2022 pairs additionally run as strict 60-minute source training with an absolute persisted deadline, free task order, flags, paper-attempt marks, and solutions locked until submission or timeout. No PDF is copied into the public PWA artifact or encrypted learner backup.
 - The independently encoded 2015, 2023, 2024, and 2025 rubrics are connected to strict replay. The 2024 edition remains fully human-scored; the 2025 edition uses only its documented conservative floors; the 2023 edition fixes only its truth-table and exact `156` rules; and the 2015 edition fixes only Task 9's published cube/net pairing score. Every other point is corrected against the original pages.
-- Only 2024 and 2025 use published year-specific mathematics scales. The 2015 and 2023 replays end with corrected 0–36 point totals and explicitly withhold a grade until primary official scales are independently obtained and validated. The 2016–2022 editions remain source-only; after the timer they permit only three task-level self-review labels: end result matches, differs/unclear, or not attempted. Their one-page final-answer sheets cannot establish method or partial credit, so the result deliberately has no points, grade, XP, mastery effect, or adaptive review effect.
+- Only 2024 and 2025 use published year-specific mathematics scales. The 2015 and 2023 replays end with corrected 0–36 point totals and explicitly withhold a grade until primary official scales are independently obtained and validated. The 2016–2022 editions remain source-only; after the timer they permit only three task-level self-review labels: end result matches, differs/unclear, or not attempted. Their one-page answer sheets contain a few isolated method or error-carry notes but no reconstructable partial-credit ladders, so the result deliberately has no points, grade, XP, mastery effect, or adaptive review effect.
 
 ## Task-family synopsis
 
@@ -56,7 +56,7 @@ The private runtime catalog verifies the exact local sources below. A machine au
 | 2019 | efficient arithmetic; data table with units and fractions; inverse proportion; money equation; distributive structure; average speed; rectangular frame; digit constraints; cube-solid surface and path |
 | 2020 | fraction of a length and efficient arithmetic; data table, fractions, and money; divisors; fraction comparison and midpoint; digit constraints; composite area; changing fill rates; cube plan and surface; coordinate loci |
 | 2021 | reverse arithmetic chain and efficient multiplication; rental table and time; speed and missed connection; number sequences; recurring schedules and LCM; proportional revenue; composite area; cube rolling; symmetric construction |
-| 2022 | efficient arithmetic; climate table, fractions, and mean; cube counting; reverse fraction; catch-up speed; number-line distance; package dimensions and volume; leaking fill rate; rotations, reflections, and symmetry |
+| 2022 | efficient arithmetic; climate table, fractions, and mean; cube counting; reverse fraction; turnaround/detour average speed; number-line distance; ribbon path around a package and cuboid volume; leaking fill rate; drawn rotations, reflections, and two-axis symmetry |
 | 2023 | missing values with units and time; travel table and speed; area fractions; arithmetic equivalence laws; scale/locus construction; cuboid net and volume; arithmetic square; package equality and LCM; overlapping area and perimeter |
 | 2024 | efficient arithmetic; coordinates and parallelograms; piecewise prices; fractions and number line; multi-day relative motion; composite rectangular gardens; cube orientation; proportional unit pairs; constrained number wall |
 | 2025 | missing-value chain; time fraction; money and revenue table; integer coin combinations; tiled fractions and cost optimization; reverse mass process; inverse/changing supply; intersected loci; tetrahedron rolling; cuboid surface |
@@ -103,11 +103,51 @@ Generation v5 adds five original archive-informed families and seven templates t
 
 The diagnostics therefore expose **5 families, 7 templates, and 2,240 solved candidate configurations**: 360 compensation, 177 return-home, 108 late-start, 1,152 duration-price, 192 repeated-digit, and 251 cuboid configurations. The generator tests replay 1,000 seeds per family and independently verify each invariant; a separate locale pass checks that German, English, Italian, and Spanish preserve identical mathematics.
 
-The replay boundary is explicit: new learning tasks default to generation version 5, while stored version 2, 3, and 4 tasks keep their previous routing and deterministic output. Seeds control template and value selection. Official papers supply only structural calibration and golden-answer checks; public questions use original wording, contexts, values, and visuals.
+At the v5 checkpoint, new learning tasks defaulted to generation version 5 while stored versions 2–4 kept their previous routing and deterministic output. Seeds control template and value selection. Official papers supply only structural calibration and golden-answer checks; public questions use original wording, contexts, values, and visuals.
 
-### Prioritized archive gaps after v5
+### Generation v6: fourth archive wave
 
-The next evidence-backed gaps are relational systems, voxel-solid counting and exposed surfaces, recurring-cycle/LCM situations, structured number or logic puzzles, and number-line reasoning. These remain candidates for a later wave; they are not implemented by generation v5.
+Generation v6 implements five prioritized evidence-backed gaps identified after v5. It adds five original families and ten templates to existing curriculum topics, so the prerequisite path stays stable while the exercise surface becomes materially broader.
+
+| Family | Templates | Official calibration anchors | Independently checked invariant | Enumerated candidates |
+|---|---|---|---|---:|
+| `archive-v6-relational-systems` | `larger-from-total`, `smaller-from-total` | 2015 Task 7; 2017 Task 3; 2025 Task 2c | One group is `multiplier × smaller + offset`; subtracting the offset leaves an exact number of equal parts, and both groups recombine to the stated total. | 864 |
+| `archive-v6-voxel-solids` | `count-stacked-cubes`, `count-exposed-unit-faces` | 2016 Task 8; 2019 Task 9; 2020 Task 8; 2022 Task 3 | The solid is reconstructed from a complete cuboid and a straight top row. Cube count and exposed faces are recomputed independently, including the two hidden faces for every contact. | 480 |
+| `archive-v6-recurring-cycles` | `two-cycles`, `three-cycles` | 2021 Task 5; 2023 Task 8 | The first shared event is the exact least common multiple of all two or three intervals, bounded to no-calculator values. | 158 |
+| `archive-v6-number-walls` | `missing-centre`, `missing-edge` | 2023 Task 7; 2024 Task 9 | Every upper brick is rederived as the sum of the two bricks directly below it; reverse solutions are checked against the complete wall. | 3,456 |
+| `archive-v6-number-line` | `fraction-midpoint`, `fraction-distance` | 2020 Task 4; 2022 Task 6; 2024 Task 4 | Midpoint and distance are derived from exact common-denominator positions and reduced independently to lowest terms. | 1,194 |
+
+The diagnostics expose **5 families, 10 templates, and 6,152 solved template/configuration pairs**: 432 relational configurations per answer direction, 240 voxel configurations per question form, 71 two-cycle plus 87 three-cycle configurations, 1,728 number walls per missing-position form, and 385 midpoint plus 809 distance configurations. Property tests replay 1,000 seeds per family, verify all ten forms and their mathematical invariants, and confirm identical mathematics in German, English, Italian, and Spanish.
+
+New learning tasks now default to generation version 6. Stored versions 2–5 keep their historical routing and deterministic output; unversioned legacy tasks keep their original path. Generated mock blueprint v6 can select all five new families, while blueprint versions 1–5 remain replayable.
+
+#### Interaction coverage still outside v6
+
+The eleven-year topic map is covered broadly, and v6 adds a large original exercise surface, but it does not claim to reproduce every official interaction. The remaining archive-specific forms are:
+
+- 2021 Task 5 pair-only overlap and no-event-date counting beyond the first-common-event LCM;
+- arbitrary assembled-solid contact faces and shortest cube-edge paths (2019 Task 9), height-plan-to-view matching (2020 Task 8), and ground-contact/complement-to-a-full-cube counting (2022 Task 3);
+- mental die-orientation state transitions (2021 Task 8);
+- spatial ribbon paths around a cuboid (2022 Task 7); and
+- free drawing or minimal completion of transformed figures with two symmetry axes (2022 Task 9).
+
+Existing cube-net and coordinate-transformation generators train adjacent concepts, but they are not labelled as exact substitutes for those interactions. These forms need purpose-built visual or construction answer surfaces before they can be called dynamically covered.
+
+### Adaptive return policy
+
+The recommendation engine now treats spacing and struggle as separate signals:
+
+- A mastered topic becomes eligible again no later than 21 days after its latest lesson, review, assessment, mock, or other recorded practice, even if its ordinary review date is later or absent.
+- A due topic that crossed this inactivity ceiling is placed first and explicitly labelled as a refresh with new numbers.
+- An unfinished lesson or securing round is withheld from automatic recommendations for 8 hours after a light one-mistake attempt, or 24 hours after two or more mistakes or any hint use. Other available work remains available during that break.
+- On return, the securing round receives a new sequence and seed. A difficult attempt returns gently through `foundation` then `standard`; a light miss returns through `standard` then `exam`.
+- Periodic assessments still take precedence, and recent mixed assessment or mock evidence resets the 21-day inactivity clock.
+
+This changes assignment timing, not the scoring contract. The configured lesson XP outcomes, smaller fixed review XP, assessment cadence, and rule that active assessments reveal no answer before final submission remain unchanged.
+
+### Scoring evidence boundary
+
+Every paper requires understandable working, but the supplied correction evidence is uneven. The detailed 2015, 2023, and 2025 schemes support task-level milestone rules; the 2024 source supports its printed subpoint splits but not invented ladders. The 2016–2022 one-page sheets support accepted final answers plus a few isolated method or error-carry notes: 2019 Task 5, 2020 Task 1b, and 2021 Task 1b require the stated efficient method for full credit, while 2019 Task 9c explicitly accepts consistent follow-through from Task 9b. These fragments do not establish complete partial-credit ladders. Dynamic practice can therefore teach intermediate reasoning, but it must not present reconstructed partial-credit rules for years whose supplied sources do not publish them.
 
 ## Acceptance rules
 
@@ -115,4 +155,5 @@ The next evidence-backed gaps are relational systems, voxel-solid counting and e
 - Every generated value set must be solved independently by code, not stored as an unverified prompt answer.
 - No family is considered covered by a single fixed official task.
 - Official wording, diagrams, and numerical configurations remain separate from original practice content.
+- Every archive-informed template must appear in the protected author-validation queue in addition to the 69 topic/difficulty cells.
 - The generated full-mock blueprint keeps nine recurrence-based family slots and varies the selected topics, values, diagrams, and contexts deterministically from its seed. It does not replay the 2025 topic order.

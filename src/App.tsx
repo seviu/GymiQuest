@@ -121,6 +121,7 @@ import {
   createInitialLearner,
   isCurriculumMastered,
   migrateLearnerState,
+  nextLessonRecoveryAt,
   nextReviewAt,
   PLACEMENT_QUESTION_COUNT,
   recordArchivePracticeResult,
@@ -311,6 +312,7 @@ import {
 import { subjectRuntimeFor } from "./domain/subjectRegistry"
 import type { SubjectId } from "./domain/subjectIdentity"
 import { GermanCourseView } from "./subjects/german/GermanCourseView"
+import { germanCourseUiCopy } from "./subjects/german/uiCopy"
 import { GermanWritingReviewPanel } from "./subjects/german/GermanWritingReviewPanel"
 import { GermanComprehensionReviewPanel } from "./subjects/german/GermanComprehensionReviewPanel"
 import {
@@ -330,9 +332,11 @@ import {
 import type { GermanComprehensionEvidenceStatus } from "./subjects/german/comprehension"
 import type { GymiQuestBackupPayload } from "./infra/backup"
 import {
+  GermanSourceArchiveImportError,
   identifyGermanSourceArchivePdf,
   type GermanSourceArchiveBulkImportResult,
   type GermanSourceArchiveDocumentRecord,
+  type GermanSourceArchiveImportRejection,
   type GermanSourceArchiveLibrary,
 } from "./infra/germanSourceArchive"
 import {
@@ -1233,7 +1237,6 @@ export function Home({
   onOpenCollection,
   onOpenConceptLab,
   onOpenMock,
-  onReset,
   subjectSelector,
   now = new Date(),
 }: {
@@ -1248,12 +1251,11 @@ export function Home({
   onOpenCollection?: () => void
   onOpenConceptLab?: () => void
   onOpenMock: () => void
-  onReset: () => void
+  onReset?: () => void
   subjectSelector?: ReactNode
   now?: Date
 }) {
   const { locale, intlLocale, t } = useLocalization()
-  const [confirmReset, setConfirmReset] = useState(false)
   const minimalFocus = learner.preferences.visualMode === "focus"
   const allAssignments = buildAssignments(learner, now)
   const examModeActive = Boolean(activeMock || activeArchivePractice)
@@ -1266,6 +1268,7 @@ export function Home({
   const assessmentReady = allAssignments.some((task) => task.kind === "assessment")
   const curriculumMastered = isCurriculumMastered(learner)
   const scheduledReviewAt = nextReviewAt(learner)
+  const recoveryReturnAt = nextLessonRecoveryAt(learner, now)
   const dailyQuest = minimalFocus
     ? undefined
     : buildDailyQuest(learner, allAssignments, now, "Europe/Zurich", locale)
@@ -1336,6 +1339,8 @@ export function Home({
                 ? t("home.plan.assessmentReady")
                 : hasRecovery
                   ? t("home.plan.recovery")
+                : !primaryTask && recoveryReturnAt
+                  ? t("home.plan.resting", { date: formatReviewDate(recoveryReturnAt, locale) })
                 : curriculumMastered && reviewCount === 1
                   ? t("home.plan.consolidationOne")
                   : curriculumMastered && reviewCount > 1
@@ -1394,9 +1399,17 @@ export function Home({
           ) : (
             <div className="empty-plan">
               <span aria-hidden="true">✓</span>
-              <h2>{curriculumMastered ? t("home.plan.emptyMastered") : t("home.plan.empty")}</h2>
+              <h2>
+                {recoveryReturnAt
+                  ? t("home.plan.restingTitle")
+                  : curriculumMastered
+                    ? t("home.plan.emptyMastered")
+                    : t("home.plan.empty")}
+              </h2>
               <p>
-                {curriculumMastered
+                {recoveryReturnAt
+                  ? t("home.plan.restingBody", { date: formatReviewDate(recoveryReturnAt, locale) })
+                  : curriculumMastered
                   ? scheduledReviewAt
                     ? t("home.plan.nextScheduled", { date: formatReviewDate(scheduledReviewAt, locale) })
                     : t("home.plan.nextAutomatic")
@@ -1481,31 +1494,51 @@ export function Home({
         )}
 
         {!examModeActive && !resumeSession && (
-          <nav className="home-shortcuts" aria-label={t("home.plan.optionalTools")}>
-            {onOpenConceptLab && (
-              <button className="secondary-button" type="button" onClick={onOpenConceptLab}>
-                {t("home.concept.open")}
+          <section className="home-shortcuts" aria-labelledby="home-paths-title">
+            <div className="home-shortcuts-heading">
+              <span className="eyebrow">{t("home.paths.eyebrow")}</span>
+              <h2 id="home-paths-title">{t("home.paths.title")}</h2>
+              <p>{t("home.paths.body")}</p>
+            </div>
+            <div className="home-shortcut-grid">
+              <button
+                className="home-shortcut-card practice"
+                type="button"
+                aria-label={t("home.paths.practiceTitle")}
+                onClick={onOpenCurriculum}
+              >
+                <span aria-hidden="true">↻</span>
+                <strong>{t("home.paths.practiceTitle")}</strong>
+                <small>{t("home.paths.practiceBody")}</small>
               </button>
-            )}
-            <button className="secondary-button" type="button" onClick={onOpenMock}>
-              {t("home.mock.open")}
-            </button>
-          </nav>
+              {onOpenConceptLab && (
+                <button
+                  className="home-shortcut-card lab"
+                  type="button"
+                  aria-label={t("home.paths.labTitle")}
+                  onClick={onOpenConceptLab}
+                >
+                  <span aria-hidden="true">⌁</span>
+                  <strong>{t("home.paths.labTitle")}</strong>
+                  <small>{t("home.paths.labBody")}</small>
+                </button>
+              )}
+              <button
+                className="home-shortcut-card exam"
+                type="button"
+                aria-label={t("home.mock.open")}
+                onClick={onOpenMock}
+              >
+                <span aria-hidden="true">◇</span>
+                <strong>{t("home.paths.examTitle")}</strong>
+                <small>{t("home.paths.examBody")}</small>
+              </button>
+            </div>
+          </section>
         )}
 
         <div className="plan-footer">
           <p>{t("home.plan.generated")}</p>
-          {confirmReset ? (
-            <div className="reset-confirmation" role="alert">
-              <p><strong>{t("home.reset.title")}</strong><span>{t("home.reset.body")}</span></p>
-              <div>
-                <button className="text-button" type="button" onClick={() => setConfirmReset(false)}>{t("common.cancel")}</button>
-                <button className="danger-button" type="button" onClick={onReset}>{t("home.reset.delete")}</button>
-              </div>
-            </div>
-          ) : (
-            <button className="text-button" type="button" onClick={() => setConfirmReset(true)}>{t("home.reset.open")}</button>
-          )}
         </div>
       </section>
 
@@ -1529,6 +1562,54 @@ export function Home({
           now={now}
         />
       </details>
+    </main>
+  )
+}
+
+export function SubjectLabView({
+  onBack,
+  onOpenMathematics,
+  onOpenGerman,
+}: {
+  onBack: () => void
+  onOpenMathematics: () => void
+  onOpenGerman: () => void
+}) {
+  const { t } = useLocalization()
+  return (
+    <main className="subject-lab-shell">
+      <button className="curriculum-back" type="button" onClick={onBack}>
+        <span aria-hidden="true">←</span> {t("common.learningPlan")}
+      </button>
+      <section className="subject-lab-hero" aria-labelledby="subject-lab-title">
+        <span className="eyebrow">{t("subjectLab.eyebrow")}</span>
+        <h1 id="subject-lab-title">{t("subjectLab.title")}</h1>
+        <p>{t("subjectLab.body")}</p>
+      </section>
+      <div className="subject-lab-grid">
+        <article className="subject-lab-card math">
+          <span className="subject-lab-icon" aria-hidden="true">∑</span>
+          <div>
+            <span className="eyebrow">{t("subjectLab.step")}</span>
+            <h2>{t("subjectLab.mathTitle")}</h2>
+            <p>{t("home.concept.body")}</p>
+          </div>
+          <button className="primary-button" type="button" onClick={onOpenMathematics}>
+            {t("subjectLab.mathOpen")}
+          </button>
+        </article>
+        <article className="subject-lab-card german">
+          <span className="subject-lab-icon" aria-hidden="true">Aa</span>
+          <div>
+            <span className="eyebrow">{t("subjectLab.step")}</span>
+            <h2>{t("subjectLab.germanTitle")}</h2>
+            <p>{t("subjectLab.germanBody")}</p>
+          </div>
+          <button className="primary-button" type="button" onClick={onOpenGerman}>
+            {t("subjectLab.germanOpen")}
+          </button>
+        </article>
+      </div>
     </main>
   )
 }
@@ -1557,6 +1638,9 @@ export function ProfileSetupView({
   onSave,
   onCancel,
   onRestore,
+  onResetMathematics,
+  onResetGerman,
+  onResetAll,
   mode = "setup",
   now = new Date(),
 }: {
@@ -1564,12 +1648,16 @@ export function ProfileSetupView({
   onSave: (input: LearnerProfileInput) => Promise<void>
   onCancel?: () => void
   onRestore?: (payload: GymiQuestBackupPayload) => Promise<void>
+  onResetMathematics?: () => void | Promise<void>
+  onResetGerman?: () => void | Promise<void>
+  onResetAll?: () => void | Promise<void>
   mode?: "setup" | "edit"
   now?: Date
 }) {
   const isEdit = mode === "edit"
-  const { copy } = useLocalization()
+  const { copy, locale, t } = useLocalization()
   const profileCopy = copy.profile
+  const germanResetCopy = germanCourseUiCopy[locale]
   const minimumDate = zurichDateKey(now)
   const [step, setStep] = useState<1 | 2>(1)
   const [displayName, setDisplayName] = useState(
@@ -1591,6 +1679,7 @@ export function ProfileSetupView({
   const [geometryControlSide, setGeometryControlSide] = useState<GeometryControlSide>(learner.preferences.geometryControlSide)
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
+  const [resetTarget, setResetTarget] = useState<"math" | "german" | "all">()
 
   const continueToPreferences = () => {
     const name = displayName.trim().replace(/\s+/g, " ")
@@ -1636,6 +1725,33 @@ export function ProfileSetupView({
       : profilePracticeDays.filter((candidate) => candidate === day || current.includes(candidate)))
     setError("")
   }
+
+  const resetOptions = [
+    {
+      id: "math" as const,
+      open: t("progress.subjectReset.open"),
+      title: t("progress.subjectReset.title"),
+      body: t("progress.subjectReset.body"),
+      confirm: t("progress.subjectReset.confirm"),
+      action: onResetMathematics,
+    },
+    {
+      id: "german" as const,
+      open: germanResetCopy.resetOpen,
+      title: germanResetCopy.resetTitle,
+      body: germanResetCopy.resetBody,
+      confirm: germanResetCopy.resetConfirm,
+      action: onResetGerman,
+    },
+    {
+      id: "all" as const,
+      open: t("progress.reset.open"),
+      title: t("progress.reset.title"),
+      body: t("progress.reset.body"),
+      confirm: t("progress.reset.confirm"),
+      action: onResetAll,
+    },
+  ]
 
   return (
     <main className="profile-setup-shell">
@@ -1827,6 +1943,53 @@ export function ProfileSetupView({
           <p className="profile-privacy-note">{profileCopy.privacyNote}</p>
         </aside>
       </section>
+
+      {isEdit && resetOptions.some((option) => Boolean(option.action)) && (
+        <section className="profile-reset-settings" aria-labelledby="profile-reset-title">
+          <div className="profile-reset-heading">
+            <span className="eyebrow">{t("profile.reset.eyebrow")}</span>
+            <h2 id="profile-reset-title">{t("profile.reset.title")}</h2>
+            <p>{t("profile.reset.body")}</p>
+          </div>
+          <div className="profile-reset-options">
+            {resetOptions.map((option) => {
+              if (!option.action) return null
+              return (
+                <article key={option.id}>
+                  <div>
+                    <strong>{option.open}</strong>
+                    <span>{option.body}</span>
+                  </div>
+                  {resetTarget === option.id ? (
+                    <div className="reset-confirmation" role="alert">
+                      <p><strong>{option.title}</strong><span>{option.body}</span></p>
+                      <div>
+                        <button className="text-button" type="button" onClick={() => setResetTarget(undefined)}>
+                          {t("common.cancel")}
+                        </button>
+                        <button
+                          className="danger-button"
+                          type="button"
+                          onClick={() => {
+                            setResetTarget(undefined)
+                            void option.action?.()
+                          }}
+                        >
+                          {option.confirm}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="text-button" type="button" onClick={() => setResetTarget(option.id)}>
+                      {option.open}
+                    </button>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {!isEdit && onRestore && (
         <DataBackupPanel learner={learner} onRestore={onRestore} restoreOnly />
@@ -2359,8 +2522,6 @@ export function ProgressView({
   onOpenParent,
   onOpenCollection,
   onEditProfile,
-  onResetSubject,
-  onReset,
   onPracticeError,
   activeSession,
   activeMock,
@@ -2386,8 +2547,6 @@ export function ProgressView({
   now?: Date
 }) {
   const { locale, intlLocale, copy, t } = useLocalization()
-  const [confirmSubjectReset, setConfirmSubjectReset] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
   const minimalFocus = learner.preferences.visualMode === "focus"
   const curriculumPackage = requireLearnerCurriculumPackage(learner)
   const analytics = buildProgressAnalytics(learner, now, "Europe/Zurich", intlLocale)
@@ -2483,48 +2642,6 @@ export function ProgressView({
         <p className="curriculum-package-scope">
           <strong>{t("progress.settings.scope")}</strong> {curriculumPackage.scope.jurisdiction} · {curriculumPackage.scope.track}. {t("progress.settings.scopeBody")}
         </p>
-        {(onResetSubject || onReset) && (
-          <div className="study-settings-reset">
-            {onResetSubject && (
-              confirmSubjectReset ? (
-                <div className="reset-confirmation" role="alert">
-                  <p>
-                    <strong>{t("progress.subjectReset.title")}</strong>
-                    <span>{t("progress.subjectReset.body")}</span>
-                  </p>
-                  <div>
-                    <button className="text-button" type="button" onClick={() => setConfirmSubjectReset(false)}>{t("common.cancel")}</button>
-                    <button className="danger-button" type="button" onClick={onResetSubject}>{t("progress.subjectReset.confirm")}</button>
-                  </div>
-                </div>
-              ) : (
-                <button className="text-button" type="button" onClick={() => setConfirmSubjectReset(true)}>
-                  {t("progress.subjectReset.open")}
-                </button>
-              )
-            )}
-            {onReset && (
-              <>
-            {confirmReset ? (
-              <div className="reset-confirmation" role="alert">
-                <p>
-                  <strong>{t("progress.reset.title")}</strong>
-                  <span>{t("progress.reset.body")}</span>
-                </p>
-                <div>
-                  <button className="text-button" type="button" onClick={() => setConfirmReset(false)}>{t("common.cancel")}</button>
-                  <button className="danger-button" type="button" onClick={onReset}>{t("progress.reset.confirm")}</button>
-                </div>
-              </div>
-            ) : (
-              <button className="text-button" type="button" onClick={() => setConfirmReset(true)}>
-                {t("progress.reset.open")}
-              </button>
-            )}
-              </>
-            )}
-          </div>
-        )}
       </section>
 
       {onOpenParent && (
@@ -6281,6 +6398,28 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
   }
 
   if (visual.kind === "equation-balance") {
+    if (visual.variant === "relation-total") {
+      const [multiplier, offset, total, , , askedGroup] = visual.values ?? []
+      const labels = visual.labels ?? []
+      return (
+        <figure
+          className="question-visual relation-system-question"
+          role="img"
+          aria-label={`${labels[0] ?? ""} → × ${multiplier} + ${offset} → ${labels[1] ?? ""}; ${labels[2] ?? ""}: ${total}`}
+        >
+          <div className={askedGroup === 0 ? "wanted" : ""}>
+            <small>{labels[0]}</small>
+            <strong>□</strong>
+          </div>
+          <i aria-hidden="true">× {multiplier} + {offset}</i>
+          <div className={askedGroup === 1 ? "wanted" : ""}>
+            <small>{labels[1]}</small>
+            <strong>□</strong>
+          </div>
+          <figcaption><span>{labels[2]}</span><strong>{total}</strong></figcaption>
+        </figure>
+      )
+    }
     return (
       <div className="question-visual equation-question" role="img" aria-label={copy.player.visual.equationAria}>
         <span>□</span><i>× {visual.values?.[0]}</i><span>?</span><i>÷ {visual.values?.[1]}</i><strong>{visual.values?.[2]}</strong>
@@ -6302,6 +6441,27 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
   }
 
   if (visual.kind === "clock") {
+    if (visual.variant === "recurring-cycles") {
+      const [first, second, third] = visual.values ?? []
+      const intervals = [first, second, third].filter((value) => (value ?? 0) > 0)
+      return (
+        <figure
+          className="question-visual recurring-cycle-question"
+          role="img"
+          aria-label={intervals.map((value, index) => `${visual.labels?.[index] ?? ""}: ${value} min`).join(", ")}
+        >
+          <div>
+            {intervals.map((value, index) => (
+              <span key={`${value}-${index}`}>
+                <small>{visual.labels?.[index]}</small>
+                <strong>{value} min</strong>
+              </span>
+            ))}
+          </div>
+          <figcaption><span>↻</span><strong>?</strong><small>{visual.labels?.[3]}</small></figcaption>
+        </figure>
+      )
+    }
     const [totalMinutes, subtractMinutes, remainingMinutes] = visual.values ?? []
     const denominator = visual.denominator ?? 1
     const totalLabel = typeof totalMinutes === "number"
@@ -6521,6 +6681,60 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
     )
   }
 
+  if (visual.kind === "number-wall") {
+    const [left, centre, right, , , top] = visual.values ?? []
+    const asksForCentre = visual.variant === "number-wall-centre"
+    return (
+      <div
+        className="question-visual number-wall-question"
+        role="img"
+        aria-label={`${visual.labels?.[0] ?? ""}: ${top}; ${visual.labels?.[2] ?? ""}: ${left}, ${asksForCentre ? "?" : centre}, ${asksForCentre ? right : "?"}`}
+      >
+        <div className="number-wall-row top"><span>{top}</span></div>
+        <div className="number-wall-row middle"><span>□</span><span>□</span></div>
+        <div className="number-wall-row bottom">
+          <span>{left}</span>
+          <span className={asksForCentre ? "wanted" : ""}>{asksForCentre ? "?" : centre}</span>
+          <span className={!asksForCentre ? "wanted" : ""}>{asksForCentre ? right : "?"}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (visual.kind === "number-line") {
+    const [leftNumerator, leftDenominator, rightNumerator, rightDenominator] = visual.values ?? []
+    const leftValue = (leftNumerator ?? 0) / Math.max(1, leftDenominator ?? 1)
+    const rightValue = (rightNumerator ?? 0) / Math.max(1, rightDenominator ?? 1)
+    const midpointValue = (leftValue + rightValue) / 2
+    const maxValue = Math.max(2, Math.ceil(rightValue))
+    const position = (value: number) => 8 + value / maxValue * 84
+    return (
+      <figure
+        className="question-visual fraction-number-line-question"
+        role="img"
+        aria-label={`A ${leftNumerator}/${leftDenominator}, B ${rightNumerator}/${rightDenominator}`}
+      >
+        <div className="fraction-number-line-track" aria-hidden="true">
+          {Array.from({ length: maxValue + 1 }, (_, index) => (
+            <i style={{ left: `${position(index)}%` }} key={index}><small>{index}</small></i>
+          ))}
+          <span className="point a" style={{ left: `${position(leftValue)}%` }}>
+            <strong>A</strong><small>{leftNumerator}/{leftDenominator}</small>
+          </span>
+          <span className="point b" style={{ left: `${position(rightValue)}%` }}>
+            <strong>B</strong><small>{rightNumerator}/{rightDenominator}</small>
+          </span>
+          {visual.variant === "fraction-midpoint" ? (
+            <span className="point target" style={{ left: `${position(midpointValue)}%` }}>
+              <strong>?</strong>
+            </span>
+          ) : null}
+        </div>
+        <figcaption>{visual.variant === "fraction-midpoint" ? "A - ? - B" : "A - B = ?"}</figcaption>
+      </figure>
+    )
+  }
+
   if (visual.kind === "tile-grid") {
     const covered = new Set(visual.cells ?? [])
     return (
@@ -6672,6 +6886,36 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
   }
 
   if (visual.kind === "cuboid") {
+    if (visual.variant === "voxel-count" || visual.variant === "voxel-surface") {
+      const [length, width, height, topCubes] = visual.values ?? []
+      return (
+        <figure
+          className="question-visual voxel-solid-question"
+          role="img"
+          aria-label={`${visual.labels?.[0] ?? ""} ${length}, ${visual.labels?.[1] ?? ""} ${width}, ${visual.labels?.[2] ?? ""} ${height}, ${visual.labels?.[3] ?? ""} ${topCubes}`}
+        >
+          <div className="voxel-top-row" aria-hidden="true">
+            {Array.from({ length: topCubes ?? 0 }, (_, index) => <span key={index} />)}
+          </div>
+          <div className="voxel-base" aria-hidden="true">
+            <span>{length} × {width} × {height}</span>
+          </div>
+          <figcaption>
+            <span>{visual.labels?.[3]}</span>
+            <strong>
+              + {visual.variant === "voxel-surface"
+                ? 2 * (topCubes ?? 0) + 2
+                : topCubes}
+            </strong>
+            <small>
+              {visual.variant === "voxel-surface"
+                ? visual.labels?.[4]
+                : visual.labels?.[5]}
+            </small>
+          </figcaption>
+        </figure>
+      )
+    }
     if (visual.variant === "missing-edge") {
       return (
         <div className="question-visual cuboid-question missing-edge-cuboid" role="img" aria-label={visual.labels?.join(", ")}>
@@ -6828,7 +7072,7 @@ function ConceptRepairStage({
   const topic = topicForLocale(sourceQuestion.topicId, locale)
   const page = lesson.pages[0]!
   const guidance = topicGuidanceForLocale(sourceQuestion.topicId, locale)
-  const usesSourceAwareRepair = progress.version === 5 && Boolean(sourceQuestion.provenance)
+  const usesSourceAwareRepair = progress.version >= 5 && Boolean(sourceQuestion.provenance)
   const repairGuidance = usesSourceAwareRepair
     ? {
         title: questions.example.answerLabel,
@@ -8300,7 +8544,11 @@ export function QuestionStage({
         ? current.activeHelp
         : [...current.activeHelp, "concept"],
       conceptRepair: current.conceptRepair ?? {
-        version: question.generation?.version === 5 && question.provenance ? 5 : 4,
+        version: question.provenance && question.generation?.version === 6
+          ? 6
+          : question.provenance && question.generation?.version === 5
+            ? 5
+            : 4,
         seed: `${task.seed}:question:${questionIndex}:concept-repair`,
         stage: "concept",
         teachBack: "",
@@ -9529,6 +9777,13 @@ export function CompletionView({
           learner={learner}
         />
 
+        <SessionRecoveryActions
+          review={sessionReview}
+          onRetryTopic={onRetryTopic}
+          onOpenConcept={onOpenConcept}
+          retryBlockedByAssessment={retryBlockedByAssessment}
+        />
+
         <button className="primary-button wide completion-primary-cta" type="button" onClick={onContinue}>
           {t("completion.back")}
         </button>
@@ -9667,13 +9922,6 @@ export function CompletionView({
             assessmentMode={isAssessment}
             showDifficultyBand={!task.pacing}
             showHeading={false}
-          />
-
-          <SessionRecoveryActions
-            review={sessionReview}
-            onRetryTopic={onRetryTopic}
-            onOpenConcept={onOpenConcept}
-            retryBlockedByAssessment={retryBlockedByAssessment}
           />
 
           <div className="total-xp-line"><span>{t("completion.total")}</span><strong>{learner.totalXp} XP</strong></div>
@@ -11094,6 +11342,7 @@ function LearningApp() {
   const [playerOpen, setPlayerOpen] = useState(false)
   const [completion, setCompletion] = useState<CompletionSummary>()
   const [showCurriculum, setShowCurriculum] = useState(false)
+  const [showSubjectLab, setShowSubjectLab] = useState(false)
   const [showConceptLibrary, setShowConceptLibrary] = useState(false)
   const [showCollection, setShowCollection] = useState(false)
   const [conceptTopicId, setConceptTopicId] = useState<TopicId>()
@@ -11248,6 +11497,7 @@ function LearningApp() {
     showCollection,
     showConceptLibrary,
     showCurriculum,
+    showSubjectLab,
     showMockSetup,
     showParent,
     showProfileSetup,
@@ -11270,6 +11520,7 @@ function LearningApp() {
     setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -11367,6 +11618,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -11385,6 +11637,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -11413,6 +11666,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -11437,6 +11691,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(true)
     setShowCollection(false)
     setConceptTopicId(topicId)
@@ -11455,8 +11710,28 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(true)
+    setConceptTopicId(undefined)
+    setShowProgress(false)
+    setShowProfileSetup(false)
+    setShowParent(false)
+    setParentUnlocked(false)
+    setMockPlayerOpen(false)
+    setShowMockSetup(false)
+    setMockResult(undefined)
+    setArchivePracticePlayerOpen(false)
+    setArchivePracticeResult(undefined)
+  }
+
+  const openSubjectLab = () => {
+    setPlayerOpen(false)
+    setCompletion(undefined)
+    setShowCurriculum(false)
+    setShowSubjectLab(true)
+    setShowConceptLibrary(false)
+    setShowCollection(false)
     setConceptTopicId(undefined)
     setShowProgress(false)
     setShowProfileSetup(false)
@@ -11609,6 +11884,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -11708,15 +11984,17 @@ function LearningApp() {
     files: readonly File[],
   ): Promise<GermanSourceArchiveBulkImportResult> => {
     const imported = new Map<string, GermanSourceArchiveDocumentRecord>()
-    const rejected: string[] = []
+    const rejected: GermanSourceArchiveImportRejection[] = []
     for (const file of files) {
       try {
         const record = await identifyGermanSourceArchivePdf(file)
         await saveGermanSourceArchiveDocument(record)
         imported.set(record.id, record)
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Datei nicht erkannt."
-        rejected.push(`${file.name}: ${message}`)
+        rejected.push({
+          filename: file.name,
+          code: error instanceof GermanSourceArchiveImportError ? error.code : "unknown",
+        })
       }
     }
 
@@ -11732,7 +12010,13 @@ function LearningApp() {
         return next
       })
     }
-    return { imported: imported.size, rejected }
+    return {
+      imported: imported.size,
+      importedEditionIds: [...new Set(
+        [...imported.values()].map((record) => record.editionId),
+      )],
+      rejected,
+    }
   }
 
   const startOfficialMock = (editionId: OfficialArchiveEditionId) => {
@@ -11924,6 +12208,7 @@ function LearningApp() {
     setArchivePracticeResult(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -12141,6 +12426,7 @@ function LearningApp() {
       />
       {showProfileSetup || !learner.profileCompletedAt ? (
         <ProfileSetupView
+          key={`${learner.learnerId}:${learner.profileCompletedAt ? "edit" : "setup"}`}
           learner={learner}
           mode={learner.profileCompletedAt ? "edit" : "setup"}
           onSave={saveProfile}
@@ -12148,6 +12434,9 @@ function LearningApp() {
             ? activeSubject === "german" ? goHome : openProgress
             : undefined}
           onRestore={learner.profileCompletedAt ? undefined : restoreBackup}
+          onResetMathematics={learner.profileCompletedAt ? resetMathSubject : undefined}
+          onResetGerman={learner.profileCompletedAt ? resetGermanSubject : undefined}
+          onResetAll={learner.profileCompletedAt ? reset : undefined}
         />
       ) : showParent ? (
         <ParentArea
@@ -12179,7 +12468,6 @@ function LearningApp() {
           onSubjectChange={() => switchSubject("math")}
           onEditProfile={openProfileSetup}
           onOpenCompanion={openParent}
-          onResetSubject={resetGermanSubject}
         />
       ) : archivePracticeResult ? (
         <ArchivePracticeResultsView result={archivePracticeResult} onContinue={goHome} />
@@ -12251,6 +12539,12 @@ function LearningApp() {
           learner={learner}
           onRestore={restoreBackup}
         />
+      ) : showSubjectLab ? (
+        <SubjectLabView
+          onBack={goHome}
+          onOpenMathematics={() => openConceptLibrary()}
+          onOpenGerman={() => switchSubject("german")}
+        />
       ) : showCurriculum ? (
         <CurriculumView
           learner={learner}
@@ -12283,8 +12577,6 @@ function LearningApp() {
           onOpenParent={openParent}
           onOpenCollection={learner.preferences.visualMode === "focus" ? undefined : openCollection}
           onEditProfile={openProfileSetup}
-          onResetSubject={resetMathSubject}
-          onReset={reset}
           onPracticeError={startErrorPractice}
           onRestore={restoreBackup}
         />
@@ -12303,9 +12595,8 @@ function LearningApp() {
             setShowCurriculum(true)
           }}
           onOpenCollection={learner.preferences.visualMode === "focus" ? undefined : openCollection}
-          onOpenConceptLab={() => openConceptLibrary()}
+          onOpenConceptLab={openSubjectLab}
           onOpenMock={openMock}
-          onReset={reset}
           subjectSelector={<SubjectSwitcher value="math" onChange={switchSubject} />}
         />
       )}

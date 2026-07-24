@@ -3,6 +3,7 @@ import {
   findGermanSourceArchiveDocumentByHash,
   germanSourceArchiveCatalog,
   germanSourceArchiveDocumentKinds,
+  germanSourceArchiveDocumentKindsForEdition,
   type GermanSourceArchiveDocumentKind,
   type GermanSourceArchiveEditionId,
 } from "../subjects/german/sourceArchiveCatalog"
@@ -29,15 +30,25 @@ export type GermanSourceArchiveLibrary = Partial<Record<
   GermanSourceArchiveDocuments
 >>
 
-export interface GermanSourceArchiveBulkImportResult {
-  imported: number
-  rejected: string[]
-}
-
 export type GermanSourceArchiveImportErrorCode =
   | "crypto-unavailable"
   | "not-a-pdf"
   | "wrong-document"
+
+export type GermanSourceArchiveImportRejectionCode =
+  | GermanSourceArchiveImportErrorCode
+  | "unknown"
+
+export interface GermanSourceArchiveImportRejection {
+  filename: string
+  code: GermanSourceArchiveImportRejectionCode
+}
+
+export interface GermanSourceArchiveBulkImportResult {
+  imported: number
+  importedEditionIds: GermanSourceArchiveEditionId[]
+  rejected: GermanSourceArchiveImportRejection[]
+}
 
 export class GermanSourceArchiveImportError extends Error {
   constructor(
@@ -102,11 +113,15 @@ export async function inspectGermanSourceArchivePdfForEdition(
   now = new Date(),
 ): Promise<GermanSourceArchiveDocumentRecord> {
   const digest = await verifiedGermanSourcePdfDigest(file)
-  const definition = germanSourceArchiveCatalog[editionId].documents[kind]
-  if (digest !== definition.sha256) {
+  const definition = germanSourceArchiveDocumentKinds.includes(kind)
+    ? germanSourceArchiveCatalog[editionId].documents[kind]
+    : undefined
+  if (!definition || digest !== definition.sha256) {
     throw new GermanSourceArchiveImportError(
       "wrong-document",
-      `Diese Datei ist nicht «${definition.title}».`,
+      definition
+        ? `Diese Datei ist nicht «${definition.title}».`
+        : `Für ${germanSourceArchiveCatalog[editionId].title} ist dieser Dokumenttyp nicht registriert.`,
     )
   }
   return recordForDefinition(file, editionId, kind, digest, now)
@@ -121,7 +136,7 @@ export async function identifyGermanSourceArchivePdf(
   if (!identity) {
     throw new GermanSourceArchiveImportError(
       "wrong-document",
-      "Diese PDF gehört nicht zu den registrierten Deutschprüfungen 2024–2025.",
+      "Diese PDF gehört nicht zu den registrierten Deutschprüfungen 2015–2026.",
     )
   }
   return recordForDefinition(
@@ -150,6 +165,7 @@ export function isGermanSourceArchiveDocumentRecord(
   if (!edition) return false
   const kind = value.kind as GermanSourceArchiveDocumentKind
   const definition = edition.documents[kind]
+  if (!definition) return false
   return value.id === germanSourceArchiveDocumentId(edition.editionId, kind) &&
     value.mimeType === "application/pdf" &&
     typeof value.filename === "string" &&
@@ -182,8 +198,8 @@ export function hasCompleteGermanSourceArchiveEdition(
   editionId: GermanSourceArchiveEditionId,
 ): boolean {
   const definitions = germanSourceArchiveCatalog[editionId].documents
-  return germanSourceArchiveDocumentKinds.every((kind) => (
+  return germanSourceArchiveDocumentKindsForEdition(editionId).every((kind) => (
     documents[kind]?.editionId === editionId &&
-    documents[kind]?.sha256 === definitions[kind].sha256
+    documents[kind]?.sha256 === definitions[kind]?.sha256
   ))
 }

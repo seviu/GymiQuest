@@ -1,6 +1,6 @@
 # German subject expansion plan
 
-## Implementation checkpoint — 17 July 2026
+## Implementation checkpoint — 23 July 2026
 
 The recommended first slice is implemented locally:
 
@@ -26,7 +26,7 @@ The recommended first slice is implemented locally:
 - German questions now open answer-free, versioned defect reports in a separate tab, using the same Codex handoff as Mathematics.
 - a generated 45-minute Sprachprüfung training mode now keeps one numbered text sheet visible across 15 objective questions, supports free navigation and flags, survives reloads, submits at the absolute deadline, and schedules targeted reviews without awarding XP;
 - active and completed German simulations are included in encrypted backups, and every exam question has the same answer-free, separate-tab defect-report path.
-- writing blueprint v1 now generates one choice from each of three prompt families, drawing from 12 newly authored prompts calibrated to the recurring 2024/2025 narrative and report formats;
+- writing blueprint v1 now generates one choice from each of three prompt families, drawing from 12 newly authored prompts whose narrative, anchored-narrative, and report slots were rechecked against the 2015–2026 archive;
 - the separate writing studio persists prompt choice, a three-part plan, title, draft, word count, and six-step self-review under an absolute 60-minute deadline that continues across exits and reloads;
 - active and completed writing sessions round-trip through encrypted backups, affect neither XP nor objective mastery, and deliberately produce no automatic points or ZAP grade;
 - every generated writing prompt has a replay-safe report link whose payload excludes the learner's title, plan, draft, checklist, and history.
@@ -34,12 +34,12 @@ The recommended first slice is implemented locally:
 - constrained comprehension now draws 12 deterministic prompts from four original microtexts, requires a bounded explanation plus one or two evidence lines, and blocks only another short response while human feedback is outstanding;
 - the protected companion view exposes authored expected elements and likely evidence lines, records an evidence status plus one strength and next step, and requires learner acknowledgement before the next prompt; the entire lifecycle persists locally and through encrypted backup without points, XP, grade, mastery, or automatic judgement;
 - each comprehension prompt has a replay-safe issue-report link that excludes the learner response, evidence selection, reviewer feedback, and progress history.
-- the private German archive registers all eight supplied 2024/2025 PDFs as four roles per year, verifies renamed files by exact content hash, stores them beside but never inside the Mathematics catalog, and exposes a responsive device-local reader;
+- the private German archive registers all 49 supplied 2015–2026 PDFs, including the separate 2015 essay-correction guidance, verifies renamed files by exact content hash, stores them beside but never inside the Mathematics catalog, and exposes a compact year selector with a responsive device-local reader;
 - German source PDFs remain outside encrypted backups and the public build, survive a German-subject progress reset, disappear on complete-profile reset, and create no points, XP, grade, mastery, or adaptive evidence.
-- both source years now launch a persisted 45-minute language-paper workspace or 60-minute essay workspace; language solutions stay locked until submission, absolute deadlines survive reloads, source essays autosave locally and through encrypted backup, and completion records only bounded self-review without learning effects;
+- all twelve source years now launch a persisted 45-minute language-paper workspace or 60-minute essay workspace; language solutions stay locked until submission, absolute deadlines survive reloads, source essays autosave locally and through encrypted backup, and completion records only bounded self-review without learning effects;
 - browser-based iPad-width QA covers the source shelf, language/text/solution tab switching, PDF cleanup, essay split view, reload resume, and horizontal-overflow boundary; physical-device sign-off remains separate.
 
-This remains a private learning-engine milestone, not full German exam coverage. The current simulation is a newly authored 20-point training paper with one source-equivalent grouped scoring rule, two source-calibrated digital adaptations, finite accepted text, and exact-set multi-select training. The writing studio is a newly authored 60-minute training surface, not a reproduction of an official prompt sheet and not an automatic essay grader. The comprehension and writing companion workflows record bounded human feedback, not a validated rubric or grade. The platform does not claim to reproduce the official 46/48-point papers as a whole. The official PDFs now support deliberately ungraded timed source practice; paper-equivalent invalid-mark handling and validated teacher scoring remain future work.
+This remains a private learning-engine milestone, not full German exam coverage. The current simulation is a newly authored 20-point training paper with one source-equivalent grouped scoring rule, two source-calibrated digital adaptations, finite accepted text, and exact-set multi-select training. The writing studio is a newly authored 60-minute training surface, not a reproduction of an official prompt sheet and not an automatic essay grader. The comprehension and writing companion workflows record bounded human feedback, not a validated rubric or grade. The platform does not claim to reproduce the official 2015–2026 papers, whose structures vary from 14–17 tasks and 46–56 points. The official PDFs now support deliberately ungraded timed source practice; paper-equivalent invalid-mark handling and validated teacher scoring remain future work.
 
 ## Product decision
 
@@ -50,21 +50,23 @@ German is a second **subject**, not another interface language. The two choices 
 
 German passages and answers remain in German even when navigation and explanations use another app language.
 
-## What the 2024 and 2025 papers require
+## What the 2015–2026 archive requires
 
-The supplied archive establishes three connected, but operationally distinct, products:
+The 49 supplied source documents establish three connected, but operationally distinct, products:
 
-| Component | 2024 | 2025 | Platform mode |
-| --- | --- | --- | --- |
-| Sprachprüfung | 45 min, 15 tasks, 46 points | 45 min, 14 tasks, 48 points | Timed language and reading assessment |
-| Textblatt | 48-line narrative, available throughout | 48-line narrative, available throughout | Persistent source pane for the Sprachprüfung |
-| Text verfassen | 3 prompt choices; no rubric or duration is present in the supplied sheet | 3 prompt choices, 60 min, separate grade | Separate writing studio and timed writing simulation |
+| Component | Archive evidence | Platform mode |
+| --- | --- | --- |
+| Sprachprüfung | 45 min every year; 14–17 tasks and 46–56 official points | Timed language and reading assessment |
+| Textblatt | One persistent narrative reference for each paper | Persistent source pane for the Sprachprüfung |
+| Text verfassen | Three prompt choices every year; prompt bundles and correction material vary | Separate writing studio and timed writing simulation |
 
 The Sprachprüfung has two strands: `Teil A: Textverständnis` and `Teil B: Sprachbetrachtung`. Many language questions still quote or transform material from the Textblatt, so the passage must remain available throughout both parts.
 
-The solutions show that scoring is more expressive than a single correct-answer flag. Examples include threshold scoring for true/false/undecidable grids, penalties for wrong selections, exact line ranges, distinct semantic categories, accepted equivalent phrasings, and orthography deductions on selected tasks only. The two-page 2025 correction addendum also proves that accepted-answer policies need versioned amendments.
+The solutions show that scoring is more expressive than a single correct-answer flag. Examples include threshold scoring for true/false/undecidable grids, penalties for wrong selections, exact line ranges, distinct semantic categories, accepted equivalent phrasings, and orthography deductions on selected tasks only. The 2015 essay-correction guidance and the 2025 correction addendum also show why rubrics and accepted-answer policies must stay source- and version-specific.
 
 The official material is calibration evidence. Worldwide training content should use newly authored passages, sentences, prompts, values, and contexts unless publication rights are secured.
+The detailed recurrence and scoring audit lives in
+[`2015-2026-german-recurrence-matrix.md`](./2015-2026-german-recurrence-matrix.md).
 
 ## Main-page experience
 
@@ -194,14 +196,14 @@ These return `secure`, `needs-review`, or `not-gradable` evidence. Only secure a
 
 ### Preserve mathematics replay
 
-Do not renumber or reinterpret mathematics generation versions 2–5. Add an explicit generator namespace; an absent namespace permanently means legacy mathematics.
+Do not renumber or reinterpret mathematics generation versions 2–6. Add an explicit generator namespace; an absent namespace permanently means legacy mathematics.
 
 ```ts
 type SubjectId = "math" | "german"
 
 type GeneratorReference =
-  | { generatorId?: "zh-zap1-math"; version: 2 | 3 | 4 | 5 }
-  | { generatorId: "zh-zap1-german"; version: 1 | 2 | 3 | 4 | 5 | 6; corpusVersion: 1 }
+  | { generatorId?: "zh-zap1-math"; version: 2 | 3 | 4 | 5 | 6 }
+  | { generatorId: "zh-zap1-german"; version: 1 | 2 | 3 | 4 | 5 | 6 | 7; corpusVersion: 1 }
 ```
 
 German tasks always pin the curriculum package, generator, corpus, seed, template, scoring-policy version, and content locale.
@@ -274,7 +276,7 @@ Add `gradingConfidence` and `evidenceStatus` to question results. Existing mathe
 
 ### Archive, reports, backup, and reset
 
-German archive editions have four document roles: language exam, solutions, text sheet, and essay topics. Refactor the archive model so each subject declares required document roles rather than assuming the mathematics pair.
+German archive editions have four core document roles—language exam, solutions, text sheet, and essay topics—and can register source-specific companion roles such as the 2015 essay-correction guidance. Each subject declares its own roles instead of assuming the mathematics pair.
 
 Exercise reports include subject, curriculum, generator/corpus/scoring versions, family, template, and seed. They must never include learner-entered comprehension or essay text.
 
@@ -287,7 +289,7 @@ Introduce a multi-course encrypted-backup payload. Legacy backups import as Math
 
 ### Phase 0 — Mathematics safety gate
 
-- Golden replay fixtures for mathematics v2–v5.
+- Golden replay fixtures for mathematics v2–v6.
 - Legacy IndexedDB, session, mock, and backup fixtures.
 - Current full release suite green.
 
@@ -339,7 +341,7 @@ Introduce a multi-course encrypted-backup payload. Legacy backups import as Math
 
 ### Phase 6 — German archive and worldwide release
 
-- Implemented: four-role archive ingestion for both supplied years, with eight exact content identities, shared local storage without cross-subject mixing, bulk import, local reader, reset boundaries, and no backup/public-build inclusion.
+- Implemented: core-plus-optional archive ingestion for all twelve supplied years, with 49 exact content identities, shared local storage without cross-subject mixing, bulk import, a compact year selector, local reader, reset boundaries, and no backup/public-build inclusion.
 - Implemented: persisted 45-minute language-source practice and 60-minute source writing, absolute deadlines, locked solutions, local draft autosave, encrypted state/history backup without PDFs, and bounded no-score review.
 - Implemented engineering QA: iPad-width responsive source workspaces, live document switching, reload resume, and regression coverage for PDF cleanup.
 - Remaining: graded replay only after rubric validation; copyright review, manual accessibility audit, physical-device sign-off, and human language/content review.
@@ -347,7 +349,7 @@ Introduce a multi-course encrypted-backup payload. Legacy backups import as Math
 ## Acceptance tests
 
 - Legacy `current` data migrates byte-for-byte into Mathematics.
-- Mathematics v2–v5 replay remains stable.
+- Mathematics v2–v6 replay remains stable.
 - Subject XP, mastery, reviews, help requests, sessions, and assessments never leak across subjects.
 - Reload opens the paused subject first, otherwise the most recently used/completed subject.
 - UI language changes do not change subject.
@@ -359,7 +361,7 @@ Introduce a multi-course encrypted-backup payload. Legacy backups import as Math
 - Backup round-trips both subjects; legacy backup imports as Mathematics.
 - Current-subject reset preserves the other subject and companion access.
 - Reports reproduce both subjects, including comprehension and writing prompts, without learner answers, selected evidence, reviewer feedback, or drafts.
-- All four German archive document roles are recognized without disturbing mathematics files.
+- Every registered German archive role, including the optional 2015 correction guidance, is recognized without disturbing mathematics files.
 
 ## Recommended first implementation slice
 

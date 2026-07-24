@@ -48,7 +48,11 @@ export function GermanSourcePracticeView({
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const timeoutSubmitted = useRef<string | undefined>(undefined)
   const remaining = remainingGermanSourcePracticeSeconds(practice, new Date(nowMs))
-  const availableKinds = germanSourcePracticeDocumentKinds(practice.mode, practice.phase)
+  const availableKinds = germanSourcePracticeDocumentKinds(
+    practice.editionId,
+    practice.mode,
+    practice.phase,
+  )
   const currentDefinition = edition.documents[practice.currentDocumentKind]
   const currentRecord = documents[practice.currentDocumentKind]
   const currentPage = practice.pageNumbers[practice.currentDocumentKind] ?? 1
@@ -66,7 +70,7 @@ export function GermanSourcePracticeView({
     onChange(submitGermanSourcePractice(practice, "timeout", new Date(nowMs)))
   }, [nowMs, onChange, practice, remaining])
 
-  if (!currentRecord) {
+  if (!currentRecord || !currentDefinition) {
     return (
       <main className="german-source-practice-shell">
         <section className="german-source-practice-missing" role="alert">

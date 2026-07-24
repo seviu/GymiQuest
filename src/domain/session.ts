@@ -12,7 +12,7 @@ export type QuestionFeedback = "correct" | "wrong" | null
 export type ConceptRepairStage = "concept" | "example" | "check"
 
 export interface ConceptRepairProgress {
-  version: 1 | 2 | 3 | 4 | 5
+  version: 1 | 2 | 3 | 4 | 5 | 6
   seed: string
   stage: ConceptRepairStage
   teachBack: string

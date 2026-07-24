@@ -18,7 +18,7 @@ export function buildTaskGenerationProfile(
   if (difficultyBands.length === 0) {
     throw new Error("A generation profile needs at least one difficulty band.")
   }
-  return { version: 5, difficultyBands: [...difficultyBands] }
+  return { version: 6, difficultyBands: [...difficultyBands] }
 }
 
 export function difficultyBandForTaskQuestion(
@@ -149,6 +149,9 @@ function topicStructuralScore(question: GeneratedQuestion): number {
   switch (question.topicId) {
     case "arithmetic-equations": {
       const [multiplier, divisor, result] = values
+      if (variant === "relation-total") {
+        return 38 + (multiplier ?? 0) * 5 + logarithmicMagnitude(result) * 4
+      }
       return (divisor ?? 0) * 1.8 + (multiplier ?? 0) * 0.5 + logarithmicMagnitude(result) * 2
     }
     case "efficient-arithmetic":
@@ -158,6 +161,10 @@ function topicStructuralScore(question: GeneratedQuestion): number {
       return (question.visual?.unit === "g → kg" ? 28 : 8) +
         logarithmicMagnitude(question.visual?.fromValue) * 2
     case "fraction-of-quantity":
+      if (variant === "fraction-midpoint" || variant === "fraction-distance") {
+        return (variant === "fraction-midpoint" ? 36 : 24) +
+          (values[1] ?? 0) * 1.8 + logarithmicMagnitude(values[2]) * 2
+      }
       return (question.visual?.denominator ?? 0) * 2.2 +
         (question.visual?.numerator ?? 0) * 1.3 +
         logarithmicMagnitude(question.visual?.toValue) * 2
@@ -194,9 +201,16 @@ function topicStructuralScore(question: GeneratedQuestion): number {
       return 32 + promptInteger(question, /genau (\d+)-mal/) * 5 +
         logarithmicMagnitude(values[3]) * 3
     case "integer-combinations":
+      if (variant === "recurring-cycles") {
+        return 34 + (values[2] ? 22 : 8) + logarithmicMagnitude(values[3]) * 5
+      }
       return question.workedSteps.length * 4 +
         logarithmicMagnitude(promptInteger(question, /zusammen sind es (\d+) Fr/)) * 3
     case "number-constraints": {
+      if (variant === "number-wall-centre" || variant === "number-wall-edge") {
+        return 28 + (variant === "number-wall-edge" ? 10 : 4) +
+          logarithmicMagnitude(values[5]) * 5
+      }
       const divisor = values.length >= 9 ? values[4] ?? 0 : values.at(-2) ?? 0
       const solutionCount = values.at(-1) ?? 0
       const divisorWeight = new Map<number, number>([
@@ -273,6 +287,11 @@ function topicStructuralScore(question: GeneratedQuestion): number {
           ? 40
           : 12
     case "cuboid-surface":
+      if (variant === "voxel-count" || variant === "voxel-surface") {
+        return (variant === "voxel-surface" ? 58 : 28) +
+          (values[0] ?? 0) + (values[1] ?? 0) + (values[2] ?? 0) * 2 +
+          (values[3] ?? 0) * 1.5
+      }
       return (variant === "missing-edge" ? 18 : 40) +
         logarithmicMagnitude(values[2]) * 3 + logarithmicMagnitude(values[3]) * 2
   }

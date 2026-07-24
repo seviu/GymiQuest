@@ -289,6 +289,7 @@ test("resets only the selected subject while preserving profile and the other co
     await page.getByRole("button", { name: "Antwort speichern" }).click()
   }
 
+  await page.getByRole("button", { name: "Profil und Einstellungen" }).click()
   await page.getByRole("button", { name: "Deutsch-Lernstand zurücksetzen" }).click()
   await expect(page.getByRole("alert")).toContainText("Mathematik, Profil, Begleitpersonen-PIN")
   await page.getByRole("button", { name: "Deutsch zurücksetzen" }).click()
@@ -320,6 +321,7 @@ test("resets only the selected subject while preserving profile and the other co
   await page.getByRole("button", { name: "Mathematik", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Dein Lernplan" })).toBeVisible()
   await page.getByRole("button", { name: "Fortschritt öffnen" }).click()
+  await page.getByRole("button", { name: "Plan anpassen" }).click()
   await page.getByRole("button", { name: "Mathematik-Lernstand zurücksetzen" }).click()
   await expect(page.getByRole("alert")).toContainText("Deutsch-Lernstand, Profil, Begleitpersonen-PIN")
   await page.getByRole("button", { name: "Mathematik zurücksetzen" }).click()

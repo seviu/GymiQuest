@@ -3,6 +3,10 @@ import {
   archiveExpansionTopicIds,
   generateArchiveExpansionQuestion,
 } from "./archiveGeneratorExpansion"
+import {
+  archiveCoverageTopicIds,
+  generateArchiveCoverageQuestion,
+} from "./archiveGeneratorCoverage"
 import { buildConceptRepairQuestions } from "./conceptRepair"
 import { generateQuestion } from "./generators"
 import { topicIds } from "./model"
@@ -127,6 +131,45 @@ describe("concept repair question set", () => {
       expect(repairs.map(signature), topicId).toEqual(Array(4).fill(signature(repairs[0]!)))
       expect(new Set(repairs.map(({ example }) => example.prompt)).size, topicId).toBe(4)
       expect(new Set(repairs.map(({ check }) => check.prompt)).size, topicId).toBe(4)
+    }
+  })
+
+  it("returns v6 archive gaps with fresh values from the same template", () => {
+    for (const topicId of archiveCoverageTopicIds) {
+      const source = generateArchiveCoverageQuestion(
+        topicId,
+        `source:v6:${topicId}`,
+        `source:v6:${topicId}`,
+        "en",
+      )
+      const first = buildConceptRepairQuestions(
+        topicId,
+        `repair:v6:${topicId}`,
+        source.prompt,
+        6,
+        "en",
+        source.provenance,
+      )
+      const replay = buildConceptRepairQuestions(
+        topicId,
+        `repair:v6:${topicId}`,
+        source.prompt,
+        6,
+        "en",
+        source.provenance,
+      )
+
+      expect(replay, topicId).toEqual(first)
+      expect(first.example.provenance?.familyId, topicId).toBe(source.provenance?.familyId)
+      expect(first.example.provenance?.templateId, topicId).toBe(source.provenance?.templateId)
+      expect(first.check.provenance, topicId).toEqual(first.example.provenance)
+      expect(first.example.generation?.version, topicId).toBe(6)
+      expect(first.example.generation?.difficultyBand, topicId).toBe("foundation")
+      expect(first.check.generation?.difficultyBand, topicId).toBe("standard")
+      expect(first.example.generation!.difficultyScore, topicId).toBeLessThanOrEqual(
+        first.check.generation!.difficultyScore,
+      )
+      expect(new Set([source.prompt, first.example.prompt, first.check.prompt]).size, topicId).toBe(3)
     }
   })
 })

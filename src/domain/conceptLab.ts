@@ -23,14 +23,14 @@ export function buildConceptLabRound(
     topicId,
     `${seed}:reference`,
     `${seed}:reference`,
-    { version: 5, difficultyBand: "standard" },
+    { version: 6, difficultyBand: "standard" },
     locale,
   )
   const { example, check } = buildConceptRepairQuestions(
     topicId,
     `${seed}:round`,
     reference.prompt,
-    5,
+    6,
     locale,
     reference.provenance,
   )

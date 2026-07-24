@@ -68,6 +68,7 @@ describe("German assessment mistake review", () => {
     expect(container.textContent).toContain("Lea hatte den Schirm gekauft.")
     expect(container.textContent).toContain("Draussen regnete es.")
     expect(container.textContent).toContain("Der nasse Schirm ist der sichere Textbeleg")
+    expect(container.textContent).not.toContain("Deutsch-Lernstand zurücksetzen")
   })
 
   it("opens a strict-exam review with the wrong and correct options visibly distinguished", () => {

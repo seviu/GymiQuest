@@ -426,16 +426,16 @@ describe("encrypted learner backup", () => {
     expect(restored.activeSession?.question.answer).toBe("alter Entwurf")
   })
 
-  it("accepts and restores the current generation-v5 task contract", async () => {
+  it("accepts and restores the current generation-v6 task contract", async () => {
     const learner = createSeededLearner(now)
     const currentTask = buildAssignments(learner, now)[0]!
-    expect(currentTask.generation?.version).toBe(5)
+    expect(currentTask.generation?.version).toBe(6)
     const session = createActiveLearningSession(currentTask, now)
 
     const serialized = await createEncryptedBackup(learner, session, password, now)
     const restored = await openEncryptedBackup(serialized, password)
 
-    expect(restored.activeSession?.task.generation?.version).toBe(5)
+    expect(restored.activeSession?.task.generation?.version).toBe(6)
     expect(restored.activeSession?.task.pacing).toEqual({
       version: 1,
       mode: "steady",

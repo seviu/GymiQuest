@@ -55,10 +55,11 @@ export type DifficultyBand = (typeof difficultyBandIds)[number]
  * representative inside each band. Version 3 varies within the requested band.
  * Version 4 retains that variation and pins the full tetrahedron-orientation
  * template so older paused spatial tasks keep their original one-roll question.
- * Version 5 is the current generation contract and initially preserves the
- * version-4 generator families while allowing new content to evolve separately.
+ * Version 5 adds the first archive-informed expansion without changing stored
+ * version 2-4 tasks. Version 6 adds five further recurring exam families while
+ * preserving the exact version-5 dispatcher for paused and resumed work.
  */
-export const generationVersionIds = [2, 3, 4, 5] as const
+export const generationVersionIds = [2, 3, 4, 5, 6] as const
 
 export type GenerationVersion = (typeof generationVersionIds)[number]
 
@@ -496,6 +497,8 @@ export interface GeneratedQuestion {
       | "cube-net"
       | "pyramid"
       | "cuboid"
+      | "number-wall"
+      | "number-line"
     numerator?: number
     denominator?: number
     fromValue?: number
@@ -516,6 +519,14 @@ export interface GeneratedQuestion {
       | "late-start"
       | "duration-price"
       | "missing-edge"
+      | "relation-total"
+      | "voxel-count"
+      | "voxel-surface"
+      | "recurring-cycles"
+      | "number-wall-centre"
+      | "number-wall-edge"
+      | "fraction-midpoint"
+      | "fraction-distance"
       | "greater"
       | "less"
       | "frame"

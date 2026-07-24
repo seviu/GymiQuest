@@ -97,7 +97,7 @@ describe("exercise defect reports", () => {
       "exam",
     ])
     expect(decoded.question.generation).toMatchObject({
-      version: 5,
+      version: 6,
       difficultyBand: "foundation",
     })
     expect(generateQuestionsForTask(decoded.task)[questionIndex]).toEqual(question)

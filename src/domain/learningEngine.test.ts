@@ -20,7 +20,11 @@ import {
   createInitialLearner,
   createSeededLearner,
   isCurriculumMastered,
+  DEEP_RECOVERY_BREAK_HOURS,
+  LIGHT_RECOVERY_BREAK_HOURS,
+  MAX_TOPIC_INACTIVITY_DAYS,
   migrateLearnerState,
+  nextLessonRecoveryAt,
   nextReviewAt,
   recordCompletion,
   REVIEW_INTERVAL_DAYS,
@@ -444,7 +448,11 @@ describe("learning engine", () => {
       lesson,
       completionWithMissedQuestions(lesson, "accelerated-one-miss", [0]),
     )
-    const recovery = buildAssignments(result.state, now).find(
+    const immediateRecovery = buildAssignments(result.state, now).find(
+      (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
+    )
+    const returnAt = new Date(now.getTime() + LIGHT_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000)
+    const recovery = buildAssignments(result.state, returnAt).find(
       (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
     )
 
@@ -454,11 +462,15 @@ describe("learning engine", () => {
     })
     expect(result.award).toMatchObject({ totalXp: 25, reason: "lesson-full" })
     expect(result.state.mastery[topicId].status).toBe("learning")
+    expect(immediateRecovery).toBeUndefined()
+    expect(nextLessonRecoveryAt(result.state, now)).toBe(returnAt.toISOString())
+    expect(nextLessonRecoveryAt(result.state, returnAt)).toBeUndefined()
     expect(recovery).toMatchObject({
       kind: "repair",
       purpose: "lesson-recovery",
       questionCount: 2,
       generation: { difficultyBands: ["standard", "exam"] },
+      dueAt: returnAt.toISOString(),
     })
     expect(recovery?.pacing).toBeUndefined()
   })
@@ -472,7 +484,11 @@ describe("learning engine", () => {
       lesson,
       completionWithMissedQuestions(lesson, "supported-four-misses", [0, 1, 2, 3]),
     )
-    const recovery = buildAssignments(result.state, now).find(
+    const immediateRecovery = buildAssignments(result.state, now).find(
+      (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
+    )
+    const returnAt = new Date(now.getTime() + DEEP_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000)
+    const recovery = buildAssignments(result.state, returnAt).find(
       (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
     )
 
@@ -487,7 +503,13 @@ describe("learning engine", () => {
       reason: "lesson-recovery",
     })
     expect(result.state.mastery[topicId].status).toBe("learning")
-    expect(recovery).toMatchObject({ kind: "repair", purpose: "lesson-recovery" })
+    expect(immediateRecovery).toBeUndefined()
+    expect(recovery).toMatchObject({
+      kind: "repair",
+      purpose: "lesson-recovery",
+      generation: { difficultyBands: ["foundation", "standard"] },
+      dueAt: returnAt.toISOString(),
+    })
   })
 
   it("awards no lesson XP after more than three mistakes and schedules the topic again", () => {
@@ -497,13 +519,18 @@ describe("learning engine", () => {
     const event = completion(lesson, "four-mistakes", { mistakes: 4 })
 
     const result = recordCompletion(state, lesson, event)
-    const recovery = buildAssignments(result.state, now).find(
+    const immediateRecovery = buildAssignments(result.state, now).find(
+      (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
+    )
+    const returnAt = new Date(now.getTime() + DEEP_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000)
+    const recovery = buildAssignments(result.state, returnAt).find(
       (task) => task.purpose === "lesson-recovery" && task.topicIds.includes(topicId),
     )
 
     expect(result.award).toMatchObject({ baseXp: 0, bonusXp: 0, totalXp: 0 })
     expect(result.state.learningEvents.at(-1)).toEqual(event)
     expect(result.state.mastery[topicId].status).toBe("learning")
+    expect(immediateRecovery).toBeUndefined()
     expect(recovery).toMatchObject({ kind: "repair", purpose: "lesson-recovery" })
   })
 
@@ -535,7 +562,13 @@ describe("learning engine", () => {
     expect(introduced.state.mastery[topicId].independentMastery).toBeGreaterThan(0)
     expect(introduced.state.mastery[dependent.id].status).toBe("locked")
 
-    const firstRecovery = buildAssignments(introduced.state, now).find(
+    const firstReturnAt = new Date(
+      now.getTime() + DEEP_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000,
+    )
+    expect(buildAssignments(introduced.state, now).some(
+      (task) => task.purpose === "lesson-recovery",
+    )).toBe(false)
+    const firstRecovery = buildAssignments(introduced.state, firstReturnAt).find(
       (task) => task.purpose === "lesson-recovery",
     )
     expect(firstRecovery).toMatchObject({
@@ -543,21 +576,31 @@ describe("learning engine", () => {
       purpose: "lesson-recovery",
       topicIds: [topicId],
       questionCount: 2,
-      generation: { difficultyBands: ["standard", "exam"] },
+      generation: { difficultyBands: ["foundation", "standard"] },
+      dueAt: firstReturnAt.toISOString(),
     })
     expect(firstRecovery!.maxXp).toBeLessThan(lesson.maxXp)
 
     const stillLearning = recordCompletion(
       introduced.state,
       firstRecovery!,
-      completion(firstRecovery!, "needs-another-round", { mistakes: 1 }),
+      completion(firstRecovery!, "needs-another-round", {
+        mistakes: 1,
+        at: firstReturnAt.toISOString(),
+      }),
     )
     expect(stillLearning.award.totalXp).toBe(firstRecovery!.maxXp)
     expect(stillLearning.state.mastery[topicId].status).toBe("learning")
     expect(stillLearning.state.learningEvents.at(-1)?.taskPurpose).toBe("lesson-recovery")
     expect(stillLearning.state.mastery[dependent.id].status).toBe("locked")
 
-    const secondRecovery = buildAssignments(stillLearning.state, now).find(
+    const secondReturnAt = new Date(
+      firstReturnAt.getTime() + LIGHT_RECOVERY_BREAK_HOURS * 60 * 60 * 1_000,
+    )
+    expect(buildAssignments(stillLearning.state, firstReturnAt).some(
+      (task) => task.purpose === "lesson-recovery",
+    )).toBe(false)
+    const secondRecovery = buildAssignments(stillLearning.state, secondReturnAt).find(
       (task) => task.purpose === "lesson-recovery",
     )
     expect(secondRecovery?.id).not.toBe(firstRecovery!.id)
@@ -566,7 +609,7 @@ describe("learning engine", () => {
     const secured = recordCompletion(
       stillLearning.state,
       secondRecovery!,
-      completion(secondRecovery!, "secured"),
+      completion(secondRecovery!, "secured", { at: secondReturnAt.toISOString() }),
     )
     expect(secured.award.totalXp).toBe(secondRecovery!.maxXp)
     expect(secured.state.mastery[topicId]).toMatchObject({
@@ -675,6 +718,140 @@ describe("learning engine", () => {
     expect(nextReview?.id).not.toBe(review.id)
     expect(nextReview?.seed).not.toBe(review.seed)
     expect(nextReview?.maxXp).toBe(review.maxXp)
+  })
+
+  it("resurfaces a mastered topic after the maximum inactivity window", () => {
+    const state = createSeededLearner(now)
+    const topicId: TopicId = "mass-units"
+    const lastPracticeAt = new Date(
+      now.getTime() - MAX_TOPIC_INACTIVITY_DAYS * 24 * 60 * 60 * 1_000,
+    )
+    state.mastery[topicId].lastReviewedAt = lastPracticeAt.toISOString()
+    state.mastery[topicId].masteredAt = lastPracticeAt.toISOString()
+    state.mastery[topicId].dueAt = new Date(
+      now.getTime() + 40 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+
+    const assignments = buildAssignments(state, now)
+    const refresh = assignments.find((task) => (
+      task.kind === "review" && task.topicIds[0] === topicId
+    ))
+
+    expect(refresh).toMatchObject({
+      kind: "review",
+      topicIds: [topicId],
+      dueAt: now.toISOString(),
+    })
+    expect(refresh?.description).toContain("längerer Pause")
+    expect(assignments[0]?.id).toBe(refresh?.id)
+    expect(nextReviewAt(state)).toBe(now.toISOString())
+  })
+
+  it("uses recent mixed practice to postpone the inactivity refresh", () => {
+    const state = createSeededLearner(now)
+    const topicId: TopicId = "mass-units"
+    const recentPracticeAt = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1_000)
+    state.mastery[topicId].lastReviewedAt = new Date(
+      now.getTime() - 45 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mastery[topicId].dueAt = new Date(
+      now.getTime() + 40 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mastery["fraction-of-quantity"].lastReviewedAt = now.toISOString()
+    state.mastery["fraction-of-quantity"].dueAt = new Date(
+      now.getTime() + 40 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.learningEvents.push({
+      id: "event:recent-mixed-practice",
+      taskId: "assessment:recent-mixed-practice",
+      taskKind: "assessment",
+      topicIds: [topicId],
+      completedAt: recentPracticeAt.toISOString(),
+      activeSeconds: 60,
+      mistakes: 0,
+      hintsUsed: 0,
+      independentlyCompleted: true,
+      questionResults: [{
+        questionId: "assessment:recent-mixed-practice:question:0",
+        topicId,
+        attempts: 1,
+        hintsUsed: 0,
+        activeSeconds: 60,
+        independentlySolved: true,
+      }],
+    })
+
+    expect(buildAssignments(state, now).some((task) => (
+      task.kind === "review" && task.topicIds[0] === topicId
+    ))).toBe(false)
+    expect(nextReviewAt(state)).toBe(
+      new Date(
+        recentPracticeAt.getTime() + MAX_TOPIC_INACTIVITY_DAYS * 24 * 60 * 60 * 1_000,
+      ).toISOString(),
+    )
+  })
+
+  it("uses a recently attempted generated mock to postpone the inactivity refresh", () => {
+    const state = createSeededLearner(now)
+    const topicId: TopicId = "mass-units"
+    const recentPracticeAt = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1_000)
+    state.mastery[topicId].lastReviewedAt = new Date(
+      now.getTime() - 45 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mastery[topicId].dueAt = new Date(
+      now.getTime() + 40 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mastery["fraction-of-quantity"].lastReviewedAt = now.toISOString()
+    state.mastery["fraction-of-quantity"].dueAt = new Date(
+      now.getTime() + 40 * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mockHistory.push({
+      id: "result:recent-generated-mock",
+      source: "generated",
+      seed: "recent-generated-mock",
+      blueprintVersion: 6,
+      startedAt: new Date(recentPracticeAt.getTime() - 60 * 60 * 1_000).toISOString(),
+      submittedAt: recentPracticeAt.toISOString(),
+      submissionReason: "submitted",
+      durationSeconds: 3_600,
+      maxPoints: 4,
+      certainPoints: 4,
+      reviewablePoints: 0,
+      recoveryTopicIds: [],
+      taskResults: [{
+        taskId: "recent-generated-mock:task:1",
+        taskNumber: 1,
+        title: "Mass units",
+        maxPoints: 4,
+        certainPoints: 4,
+        reviewablePoints: 0,
+        activeSeconds: 120,
+        visitCount: 1,
+        flagged: false,
+        parts: [{
+          partId: "recent-generated-mock:task:1:part:1",
+          taskId: "recent-generated-mock:task:1",
+          topicId,
+          answer: "2.5",
+          working: "",
+          answerCorrect: true,
+          methodRequired: false,
+          maxPoints: 4,
+          certainPoints: 4,
+          reviewablePoints: 0,
+          confidence: "certain",
+        }],
+      }],
+    })
+
+    expect(buildAssignments(state, now).some((task) => (
+      task.kind === "review" && task.topicIds[0] === topicId
+    ))).toBe(false)
+    expect(nextReviewAt(state)).toBe(
+      new Date(
+        recentPracticeAt.getTime() + MAX_TOPIC_INACTIVITY_DAYS * 24 * 60 * 60 * 1_000,
+      ).toISOString(),
+    )
   })
 
   it("unlocks an assessment at the threshold and preserves overflow afterward", () => {

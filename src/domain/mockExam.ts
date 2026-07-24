@@ -30,12 +30,14 @@ export const LEGACY_MOCK_BLUEPRINT_VERSION = 1 as const
 export const FIXED_BAND_MOCK_BLUEPRINT_VERSION = 2 as const
 export const VARIABLE_BAND_MOCK_BLUEPRINT_VERSION = 3 as const
 export const FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION = 4 as const
-export const MOCK_BLUEPRINT_VERSION = 5 as const
+export const ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION = 5 as const
+export const MOCK_BLUEPRINT_VERSION = 6 as const
 export type GeneratedMockBlueprintVersion =
   | typeof LEGACY_MOCK_BLUEPRINT_VERSION
   | typeof FIXED_BAND_MOCK_BLUEPRINT_VERSION
   | typeof VARIABLE_BAND_MOCK_BLUEPRINT_VERSION
   | typeof FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION
+  | typeof ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION
   | typeof MOCK_BLUEPRINT_VERSION
 export const FULL_MOCK_DURATION_SECONDS = 60 * 60
 export const MOCK_TASK_COUNT = 9
@@ -223,6 +225,7 @@ export function isSupportedGeneratedMockBlueprintVersion(
   return version === LEGACY_MOCK_BLUEPRINT_VERSION || version === MOCK_BLUEPRINT_VERSION
     || version === FIXED_BAND_MOCK_BLUEPRINT_VERSION || version === VARIABLE_BAND_MOCK_BLUEPRINT_VERSION
     || version === FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION
+    || version === ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION
 }
 
 function examId(seed: string, version: GeneratedMockBlueprintVersion): string {
@@ -237,7 +240,11 @@ export function buildGeneratedMockBlueprint(
   const tasks = blueprintSlots.map((slot, index): MockExamTaskBlueprint => {
     const random = createRandom(`${seed}:slot:${index}`)
     const taskId = `${examId(seed, version)}:task:${index + 1}`
-    const firstTopic = pick(random, slot.first)
+    const firstTopicPool: readonly TopicId[] =
+      version === MOCK_BLUEPRINT_VERSION && slot.family === "planar-geometry"
+        ? ["fraction-of-quantity", ...slot.first]
+        : slot.first
+    const firstTopic = pick(random, firstTopicPool)
     const secondTopic = pick(random, slot.second)
     const generation = version === LEGACY_MOCK_BLUEPRINT_VERSION
       ? undefined
@@ -248,7 +255,9 @@ export function buildGeneratedMockBlueprint(
               ? 3 as const
               : version === FULL_ORIENTATION_MOCK_BLUEPRINT_VERSION
                 ? 4 as const
-                : 5 as const,
+                : version === ARCHIVE_EXPANSION_MOCK_BLUEPRINT_VERSION
+                  ? 5 as const
+                  : 6 as const,
           difficultyBand: "exam" as const,
         }
 

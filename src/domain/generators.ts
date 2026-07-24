@@ -13,6 +13,10 @@ import {
   generateArchiveExpansionQuestion,
   supportsArchiveExpansionTopic,
 } from "./archiveGeneratorExpansion"
+import {
+  generateArchiveCoverageQuestion,
+  supportsArchiveCoverageTopic,
+} from "./archiveGeneratorCoverage"
 import { generateArchiveQuestion } from "./archiveGenerators"
 import { createRandom, pick, pickIndex } from "./random"
 import { generateZap2025Question } from "./zap2025Generators"
@@ -323,7 +327,15 @@ function generateLegacyQuestion(
   locale: LearningLocale = "de",
 ): GeneratedQuestion {
   if (
-    generationVersion === 5 &&
+    generationVersion === 6 &&
+    supportsArchiveCoverageTopic(topicId) &&
+    createRandom(`${seed}:archive-coverage:v6`)() < 0.58
+  ) {
+    return generateArchiveCoverageQuestion(topicId, seed, id, locale)
+  }
+
+  if (
+    (generationVersion === 5 || generationVersion === 6) &&
     supportsArchiveExpansionTopic(topicId) &&
     createRandom(`${seed}:archive-expansion:v5`)() < 0.5
   ) {
@@ -352,7 +364,7 @@ function generateLegacyQuestion(
         topicId,
         seed,
         id,
-        generationVersion === 4 || generationVersion === 5
+        generationVersion === 4 || generationVersion === 5 || generationVersion === 6
           ? "full-orientation"
           : "legacy-one-roll",
         locale,
@@ -411,12 +423,12 @@ export function generateDifficultyVariants(
   topicId: TopicId,
   seed: string,
   id = seed,
-  version: GenerationVersion = 5,
+  version: GenerationVersion = 6,
   locale: LearningLocale = "de",
 ): Record<DifficultyBand, GeneratedQuestion> {
   const candidates: ScoredQuestion[] = []
   const prompts = new Set<string>()
-  const usesFullSpatialOrientation = version === 4 || version === 5
+  const usesFullSpatialOrientation = version === 4 || version === 5 || version === 6
   const hasSpatialBandCoverage = (): boolean => {
     if (topicId !== "spatial-rolling" || !usesFullSpatialOrientation) return true
     const arrowCounts = candidates.map((candidate) => candidate.question.visual?.arrows?.length ?? 0)

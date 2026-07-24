@@ -6,7 +6,11 @@ import type {
   GermanSourceArchiveDocumentRecord,
   GermanSourceArchiveDocuments,
 } from "../../infra/germanSourceArchive"
-import { germanSourceArchiveCatalog, type GermanSourceArchiveDocumentKind } from "./sourceArchiveCatalog"
+import {
+  germanSourceArchiveCatalog,
+  type GermanSourceArchiveDocumentKind,
+  type GermanSourceArchiveEditionId,
+} from "./sourceArchiveCatalog"
 import {
   createActiveGermanSourcePractice,
   type ActiveGermanSourcePractice,
@@ -22,9 +26,12 @@ vi.mock("../../features/PdfPageCanvas", () => ({
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-function record(kind: GermanSourceArchiveDocumentKind): GermanSourceArchiveDocumentRecord {
-  const editionId = "zap-zh-lg-german-2025" as const
+function record(
+  kind: GermanSourceArchiveDocumentKind,
+  editionId: GermanSourceArchiveEditionId = "zap-zh-lg-german-2025",
+): GermanSourceArchiveDocumentRecord {
   const definition = germanSourceArchiveCatalog[editionId].documents[kind]
+  if (!definition) throw new Error(`Missing test definition for ${kind}`)
   return {
     id: `german-source:${editionId}:${kind}`,
     subjectId: "german",
@@ -39,13 +46,19 @@ function record(kind: GermanSourceArchiveDocumentKind): GermanSourceArchiveDocum
   }
 }
 
-function documents(): GermanSourceArchiveDocuments {
-  return {
-    "language-exam": record("language-exam"),
-    solutions: record("solutions"),
-    "text-sheet": record("text-sheet"),
-    "essay-prompts": record("essay-prompts"),
+function documents(
+  editionId: GermanSourceArchiveEditionId = "zap-zh-lg-german-2025",
+): GermanSourceArchiveDocuments {
+  const sourceDocuments: GermanSourceArchiveDocuments = {
+    "language-exam": record("language-exam", editionId),
+    solutions: record("solutions", editionId),
+    "text-sheet": record("text-sheet", editionId),
+    "essay-prompts": record("essay-prompts", editionId),
   }
+  if (germanSourceArchiveCatalog[editionId].documents["essay-guidance"]) {
+    sourceDocuments["essay-guidance"] = record("essay-guidance", editionId)
+  }
+  return sourceDocuments
 }
 
 function buttonWithText(container: HTMLElement, text: string): HTMLButtonElement {
@@ -80,7 +93,7 @@ function Harness({
     <LocalizationProvider initialLocale="en">
       <GermanSourcePracticeView
         practice={practice}
-        documents={documents()}
+        documents={documents(practice.editionId)}
         onChange={(next) => {
           setPractice(next)
           onState(next)
@@ -188,5 +201,27 @@ describe("German source practice view", () => {
     })
     expect(onComplete.mock.calls[0]![0]).not.toHaveProperty("grade")
     expect(onComplete.mock.calls[0]![0]).not.toHaveProperty("xp")
+  })
+
+  it("shows the 2015 correction guidance only after the source essay is submitted", () => {
+    const initial = createActiveGermanSourcePractice(
+      "zap-zh-lg-german-2015",
+      "writing",
+      "ui:writing:guidance",
+      new Date(),
+    )
+    act(() => root.render(
+      <Harness initial={initial} onState={() => undefined} onComplete={() => undefined} />,
+    ))
+
+    const tabLabels = () => Array.from(
+      container.querySelectorAll(".german-source-document-toolbar .official-library-reader-tabs button"),
+    ).map((button) => button.textContent?.trim())
+    expect(tabLabels()).toEqual(["Essay prompts"])
+
+    act(() => buttonWithText(container, "Submit").click())
+    act(() => buttonWithText(container, "Submit now").click())
+
+    expect(tabLabels()).toEqual(["Essay prompts", "Correction guidance"])
   })
 })

@@ -8,7 +8,7 @@ describe("subject registry", () => {
     expect(Object.keys(subjectRegistry)).toEqual(["math", "german"])
     expect(subjectRuntimeFor("math").courseKey).toBe(courseKeys.math)
     expect(subjectRuntimeFor("german").courseKey).toBe(courseKeys.german)
-    expect(subjectRuntimeFor("math").generator).toEqual({ id: "zh-zap1-math", version: 5 })
+    expect(subjectRuntimeFor("math").generator).toEqual({ id: "zh-zap1-math", version: 6 })
     expect(subjectRuntimeFor("german").generator).toEqual({
       id: "zh-zap1-german",
       version: GERMAN_GENERATOR_VERSION,

@@ -32,14 +32,14 @@ function canonicalInput(question: GeneratedQuestion): string {
 
 describe("author validation samples", () => {
   it("covers every topic and difficulty through the production task generator", () => {
-    expect(AUTHOR_VALIDATION_GENERATION_VERSION).toBe(5)
+    expect(AUTHOR_VALIDATION_GENERATION_VERSION).toBe(6)
     const selections = authorValidationSelections()
     expect(selections).toHaveLength(topicIds.length * difficultyBandIds.length)
     expect(new Set(selections.map(({ topicId, difficultyBand }) => (
       authorValidationKey(topicId, difficultyBand)
     ))).size).toBe(selections.length)
-    expect(authorValidationArchiveTemplates).toHaveLength(7)
-    expect(new Set(authorValidationArchiveTemplates.map(({ key }) => key)).size).toBe(7)
+    expect(authorValidationArchiveTemplates).toHaveLength(17)
+    expect(new Set(authorValidationArchiveTemplates.map(({ key }) => key)).size).toBe(17)
     expect(authorValidationArchiveTemplates.every(({ familyId, templateId, key }) => (
       authorValidationTemplateKey(familyId, templateId) === key
     ))).toBe(true)

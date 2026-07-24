@@ -106,10 +106,16 @@ function durationFor(
 }
 
 export function germanSourcePracticeDocumentKinds(
+  editionId: GermanSourceArchiveEditionId,
   mode: GermanSourcePracticeMode,
   phase: GermanSourcePracticePhase,
 ): GermanSourceArchiveDocumentKind[] {
-  if (mode === "writing") return ["essay-prompts"]
+  if (mode === "writing") {
+    return phase === "review" &&
+      germanSourceArchiveCatalog[editionId].documents["essay-guidance"] !== undefined
+      ? ["essay-prompts", "essay-guidance"]
+      : ["essay-prompts"]
+  }
   return phase === "working"
     ? ["language-exam", "text-sheet"]
     : ["language-exam", "text-sheet", "solutions"]
@@ -120,9 +126,11 @@ function pageNumberIsValid(
   kind: GermanSourceArchiveDocumentKind,
   pageNumber: unknown,
 ): pageNumber is number {
+  const definition = germanSourceArchiveCatalog[editionId].documents[kind]
   return Number.isInteger(pageNumber) &&
+    definition !== undefined &&
     Number(pageNumber) >= 1 &&
-    Number(pageNumber) <= germanSourceArchiveCatalog[editionId].documents[kind].pageCount
+    Number(pageNumber) <= definition.pageCount
 }
 
 function clonePractice(practice: ActiveGermanSourcePractice): ActiveGermanSourcePractice {
@@ -158,7 +166,7 @@ export function createActiveGermanSourcePractice(
   if (!seed.trim()) throw new Error("German source practice needs a stable seed.")
   const durationSeconds = durationFor(editionId, mode)
   const startedAt = now.toISOString()
-  const documentKinds = germanSourcePracticeDocumentKinds(mode, "working")
+  const documentKinds = germanSourcePracticeDocumentKinds(editionId, mode, "working")
   return {
     schemaVersion: GERMAN_SOURCE_PRACTICE_SCHEMA_VERSION,
     kind: "german-source-practice",
@@ -192,7 +200,7 @@ export function navigateGermanSourcePractice(
   pageNumber: number,
   now = new Date(),
 ): ActiveGermanSourcePractice {
-  if (!germanSourcePracticeDocumentKinds(practice.mode, practice.phase).includes(kind) ||
+  if (!germanSourcePracticeDocumentKinds(practice.editionId, practice.mode, practice.phase).includes(kind) ||
     !pageNumberIsValid(practice.editionId, kind, pageNumber)) return practice
   return {
     ...clonePractice(practice),
@@ -224,7 +232,7 @@ export function submitGermanSourcePractice(
 ): ActiveGermanSourcePractice {
   if (practice.phase === "review") return practice
   const timestamp = nextPracticeTimestamp(practice, now)
-  const available = germanSourcePracticeDocumentKinds(practice.mode, "review")
+  const available = germanSourcePracticeDocumentKinds(practice.editionId, practice.mode, "review")
   return {
     ...clonePractice(practice),
     phase: "review",
@@ -353,7 +361,7 @@ export function isActiveGermanSourcePractice(value: unknown): value is ActiveGer
   ) return false
   const pageNumbers = value.pageNumbers
   if (!isRecord(pageNumbers)) return false
-  const allowedKinds = germanSourcePracticeDocumentKinds(mode, phase)
+  const allowedKinds = germanSourcePracticeDocumentKinds(editionId, mode, phase)
   if (typeof value.currentDocumentKind !== "string" ||
     !allowedKinds.includes(value.currentDocumentKind as GermanSourceArchiveDocumentKind) ||
     !allowedKinds.every((kind) => pageNumberIsValid(editionId, kind, pageNumbers[kind]))) return false
