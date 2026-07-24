@@ -3365,17 +3365,17 @@ button.profile-chip:hover {
 .profile-reset-settings {
   display: grid;
   grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
-  gap: clamp(22px, 4vw, 46px);
-  padding: clamp(24px, 4vw, 38px);
-  border: 1px solid rgba(184, 79, 57, 0.22);
-  border-radius: 22px;
-  background: linear-gradient(135deg, #fffefa, #fff7f3);
-  box-shadow: var(--shadow-small);
+  gap: clamp(20px, 3vw, 34px);
+  padding: clamp(22px, 3vw, 31px);
+  border: 1px solid rgba(23, 59, 87, 0.1);
+  border-radius: 19px;
+  background: linear-gradient(135deg, rgba(255, 254, 250, 0.82), rgba(255, 249, 246, 0.72));
+  box-shadow: 0 8px 24px rgba(23, 59, 87, 0.045);
 }
 
 .profile-reset-heading h2 {
   margin: 7px 0 9px;
-  font-size: clamp(23px, 3vw, 31px);
+  font-size: clamp(22px, 2.6vw, 28px);
   letter-spacing: -0.035em;
 }
 
@@ -3396,10 +3396,10 @@ button.profile-chip:hover {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px 18px;
-  padding: 15px 17px;
+  padding: 14px 16px;
   border: 1px solid rgba(23, 59, 87, 0.1);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.68);
 }
 
 .profile-reset-options > article > div:first-child {
@@ -3415,7 +3415,7 @@ button.profile-chip:hover {
 
 .profile-reset-options > article > div:first-child > span {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.5;
 }
 
@@ -4295,20 +4295,18 @@ button.profile-chip:hover {
 
 .home-shortcuts {
   display: grid;
-  gap: 16px;
-  margin-top: 18px;
-  padding: clamp(18px, 3vw, 25px);
-  border: 1px solid rgba(23, 107, 218, 0.15);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 100% 0, rgba(247, 200, 67, 0.16), transparent 16rem),
-    linear-gradient(135deg, rgba(245, 250, 255, 0.96), rgba(255, 254, 250, 0.96));
-  box-shadow: var(--shadow-small);
+  gap: 14px;
+  margin-top: 16px;
+  padding: clamp(16px, 2.5vw, 22px);
+  border: 1px solid rgba(23, 59, 87, 0.1);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(247, 250, 252, 0.76), rgba(255, 254, 250, 0.78));
+  box-shadow: 0 8px 24px rgba(23, 59, 87, 0.045);
 }
 
 .home-shortcuts-heading h2 {
   margin: 5px 0 6px;
-  font-size: clamp(20px, 3vw, 27px);
+  font-size: clamp(20px, 2.5vw, 24px);
   letter-spacing: -0.035em;
 }
 
@@ -4331,21 +4329,21 @@ button.profile-chip:hover {
   grid-template-columns: 38px minmax(0, 1fr);
   align-content: start;
   gap: 3px 11px;
-  min-height: 132px;
-  padding: 16px;
-  border: 1px solid rgba(23, 59, 87, 0.13);
-  border-radius: 15px;
+  min-height: 120px;
+  padding: 14px;
+  border: 1px solid rgba(23, 59, 87, 0.11);
+  border-radius: 14px;
   color: var(--ink);
   text-align: left;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.76);
   cursor: pointer;
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .home-shortcut-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(23, 107, 218, 0.42);
-  box-shadow: 0 10px 24px rgba(23, 59, 87, 0.09);
+  transform: translateY(-1px);
+  border-color: rgba(23, 107, 218, 0.34);
+  box-shadow: 0 7px 18px rgba(23, 59, 87, 0.07);
 }
 
 .home-shortcut-card:focus-visible {
@@ -4385,7 +4383,7 @@ button.profile-chip:hover {
 .home-shortcut-card small {
   grid-column: 2;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.5;
 }
 
