@@ -6605,9 +6605,14 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
         </figure>
       )
     }
+    const [multiplier, divisor, result] = visual.values ?? []
+    if (multiplier === undefined || divisor === undefined || result === undefined) return null
     return (
-      <div className="question-visual equation-question" role="img" aria-label={copy.player.visual.equationAria}>
-        <span>□</span><i>× {visual.values?.[0]}</i><span>?</span><i>÷ {visual.values?.[1]}</i><strong>{visual.values?.[2]}</strong>
+      <div className="question-visual equation-question" role="img" aria-label={question.easierExplanation}>
+        <span>{formatNumber(result)}</span>
+        <i>× {formatNumber(divisor)}</i>
+        <i>÷ {formatNumber(multiplier)}</i>
+        <strong>= □</strong>
       </div>
     )
   }

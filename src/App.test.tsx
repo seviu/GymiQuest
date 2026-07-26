@@ -4173,34 +4173,47 @@ describe("assessment UI flow", () => {
     expect(visual?.textContent).not.toContain(`□/${question.visual.denominator}`)
   })
 
-  it("does not reveal an unearned intermediate result in the equation visual", () => {
+  it("turns the reported equation visual into one clear backwards path", () => {
     const task: LearningTask = {
-      ...assessment,
-      id: "assessment:equation-visual",
-      seed: "assessment:equation-visual",
+      id: "lesson:arithmetic-equations",
+      kind: "lesson",
+      title: "Fehlende Zahlen durch Rückwärtsrechnen finden",
+      description: "Multiplikation und Division in der umgekehrten Reihenfolge auflösen.",
       topicIds: ["arithmetic-equations"],
+      prerequisiteIds: [],
+      maxXp: 25,
+      questionCount: 3,
+      seed: "lesson:local-learner:arithmetic-equations",
+      curriculum: { courseId: "zh-zap1-math", version: 1 },
+      generation: {
+        version: 5,
+        difficultyBands: ["foundation", "standard", "exam"],
+      },
+      contentLocale: "en",
     }
     const question = generateQuestionsForTask(task)[0]!
     if (question.visual?.kind !== "equation-balance") throw new Error("Expected equation visual")
-    const [, divisor, result] = question.visual.values ?? []
-    const hiddenIntermediate = (divisor ?? 0) * (result ?? 0)
+    const session = { ...createActiveLearningSession(task), phase: "questions" as const }
 
     act(() => {
       root.render(
-        <TaskPlayer
-          initialSession={createActiveLearningSession(task)}
-          onBack={() => undefined}
-          onFinish={() => undefined}
-          onPrerequisite={() => undefined}
-          onSessionChange={() => undefined}
-        />,
+        <LocalizationProvider initialLocale="en">
+          <TaskPlayer
+            initialSession={session}
+            onBack={() => undefined}
+            onFinish={() => undefined}
+            onPrerequisite={() => undefined}
+            onSessionChange={() => undefined}
+          />
+        </LocalizationProvider>,
       )
     })
-    act(() => buttonWithText(container, "Standortbestimmung starten").click())
 
     const visual = container.querySelector(".equation-question")
-    expect(visual?.textContent).toContain("?")
-    expect(visual?.textContent).not.toContain(String(hiddenIntermediate))
+    expect(visual?.textContent?.replace(/\s/gu, "")).toBe("72×2÷4=□")
+    expect(visual?.textContent).not.toContain("?")
+    expect(visual?.textContent).not.toContain("144")
+    expect(container.textContent).toContain("Find the missing number: (□ · 4) ÷ 2 = 72")
   })
 
   it("does not reveal how many solutions remain in a complete-set question", () => {

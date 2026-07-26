@@ -153,6 +153,40 @@ describe("dynamic exercise generators", () => {
     expect(question?.prompt).toBe("Calculate as efficiently as possible:\n15 · 27 + 15 · 23")
   })
 
+  it("reproduces the reported arithmetic-equation payload exactly", () => {
+    const task: LearningTask = {
+      id: "lesson:arithmetic-equations",
+      kind: "lesson",
+      title: "Fehlende Zahlen durch Rückwärtsrechnen finden",
+      description: "Multiplikation und Division in der umgekehrten Reihenfolge auflösen.",
+      topicIds: ["arithmetic-equations"],
+      prerequisiteIds: [],
+      maxXp: 25,
+      questionCount: 3,
+      seed: "lesson:local-learner:arithmetic-equations",
+      curriculum: { courseId: "zh-zap1-math", version: 1 },
+      generation: {
+        version: 5,
+        difficultyBands: ["foundation", "standard", "exam"],
+      },
+      contentLocale: "en",
+    }
+
+    const [question] = generateQuestionsForTask(task)
+
+    expect(question?.id).toBe("lesson:arithmetic-equations:question:0")
+    expect(question?.prompt).toBe("Find the missing number: (□ · 4) ÷ 2 = 72")
+    expect(question?.answerLabel).toBe("The number in the box is")
+    expect(question?.response).toEqual({ kind: "number", value: 36, decimals: 0 })
+    expect(question?.visual).toEqual({
+      kind: "equation-balance",
+      values: [4, 2, 72],
+      labels: ["multiply", "divide", "result"],
+    })
+    expect(question && isCorrectAnswer(question, "36")).toBe(true)
+    expect(question && isCorrectAnswer(question, "72")).toBe(false)
+  })
+
   it("uses generation v6 for new task profiles while replaying v2-v5 requests", () => {
     expect(buildTaskGenerationProfile(["foundation", "exam"])).toEqual({
       version: 6,
