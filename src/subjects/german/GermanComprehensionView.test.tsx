@@ -68,7 +68,7 @@ describe("German comprehension learner views", () => {
     vi.restoreAllMocks()
   })
 
-  it("autosaves a response and submits it for human review without a score", () => {
+  it("keeps the response while opening reading theory and submits it without a score", () => {
     const initial = createActiveGermanComprehensionSession(
       "ui:comprehension",
       [],
@@ -91,11 +91,21 @@ describe("German comprehension learner views", () => {
     const firstLine = container.querySelector('input[type="checkbox"]') as HTMLInputElement
     const textarea = container.querySelector("#german-comprehension-answer") as HTMLTextAreaElement
     act(() => firstLine.click())
-    act(() => setTextareaValue(
-      textarea,
-      "The learner writes a complete German explanation that still needs a human evidence review.",
-    ))
+    const response = "The learner writes a complete German explanation that still needs a human evidence review."
+    act(() => setTextareaValue(textarea, response))
     expect(submit.disabled).toBe(false)
+
+    const theory = container.querySelector('[data-topic-theory="reading-evidence"]')
+    if (!(theory instanceof HTMLDetailsElement)) throw new Error("Missing reading theory disclosure")
+    expect(theory.open).toBe(false)
+    const theorySummary = theory.querySelector("summary")
+    if (!(theorySummary instanceof HTMLElement)) throw new Error("Missing reading theory summary")
+    act(() => theorySummary.click())
+    expect(theory.open).toBe(true)
+    expect(theory.textContent).toContain("Nicht raten: zur Aussage zurück in den Text")
+    expect(textarea.value).toBe(response)
+    expect(firstLine.checked).toBe(true)
+
     act(() => submit.click())
 
     expect(onComplete).toHaveBeenCalledOnce()

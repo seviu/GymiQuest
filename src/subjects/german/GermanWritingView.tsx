@@ -4,6 +4,9 @@ import {
   createGermanWritingExerciseReportReference,
 } from "../../domain/exerciseReport"
 import { useLocalization } from "../../i18n/localization"
+import { TopicTheoryDisclosure } from "../../features/TopicTheoryDisclosure"
+import { germanTheoryByTopic } from "./content"
+import { germanCourseUiCopy } from "./uiCopy"
 import {
   GERMAN_WRITING_MAX_DRAFT_LENGTH,
   GERMAN_WRITING_MAX_PLAN_LENGTH,
@@ -48,6 +51,7 @@ export function GermanWritingView({
 }) {
   const { copy: appCopy, locale } = useLocalization()
   const copy = germanWritingUiCopy[locale]
+  const courseCopy = germanCourseUiCopy[locale]
   const form = useMemo(() => buildGermanWritingForm(session.seed), [session.seed])
   const selectedPrompt = form.prompts.find((prompt) => prompt.id === session.selectedPromptId)
   const selectedPromptIndex = form.prompts.findIndex((prompt) => prompt.id === session.selectedPromptId)
@@ -102,6 +106,18 @@ export function GermanWritingView({
     </aside>
   )
 
+  const theoryDisclosure = (
+    <TopicTheoryDisclosure
+      className="german-writing-theory"
+      topicId="writing"
+      label={`${courseCopy.theory}: Texte verfassen`}
+      hint={courseCopy.theoryHint}
+      sections={[germanTheoryByTopic.writing]}
+      takeawayLabel={courseCopy.lessonGoal}
+      headingLevel={2}
+    />
+  )
+
   return (
     <main className="german-writing-shell">
       <header className="german-writing-topbar">
@@ -146,6 +162,7 @@ export function GermanWritingView({
             <h1>{copy.chooseTitle}</h1>
             <p>{copy.chooseBody}</p>
           </div>
+          {theoryDisclosure}
           <div className="german-writing-prompt-grid">
             {form.prompts.map((prompt, index) => (
               <article key={prompt.id}>
@@ -187,6 +204,7 @@ export function GermanWritingView({
               <h1>{copy.planTitle}</h1>
               <p>{copy.planBody}</p>
             </div>
+            {theoryDisclosure}
             <label>
               <strong>{copy.opening}</strong>
               <textarea
@@ -231,6 +249,7 @@ export function GermanWritingView({
               <h1>{copy.draftTitle}</h1>
               <p>{copy.draftBody}</p>
             </div>
+            {theoryDisclosure}
             <label>
               <strong>{copy.titleLabel}</strong>
               <input
@@ -277,6 +296,7 @@ export function GermanWritingView({
               <h1>{copy.reviewTitle}</h1>
               <p>{copy.reviewBody}</p>
             </div>
+            {theoryDisclosure}
             <div className="german-writing-review-list">
               {germanWritingReviewCheckIds.map((checkId) => (
                 <label key={checkId}>

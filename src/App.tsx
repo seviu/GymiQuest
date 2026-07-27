@@ -302,6 +302,7 @@ import {
 } from "./features/OfficialArchiveShelf"
 import { PdfPageCanvas } from "./features/PdfPageCanvas"
 import { SubjectSwitcher } from "./features/SubjectSwitcher"
+import { TopicTheoryDisclosure } from "./features/TopicTheoryDisclosure"
 import {
   createLearnerCourseIndex,
   markCourseCompleted,
@@ -7847,6 +7848,7 @@ export function ConceptLibraryView({
 
 function HelpPanel({
   question,
+  contentLocale,
   activeHelp,
   prerequisites,
   helpStyle = "visual",
@@ -7856,6 +7858,7 @@ function HelpPanel({
   onContinueWithSolution,
 }: {
   question: GeneratedQuestion
+  contentLocale: AppLocale
   activeHelp: HelpKind[]
   prerequisites: TopicId[]
   helpStyle?: LearnerHelpStyle
@@ -7864,9 +7867,11 @@ function HelpPanel({
   onPrerequisite?: (topicId: TopicId) => void
   onContinueWithSolution: () => void
 }) {
-  const { locale, copy } = useLocalization()
+  const { copy, t } = useLocalization()
   const [helpOpen, setHelpOpen] = useState(activeHelp.length > 0)
   const visibleHelp = activeHelp[activeHelp.length - 1]
+  const lesson = lessonForLocale(question.topicId, contentLocale)
+  const topic = topicForLocale(question.topicId, contentLocale)
   const preferredKind: HelpKind = {
     concise: "hint",
     visual: "concept",
@@ -7898,6 +7903,18 @@ function HelpPanel({
         <div><strong>{copy.player.helpTitle}</strong><small>{copy.player.helpSubtitle}</small></div>
         <b aria-hidden="true">⌄</b>
       </summary>
+      <TopicTheoryDisclosure
+        topicId={question.topicId}
+        label={`${t("curriculum.viewIdea")}: ${topic.shortTitle}`}
+        hint={lesson.goal}
+        sections={lesson.pages.map((page) => ({
+          ...page,
+          visual: <ConceptVisual visual={page.visual} contentLocale={contentLocale} />,
+        }))}
+        takeawayLabel={t("concept.takeaway")}
+        headingLevel={2}
+        onOpen={() => onUseHelp("concept")}
+      />
       <div className="help-options">
         {orderedHelpOptions.map((option) => (
           <button
@@ -7937,7 +7954,7 @@ function HelpPanel({
                 <p>{copy.player.noPrerequisites}</p>
               ) : prerequisites.map((topicId) => (
                 <button className="prerequisite-help-button" type="button" key={topicId} onClick={() => onPrerequisite(topicId)}>
-                  {topicForLocale(topicId, locale).shortTitle}<span>{copy.player.openPrerequisite}</span>
+                  {topicForLocale(topicId, contentLocale).shortTitle}<span>{copy.player.openPrerequisite}</span>
                 </button>
               ))}
             </>
@@ -9033,6 +9050,7 @@ export function QuestionStage({
           <HelpPanel
             key={`help:${question.id}`}
             question={question}
+            contentLocale={contentLocale}
             activeHelp={activeHelp}
             prerequisites={topics[question.topicId].prerequisites}
             helpStyle={helpStyle}

@@ -74,7 +74,7 @@ describe("German writing revision learner view", () => {
     container.remove()
   })
 
-  it("autosaves an editable copy and only seals a meaningfully changed version", () => {
+  it("keeps the draft while opening writing theory and only seals a meaningful revision", () => {
     const startedAt = new Date("2026-07-17T12:00:00.000Z")
     let session = createActiveGermanWritingSession("revision-view", startedAt)
     session = chooseGermanWritingPrompt(session, buildGermanWritingForm(session.seed).prompts[0]!.id, startedAt)
@@ -115,13 +115,22 @@ describe("German writing revision learner view", () => {
 
     const draft = container.querySelector("textarea")
     if (!(draft instanceof HTMLTextAreaElement)) throw new Error("Missing revision editor")
-    act(() => setTextareaValue(
-      draft,
-      `${result.draft} Danach wird die Folge des Konflikts sichtbar.`,
-    ))
+    const revisedDraft = `${result.draft} Danach wird die Folge des Konflikts sichtbar.`
+    act(() => setTextareaValue(draft, revisedDraft))
 
     expect(onChange).toHaveBeenCalled()
     expect(save.disabled).toBe(false)
+
+    const theory = container.querySelector('[data-topic-theory="writing"]')
+    if (!(theory instanceof HTMLDetailsElement)) throw new Error("Missing writing theory disclosure")
+    expect(theory.open).toBe(false)
+    const theorySummary = theory.querySelector("summary")
+    if (!(theorySummary instanceof HTMLElement)) throw new Error("Missing writing theory summary")
+    act(() => theorySummary.click())
+    expect(theory.open).toBe(true)
+    expect(theory.textContent).toContain("Erst planen, dann schreiben, dann prüfen")
+    expect(draft.value).toBe(revisedDraft)
+
     act(() => save.click())
     expect(onComplete).toHaveBeenCalledTimes(1)
     const snapshot = onComplete.mock.calls[0]![0] as GermanWritingRevisionSnapshot

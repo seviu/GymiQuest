@@ -1,11 +1,17 @@
 import { useMemo, useState } from "react"
 import { SubjectSwitcher } from "../../features/SubjectSwitcher"
+import { TopicTheoryDisclosure } from "../../features/TopicTheoryDisclosure"
 import {
   buildExerciseReportUrl,
   createGermanExerciseReportReference,
 } from "../../domain/exerciseReport"
 import { useLocalization } from "../../i18n/localization"
-import { germanLessons, germanStartCheckQuestions, germanTopics } from "./content"
+import {
+  germanLessons,
+  germanStartCheckQuestions,
+  germanTheoryByTopic,
+  germanTopics,
+} from "./content"
 import {
   advanceGermanSession,
   answerCurrentGermanQuestion,
@@ -564,6 +570,17 @@ export function GermanCourseView({
           <section className="german-question-card">
             <span className="eyebrow">{germanTopics[activeQuestion.topicId].shortTitle}</span>
             <h1 className="german-question-prompt">{activeQuestion.prompt}</h1>
+            {!silentAssessment && (
+              <TopicTheoryDisclosure
+                className="german-question-theory"
+                topicId={activeQuestion.topicId}
+                label={`${copy.theory}: ${germanTopics[activeQuestion.topicId].shortTitle}`}
+                hint={copy.theoryHint}
+                sections={[germanTheoryByTopic[activeQuestion.topicId]]}
+                takeawayLabel={copy.lessonGoal}
+                headingLevel={2}
+              />
+            )}
             {exerciseReportUrl && (
               <a
                 className="exercise-report-link"
@@ -875,6 +892,14 @@ export function GermanCourseView({
                     : topic.availableInPilot
                       ? progress.completedAt ? "✓" : copy.lesson
                       : copy.comingSoon}</small>
+                <TopicTheoryDisclosure
+                  topicId={topicId}
+                  label={`${copy.theory}: ${topic.shortTitle}`}
+                  hint={topic.description}
+                  sections={[germanTheoryByTopic[topicId]]}
+                  takeawayLabel={copy.lessonGoal}
+                  headingLevel={4}
+                />
                 {progress.helpRequestedAt && <p className="german-paused-note">{copy.pausedBody}</p>}
               </article>
             )

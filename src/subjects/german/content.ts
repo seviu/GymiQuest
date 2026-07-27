@@ -24,6 +24,8 @@ export interface GermanLessonDefinition {
   }
 }
 
+export type GermanTopicTheory = GermanLessonDefinition["introduction"]
+
 export interface GermanPassageLine {
   number: number
   text: string
@@ -179,6 +181,26 @@ export const germanLessons: Record<GermanLessonId, GermanLessonDefinition> = {
     },
   },
 }
+
+export const germanTheoryByTopic: Readonly<Record<GermanTopicId, GermanTopicTheory>> = Object.freeze({
+  "reading-evidence": germanLessons["german-reading-evidence-v1"].introduction,
+  "vocabulary-context": germanLessons["german-vocabulary-context-v1"].introduction,
+  "word-formation": germanLessons["german-word-formation-v1"].introduction,
+  "grammar-correction": germanLessons["german-grammar-correction-v1"].introduction,
+  "sentence-structure": germanLessons["german-sentence-structure-v1"].introduction,
+  writing: {
+    eyebrow: "TEXTE MIT PLAN",
+    title: "Erst planen, dann schreiben, dann prüfen",
+    body: "Ein guter Text entsteht in drei ruhigen Schritten. Lies zuerst den Auftrag genau, ordne deine Ideen und kontrolliere am Schluss nur die Punkte, die wirklich verlangt sind.",
+    steps: [
+      "Markiere Textsorte, Thema und Pflichtangaben im Auftrag.",
+      "Plane Anfang, Hauptteil und Schluss oder notiere die wichtigen W-Fragen.",
+      "Bleibe bei derselben Zeitform und Erzählperspektive.",
+      "Prüfe Aufbau, Verständlichkeit, Grammatik und Rechtschreibung einzeln.",
+    ],
+    takeaway: "Ein kurzer Plan hält den roten Faden fest und macht die Schlusskontrolle leichter.",
+  },
+})
 
 export const germanMicrotexts: readonly GermanMicrotext[] = Object.freeze([
   {

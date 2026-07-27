@@ -1,5 +1,8 @@
 import { useEffect, useMemo } from "react"
 import { useLocalization } from "../../i18n/localization"
+import { TopicTheoryDisclosure } from "../../features/TopicTheoryDisclosure"
+import { germanTheoryByTopic, germanTopics } from "./content"
+import { germanCourseUiCopy } from "./uiCopy"
 import {
   GERMAN_WRITING_MAX_DRAFT_LENGTH,
   GERMAN_WRITING_MAX_TITLE_LENGTH,
@@ -37,6 +40,7 @@ export function GermanWritingRevisionView({
 }) {
   const { locale } = useLocalization()
   const copy = germanWritingRevisionUiCopy[locale]
+  const courseCopy = germanCourseUiCopy[locale]
   const prompt = useMemo(() => (
     buildGermanWritingForm(result.seed).prompts.find((candidate) => candidate.id === result.promptId)
   ), [result.promptId, result.seed])
@@ -69,6 +73,16 @@ export function GermanWritingRevisionView({
         <p>{copy.body}</p>
         <strong>{copy.noScore}</strong>
       </section>
+
+      <TopicTheoryDisclosure
+        className="german-writing-theory"
+        topicId="writing"
+        label={`${courseCopy.theory}: ${germanTopics.writing.shortTitle}`}
+        hint={courseCopy.theoryHint}
+        sections={[germanTheoryByTopic.writing]}
+        takeawayLabel={courseCopy.lessonGoal}
+        headingLevel={2}
+      />
 
       <div className="german-writing-revision-layout">
         <aside className="german-writing-revision-context">

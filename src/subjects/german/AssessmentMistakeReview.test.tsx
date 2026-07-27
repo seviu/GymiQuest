@@ -18,6 +18,7 @@ import { GermanCourseView } from "./GermanCourseView"
 import { GermanExamResultView } from "./GermanExamResultView"
 import { isGermanChoiceQuestion } from "./generators"
 import { createGermanSourcePracticeState } from "./sourcePractice"
+import { germanTopicIds } from "./package"
 
 describe("German assessment mistake review", () => {
   let container: HTMLDivElement
@@ -69,6 +70,48 @@ describe("German assessment mistake review", () => {
     expect(container.textContent).toContain("Draussen regnete es.")
     expect(container.textContent).toContain("Der nasse Schirm ist der sichere Textbeleg")
     expect(container.textContent).not.toContain("Deutsch-Lernstand zurücksetzen")
+  })
+
+  it("offers a theory explanation for every covered German topic", () => {
+    let state = createInitialGermanCourseState("theory-links", new Date("2026-07-18T08:00:00.000Z"))
+    state = startGermanStartCheck(state, new Date("2026-07-18T08:01:00.000Z"))
+    germanStartCheckQuestions.forEach((question, index) => {
+      state = answerGermanStartCheck(
+        state,
+        question.correctIndex,
+        new Date(`2026-07-18T08:0${index + 2}:00.000Z`),
+      )
+    })
+
+    act(() => {
+      root.render(
+        <LocalizationProvider initialLocale="de">
+          <GermanCourseView
+            state={state}
+            displayName="Mia"
+            sourcePracticeState={createGermanSourcePracticeState()}
+            onChange={() => undefined}
+            onSourcePracticeStateChange={() => undefined}
+            onSubjectChange={() => undefined}
+            onEditProfile={() => undefined}
+            onOpenCompanion={() => undefined}
+            onResetSubject={() => undefined}
+          />
+        </LocalizationProvider>,
+      )
+    })
+
+    const theoryTopics = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-topic-theory]"),
+      (element) => element.dataset.topicTheory,
+    )
+    expect(theoryTopics).toEqual([...germanTopicIds])
+
+    const writingTheory = container.querySelector('[data-topic-theory="writing"]')
+    if (!(writingTheory instanceof HTMLDetailsElement)) throw new Error("Missing writing theory link")
+    act(() => writingTheory.querySelector("summary")?.click())
+    expect(writingTheory.open).toBe(true)
+    expect(writingTheory.textContent).toContain("Erst planen, dann schreiben, dann prüfen")
   })
 
   it("opens a strict-exam review with the wrong and correct options visibly distinguished", () => {

@@ -125,7 +125,7 @@ async function readStoredMathState(page: Page): Promise<{
 async function openPrerequisiteDetour(page: Page): Promise<void> {
   const helpPanel = page.locator(".help-panel")
   if (!await helpPanel.evaluate((element) => (element as HTMLDetailsElement).open)) {
-    await helpPanel.locator("summary").click()
+    await helpPanel.locator(":scope > summary").click()
   }
   await page.getByRole("button", { name: "Voraussetzungen ansehen" }).click()
   await page.getByRole("button", { name: /Rechenketten/u }).click()
@@ -136,7 +136,7 @@ async function openPrerequisiteDetour(page: Page): Promise<void> {
 async function finishCurrentQuestionWithSolution(page: Page): Promise<void> {
   const helpPanel = page.locator(".help-panel")
   if (!await helpPanel.evaluate((element) => (element as HTMLDetailsElement).open)) {
-    await helpPanel.locator("summary").click()
+    await helpPanel.locator(":scope > summary").click()
   }
   await page.getByRole("button", { name: "Schritt für Schritt" }).click()
   await page.getByRole("button", { name: "Verstanden, mit Lösung weiter" }).click()

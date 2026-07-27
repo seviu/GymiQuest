@@ -38,6 +38,8 @@ export interface GermanCourseUiCopy {
   generatedNote: string
   lessonGoal: string
   lessonStart: string
+  theory: string
+  theoryHint: string
   backHome: string
   questionProgress: (current: number, total: number) => string
   passage: string
@@ -100,6 +102,8 @@ const german: GermanCourseUiCopy = {
   generatedNote: "Alle Pilotaufgaben stammen aus versionierten, neu verfassten Texten und Vorlagen.",
   lessonGoal: "Lernziel",
   lessonStart: "Mit neuen Aufgaben üben",
+  theory: "Theorie verstehen",
+  theoryHint: "Öffne die Grundidee und gehe sie Schritt für Schritt durch.",
   backHome: "Zum Deutsch-Lernplan",
   questionProgress: (current, total) => `Aufgabe ${current} von ${total}`,
   passage: "Text",
@@ -163,6 +167,8 @@ const english: GermanCourseUiCopy = {
   generatedNote: "Every pilot task comes from versioned, newly authored texts and templates.",
   lessonGoal: "Learning goal",
   lessonStart: "Practise with new questions",
+  theory: "Understand the theory",
+  theoryHint: "Open the key idea and follow it step by step.",
   backHome: "Back to German plan",
   questionProgress: (current, total) => `Question ${current} of ${total}`,
   passage: "Text",
@@ -226,6 +232,8 @@ const italian: GermanCourseUiCopy = {
   generatedNote: "Tutte le attività pilota provengono da testi e modelli nuovi e versionati.",
   lessonGoal: "Obiettivo",
   lessonStart: "Esercitati con nuove domande",
+  theory: "Capisci la teoria",
+  theoryHint: "Apri l'idea chiave e seguila passo dopo passo.",
   backHome: "Torna al piano di tedesco",
   questionProgress: (current, total) => `Domanda ${current} di ${total}`,
   passage: "Testo",
@@ -289,6 +297,8 @@ const spanish: GermanCourseUiCopy = {
   generatedNote: "Todas las tareas piloto proceden de textos y plantillas nuevos y versionados.",
   lessonGoal: "Objetivo",
   lessonStart: "Practicar con preguntas nuevas",
+  theory: "Entender la teoría",
+  theoryHint: "Abre la idea clave y síguela paso a paso.",
   backHome: "Volver al plan de alemán",
   questionProgress: (current, total) => `Pregunta ${current} de ${total}`,
   passage: "Texto",

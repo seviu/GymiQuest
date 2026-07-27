@@ -640,6 +640,59 @@ describe("assessment UI flow", () => {
     expect(container.textContent).not.toContain("Diese Eingabe")
   })
 
+  it("keeps the current Mathematics answer while opening theory for its topic", async () => {
+    vi.useRealTimers()
+    const task: LearningTask = {
+      id: "review:english-theory-ui",
+      kind: "review",
+      title: "Kilograms and grams",
+      description: "A review with theory available.",
+      topicIds: ["mass-units"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 1,
+      seed: "review:english-theory-ui",
+      contentLocale: "en",
+    }
+
+    const onSessionChange = vi.fn()
+    act(() => {
+      root.render(
+        <LocalizationProvider initialLocale="de">
+          <TaskPlayer
+            initialSession={createActiveLearningSession(task)}
+            onBack={() => undefined}
+            onFinish={() => undefined}
+            onPrerequisite={() => undefined}
+            onSessionChange={onSessionChange}
+          />
+        </LocalizationProvider>,
+      )
+    })
+
+    const answer = container.querySelector("#answer")
+    if (!(answer instanceof HTMLInputElement)) throw new Error("Missing answer input")
+    act(() => setInputValue(answer, "123"))
+
+    const helpHeading = container.querySelector(".help-heading")
+    if (!(helpHeading instanceof HTMLElement)) throw new Error("Missing help heading")
+    act(() => helpHeading.click())
+
+    const theory = container.querySelector('[data-topic-theory="mass-units"]')
+    if (!(theory instanceof HTMLDetailsElement)) throw new Error("Missing Mathematics theory link")
+    expect(theory.querySelector("summary")?.textContent).toContain("kg and g")
+    await act(async () => {
+      theory.querySelector("summary")?.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(theory.open).toBe(true)
+    expect(theory.textContent).toContain("One kilogram is 1,000 grams")
+    expect(theory.querySelector(".topic-theory-visual .mass-visual")).not.toBeNull()
+    expect(answer.value).toBe("123")
+    expect(onSessionChange.mock.calls.at(-1)?.[0].question.activeHelp).toEqual(["concept"])
+  })
+
   it("passes the latest local question snapshot into a prerequisite detour", () => {
     const task: LearningTask = {
       id: "review:detour-source",

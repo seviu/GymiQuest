@@ -1,4 +1,5 @@
 import { useLocalization } from "../../i18n/localization"
+import { TopicTheoryDisclosure } from "../../features/TopicTheoryDisclosure"
 import {
   buildExerciseReportUrl,
   createGermanComprehensionExerciseReportReference,
@@ -14,6 +15,8 @@ import {
   type GermanComprehensionResult,
 } from "./comprehension"
 import { germanComprehensionUiCopy } from "./comprehensionCopy"
+import { germanTheoryByTopic, germanTopics } from "./content"
+import { germanCourseUiCopy } from "./uiCopy"
 
 export function GermanComprehensionView({
   session,
@@ -28,6 +31,7 @@ export function GermanComprehensionView({
 }) {
   const { copy: appCopy, locale } = useLocalization()
   const copy = germanComprehensionUiCopy[locale]
+  const courseCopy = germanCourseUiCopy[locale]
   const prompt = germanComprehensionPromptById(session.promptId)
   const passage = germanComprehensionPassage(session.promptId)
   if (!prompt || !passage) return null
@@ -74,6 +78,15 @@ export function GermanComprehensionView({
         <section className="german-comprehension-response">
           <span className="eyebrow">{copy.question}</span>
           <h2>{prompt.question}</h2>
+          <TopicTheoryDisclosure
+            className="german-question-theory"
+            topicId="reading-evidence"
+            label={`${courseCopy.theory}: ${germanTopics["reading-evidence"].shortTitle}`}
+            hint={courseCopy.theoryHint}
+            sections={[germanTheoryByTopic["reading-evidence"]]}
+            takeawayLabel={courseCopy.lessonGoal}
+            headingLevel={3}
+          />
           <a
             className="exercise-report-link"
             href={buildExerciseReportUrl(
