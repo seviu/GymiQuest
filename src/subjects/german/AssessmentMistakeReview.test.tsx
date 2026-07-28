@@ -1,9 +1,10 @@
-import { act } from "react"
+import { act, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { LocalizationProvider } from "../../i18n/localization"
 import {
   answerGermanStartCheck,
+  buildGermanAssignments,
   createInitialGermanCourseState,
   startGermanStartCheck,
 } from "./courseState"
@@ -112,6 +113,88 @@ describe("German assessment mistake review", () => {
     act(() => writingTheory.querySelector("summary")?.click())
     expect(writingTheory.open).toBe(true)
     expect(writingTheory.textContent).toContain("Erst planen, dann schreiben, dann prüfen")
+  })
+
+  it("offers another explanation before pausing a German learning field", () => {
+    const now = new Date("2026-07-18T10:00:00.000Z")
+    let initial = createInitialGermanCourseState("more-theory", now)
+    initial = startGermanStartCheck(initial, now)
+    germanStartCheckQuestions.forEach((question, index) => {
+      initial = answerGermanStartCheck(
+        initial,
+        question.correctIndex,
+        new Date(`2026-07-18T10:0${index + 1}:00.000Z`),
+      )
+    })
+    const assignment = buildGermanAssignments(initial, now)[0]!
+    const onChange = vi.fn()
+
+    function CourseHarness() {
+      const [state, setState] = useState(initial)
+      return (
+        <LocalizationProvider initialLocale="de">
+          <GermanCourseView
+            state={state}
+            displayName="Mia"
+            sourcePracticeState={createGermanSourcePracticeState()}
+            onChange={(next, completed) => {
+              setState(next)
+              onChange(next, completed)
+            }}
+            onSourcePracticeStateChange={() => undefined}
+            onSubjectChange={() => undefined}
+            onEditProfile={() => undefined}
+            onOpenCompanion={() => undefined}
+            onResetSubject={() => undefined}
+            now={now}
+          />
+        </LocalizationProvider>
+      )
+    }
+
+    act(() => root.render(<CourseHarness />))
+    const start = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Starten"
+    ))
+    if (!(start instanceof HTMLButtonElement)) throw new Error("Missing German lesson start")
+    act(() => start.click())
+
+    const support = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Ich verstehe dieses Thema noch nicht"
+    ))
+    if (!(support instanceof HTMLButtonElement)) throw new Error("Missing German theory support action")
+    const callsAfterStarting = onChange.mock.calls.length
+    act(() => support.click())
+
+    const theorySupport = container.querySelector(`[data-topic-theory-support="german:${assignment.topicId}"]`)
+    expect(theorySupport).not.toBeNull()
+    expect(theorySupport?.textContent).toContain("NOCH EIN ZUGANG")
+    expect(theorySupport?.textContent).toContain("Hier stockt es oft")
+    expect(theorySupport?.textContent).toContain("Mit eigenen Worten sagen")
+    expect(onChange).toHaveBeenCalledTimes(callsAfterStarting)
+
+    const understood = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Jetzt ist es klarer"
+    ))
+    if (!(understood instanceof HTMLButtonElement)) throw new Error("Missing understood action")
+    act(() => understood.click())
+    expect(container.querySelector("[data-topic-theory-support]")).toBeNull()
+    expect(onChange).toHaveBeenCalledTimes(callsAfterStarting)
+
+    const reopen = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Ich verstehe dieses Thema noch nicht"
+    ))
+    if (!(reopen instanceof HTMLButtonElement)) throw new Error("Missing reopened support action")
+    act(() => reopen.click())
+    const stillNeedsHelp = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Ich brauche trotzdem Hilfe"
+    ))
+    if (!(stillNeedsHelp instanceof HTMLButtonElement)) throw new Error("Missing escalation action")
+    act(() => stillNeedsHelp.click())
+
+    const paused = onChange.mock.calls.at(-1)?.[0]
+    expect(paused.topicProgress[assignment.topicId].helpRequestedAt).toBe(now.toISOString())
+    expect(paused.activeSession).toBeUndefined()
   })
 
   it("opens a strict-exam review with the wrong and correct options visibly distinguished", () => {

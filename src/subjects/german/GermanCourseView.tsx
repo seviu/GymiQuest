@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react"
 import { SubjectSwitcher } from "../../features/SubjectSwitcher"
 import { TopicTheoryDisclosure } from "../../features/TopicTheoryDisclosure"
+import { TopicTheorySupportCard } from "../../features/TopicTheorySupportCard"
 import {
   buildExerciseReportUrl,
   createGermanExerciseReportReference,
 } from "../../domain/exerciseReport"
 import { useLocalization } from "../../i18n/localization"
+import { theorySupportCopy } from "../../i18n/theorySupportCopy"
 import {
   germanLessons,
   germanStartCheckQuestions,
@@ -46,6 +48,7 @@ import {
   germanLessonIdByTopic,
   germanPilotTopicIds,
   germanTopicIds,
+  type GermanTopicId,
 } from "./package"
 import { GermanExamView } from "./GermanExamView"
 import { GermanExamResultView } from "./GermanExamResultView"
@@ -201,6 +204,39 @@ function GermanAssessmentMistakeReview({
   )
 }
 
+function GermanTheorySupport({
+  topicId,
+  className,
+  onUnderstood,
+  onRequestSupport,
+}: {
+  topicId: GermanTopicId
+  className?: string
+  onUnderstood: () => void
+  onRequestSupport: () => void
+}) {
+  const { locale } = useLocalization()
+  const theory = germanTheoryByTopic[topicId]
+  const coaching = germanCoachingForTopic(topicId, locale)
+
+  return (
+    <TopicTheorySupportCard
+      className={className}
+      topicId={`german:${topicId}`}
+      topicTitle={germanTopics[topicId].shortTitle}
+      guidanceTitle={coaching.title}
+      commonHurdle={coaching.commonHurdle}
+      nextStep={coaching.guidance}
+      exampleTitle={theory.title}
+      workedSteps={theory.steps}
+      takeaway={theory.takeaway}
+      copy={theorySupportCopy[locale]}
+      onUnderstood={onUnderstood}
+      onRequestSupport={onRequestSupport}
+    />
+  )
+}
+
 export function GermanCourseView({
   state,
   displayName,
@@ -248,6 +284,7 @@ export function GermanCourseView({
   const [sourcePracticeVisible, setSourcePracticeVisible] = useState(Boolean(sourcePracticeState.active))
   const [comprehensionVisible, setComprehensionVisible] = useState(Boolean(state.activeComprehension))
   const [responseDrafts, setResponseDrafts] = useState<Record<string, GermanObjectiveResponse>>({})
+  const [theorySupportTarget, setTheorySupportTarget] = useState<string>()
   const assignments = useMemo(() => buildGermanAssignments(state, now), [state, now])
   const activeQuestion = currentGermanQuestion(state)
   const activeAnswer = state.activeSession?.answers.find((answer) => answer.questionId === activeQuestion?.id)
@@ -525,6 +562,7 @@ export function GermanCourseView({
 
   if (state.activeSession && state.activeSession.kind === "lesson" && sessionVisible && introductionVisible) {
     const lesson = germanLessons[germanLessonIdByTopic[state.activeSession.topicId]]
+    const supportTarget = `lesson:${state.activeSession.topicId}`
     return (
       <main className="german-lesson-shell">
         <button className="text-button german-back-button" type="button" onClick={() => setSessionVisible(false)}>← {copy.backHome}</button>
@@ -534,7 +572,29 @@ export function GermanCourseView({
           <p>{lesson.introduction.body}</p>
           <ol>{lesson.introduction.steps.map((step) => <li key={step}>{step}</li>)}</ol>
           <div className="german-takeaway"><strong>{copy.lessonGoal}</strong><span>{lesson.introduction.takeaway}</span></div>
-          <button className="primary-button" type="button" onClick={() => setIntroductionVisible(false)}>{copy.lessonStart}</button>
+          {theorySupportTarget === supportTarget && (
+            <GermanTheorySupport
+              className="german-lesson-theory-support"
+              topicId={state.activeSession.topicId}
+              onUnderstood={() => setTheorySupportTarget(undefined)}
+              onRequestSupport={() => {
+                persist(requestGermanTopicSupport(state, state.activeSession!.topicId, now))
+                setTheorySupportTarget(undefined)
+                setSessionVisible(false)
+              }}
+            />
+          )}
+          <div className="german-lesson-introduction-actions">
+            <button className="primary-button" type="button" onClick={() => {
+              setTheorySupportTarget(undefined)
+              setIntroductionVisible(false)
+            }}>{copy.lessonStart}</button>
+            {theorySupportTarget !== supportTarget && (
+              <button className="text-button" type="button" onClick={() => setTheorySupportTarget(supportTarget)}>
+                {copy.support}
+              </button>
+            )}
+          </div>
         </section>
       </main>
     )
@@ -543,6 +603,7 @@ export function GermanCourseView({
   if (state.activeSession && sessionVisible && activeQuestion) {
     const coaching = germanCoachingForTopic(state.activeSession.topicId, locale)
     const silentAssessment = state.activeSession.kind === "assessment"
+    const supportTarget = `question:${activeQuestion.id}`
     return (
       <main className="german-player-shell">
         <div className="german-player-topbar">
@@ -579,6 +640,18 @@ export function GermanCourseView({
                 sections={[germanTheoryByTopic[activeQuestion.topicId]]}
                 takeawayLabel={copy.lessonGoal}
                 headingLevel={2}
+              />
+            )}
+            {!silentAssessment && theorySupportTarget === supportTarget && (
+              <GermanTheorySupport
+                className="german-question-theory-support"
+                topicId={activeQuestion.topicId}
+                onUnderstood={() => setTheorySupportTarget(undefined)}
+                onRequestSupport={() => {
+                  persist(requestGermanTopicSupport(state, activeQuestion.topicId, now))
+                  setTheorySupportTarget(undefined)
+                  setSessionVisible(false)
+                }}
               />
             )}
             {exerciseReportUrl && (
@@ -635,16 +708,24 @@ export function GermanCourseView({
                 <button className="primary-button" type="button" onClick={() => {
                   const result = advanceGermanSession(state, now)
                   persist(result.state, result.completed)
+                  setTheorySupportTarget(undefined)
                   if (result.completed) {
                     setCompletionAward(result.award)
                     setSessionVisible(false)
                   }
                 }}>{copy.continue}</button>
               )}
-              <button className="text-button" type="button" onClick={() => {
-                persist(requestGermanTopicSupport(state, activeQuestion.topicId, now))
-                setSessionVisible(false)
-              }}>{copy.support}</button>
+              {silentAssessment ? (
+                <button className="text-button" type="button" onClick={() => {
+                  persist(requestGermanTopicSupport(state, activeQuestion.topicId, now))
+                  setTheorySupportTarget(undefined)
+                  setSessionVisible(false)
+                }}>{copy.support}</button>
+              ) : theorySupportTarget !== supportTarget && (
+                <button className="text-button" type="button" onClick={() => setTheorySupportTarget(supportTarget)}>
+                  {copy.support}
+                </button>
+              )}
             </div>
           </section>
         </div>

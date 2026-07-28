@@ -247,6 +247,7 @@ import {
 } from "./i18n/curriculumContent"
 import { translateMessage } from "./i18n/messages"
 import { learnerFeedbackCopyForLocale } from "./i18n/learnerFeedbackCopy"
+import { theorySupportCopy } from "./i18n/theorySupportCopy"
 import { authorValidationCopy } from "./i18n/authorValidationCopy"
 import { conceptPlaygroundCopy } from "./i18n/conceptPlaygroundCopy"
 import { examCopy, examWarning } from "./i18n/examCopy"
@@ -303,6 +304,7 @@ import {
 import { PdfPageCanvas } from "./features/PdfPageCanvas"
 import { SubjectSwitcher } from "./features/SubjectSwitcher"
 import { TopicTheoryDisclosure } from "./features/TopicTheoryDisclosure"
+import { TopicTheorySupportCard } from "./features/TopicTheorySupportCard"
 import {
   createLearnerCourseIndex,
   markCourseCompleted,
@@ -6404,6 +6406,57 @@ export function ConceptPlayground({
   return <ConceptVisual visual={fallbackVisual} />
 }
 
+function MathematicsTheorySupport({
+  topicId,
+  seed,
+  contentLocale,
+  sourceQuestion,
+  className,
+  onUnderstood,
+  onRequestSupport,
+}: {
+  topicId: TopicId
+  seed: string
+  contentLocale: AppLocale
+  sourceQuestion?: GeneratedQuestion
+  className?: string
+  onUnderstood: () => void
+  onRequestSupport: () => void
+}) {
+  const { locale } = useLocalization()
+  const topic = topicForLocale(topicId, contentLocale)
+  const guidance = topicGuidanceForLocale(topicId, contentLocale)
+  const example = useMemo(() => sourceQuestion
+    ? buildConceptRepairQuestions(
+        topicId,
+        seed,
+        sourceQuestion.prompt,
+        sourceQuestion.generation?.version ?? 6,
+        contentLocale,
+        sourceQuestion.provenance,
+      ).example
+    : buildConceptLabRound(topicId, seed, contentLocale).example,
+  [contentLocale, seed, sourceQuestion, topicId])
+
+  return (
+    <TopicTheorySupportCard
+      className={className}
+      topicId={topicId}
+      topicTitle={topic.shortTitle}
+      guidanceTitle={guidance.title}
+      commonHurdle={guidance.message}
+      nextStep={guidance.nextStep}
+      exampleTitle={example.prompt}
+      workedSteps={example.workedSteps}
+      takeaway={example.hint}
+      visual={<QuestionVisual question={example} />}
+      copy={theorySupportCopy[locale]}
+      onUnderstood={onUnderstood}
+      onRequestSupport={onRequestSupport}
+    />
+  )
+}
+
 function LessonStage({
   task,
   pageIndex,
@@ -8389,7 +8442,7 @@ export function QuestionStage({
   helpStyle?: LearnerHelpStyle
 }) {
   const { locale, copy } = useLocalization()
-  const [confirmTeacherSupport, setConfirmTeacherSupport] = useState(false)
+  const [teacherSupportStage, setTeacherSupportStage] = useState<"idle" | "theory" | "confirm">("idle")
   const { task, activeSeconds } = session
   const contentLocale = task.contentLocale ?? "de"
   const {
@@ -8780,7 +8833,7 @@ export function QuestionStage({
 
   useEffect(() => {
     window.scrollTo(0, 0)
-    setConfirmTeacherSupport(false)
+    setTeacherSupportStage("idle")
     if (previousQuestionIndex.current !== questionIndex) {
       previousQuestionIndex.current = questionIndex
       promptRef.current?.focus()
@@ -9073,20 +9126,35 @@ export function QuestionStage({
               {copy.player.reportIssue}
               <span aria-hidden="true">↗</span>
             </a>
-            {!questionFinalized && !isPlacement && onRequestTeacherSupport && !confirmTeacherSupport && (
-              <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(true)}>
+            {!questionFinalized && !isPlacement && onRequestTeacherSupport && teacherSupportStage === "idle" && (
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => setTeacherSupportStage(isAssessment ? "confirm" : "theory")}
+              >
                 {copy.player.notUnderstood}
               </button>
             )}
           </div>
-          {!questionFinalized && confirmTeacherSupport && onRequestTeacherSupport && (
+          {!questionFinalized && teacherSupportStage === "theory" && onRequestTeacherSupport && !isSilentCheck && (
+            <MathematicsTheorySupport
+              className="question-theory-support"
+              topicId={question.topicId}
+              seed={`${task.seed}:${question.id}:more-theory`}
+              contentLocale={contentLocale}
+              sourceQuestion={question}
+              onUnderstood={() => setTeacherSupportStage("idle")}
+              onRequestSupport={() => setTeacherSupportStage("confirm")}
+            />
+          )}
+          {!questionFinalized && teacherSupportStage === "confirm" && onRequestTeacherSupport && (
             <div className="topic-help-confirmation" role="alert">
               <div>
                 <strong>{copy.player.pauseTopic(localizedTopic.shortTitle)}</strong>
                 <p>{copy.player.questionPauseBody}</p>
               </div>
               <div>
-                <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(false)}>{copy.player.keepTrying}</button>
+                <button className="text-button" type="button" onClick={() => setTeacherSupportStage("idle")}>{copy.player.keepTrying}</button>
                 <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(question.topicId)}>{copy.player.pauseAndReport}</button>
               </div>
             </div>
@@ -9129,7 +9197,7 @@ export function TaskPlayer({
 }) {
   const { locale, copy } = useLocalization()
   const [session, setSession] = useState(initialSession)
-  const [confirmTeacherSupport, setConfirmTeacherSupport] = useState(false)
+  const [lessonSupportStage, setLessonSupportStage] = useState<"idle" | "theory" | "confirm">("idle")
   const { task, phase, pageIndex, activeSeconds } = session
   const isPrerequisiteDetour = Boolean(session.prerequisiteDetour)
   const canPauseTimer = phase !== "assessment-intro" && task.kind !== "assessment"
@@ -9250,19 +9318,27 @@ export function TaskPlayer({
         <>
           {phase === "lesson" && task.topicIds.length === 1 && onRequestTeacherSupport && (
             <div className="lesson-topic-help">
-              {confirmTeacherSupport ? (
+              {lessonSupportStage === "confirm" ? (
                 <div className="topic-help-confirmation" role="alert">
                   <div>
                     <strong>{copy.player.pauseTopic(localizedTopic?.shortTitle ?? task.title)}</strong>
                     <p>{copy.player.lessonPauseBody}</p>
                   </div>
                   <div>
-                    <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(false)}>{copy.player.keepViewingLesson}</button>
+                    <button className="text-button" type="button" onClick={() => setLessonSupportStage("idle")}>{copy.player.keepViewingLesson}</button>
                     <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(task.topicIds[0]!)}>{copy.player.pauseAndReport}</button>
                   </div>
                 </div>
+              ) : lessonSupportStage === "theory" ? (
+                <MathematicsTheorySupport
+                  topicId={task.topicIds[0]!}
+                  seed={`${task.seed}:lesson:more-theory`}
+                  contentLocale={task.contentLocale ?? locale}
+                  onUnderstood={() => setLessonSupportStage("idle")}
+                  onRequestSupport={() => setLessonSupportStage("confirm")}
+                />
               ) : (
-                <button className="text-button" type="button" onClick={() => setConfirmTeacherSupport(true)}>
+                <button className="text-button" type="button" onClick={() => setLessonSupportStage("theory")}>
                   {copy.player.notUnderstood}
                 </button>
               )}
