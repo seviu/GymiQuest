@@ -12,7 +12,8 @@ export default defineConfig({
         "gymiquest-icon-192.png",
         "gymiquest-icon-512.png",
         "gymiquest-maskable-512.png",
-        "apple-touch-icon.png"
+        "apple-touch-icon.png",
+        "music/the-golden-dragon.mid"
       ],
       manifest: {
         id: "/",
@@ -51,7 +52,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
-        globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,webmanifest}"],
+        globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,mid,webmanifest}"],
         maximumFileSizeToCacheInBytes: 2 * 1024 * 1024
       }
     })

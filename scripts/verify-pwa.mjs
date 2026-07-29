@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 
 const distDirectory = new URL("../dist/", import.meta.url)
 
@@ -99,6 +100,15 @@ await Promise.all([
   expectPng("apple-touch-icon.png", 180),
 ])
 
+const backgroundMidi = await readDistFile("music/the-golden-dragon.mid")
+if (backgroundMidi.subarray(0, 4).toString("ascii") !== "MThd") {
+  fail("music/the-golden-dragon.mid is not a Standard MIDI file")
+}
+const backgroundMidiHash = createHash("sha256").update(backgroundMidi).digest("hex")
+if (backgroundMidiHash !== "27e4945012de674504ff9482c795efefc76b3ac2754a312cc44dc61c727006bf") {
+  fail("music/the-golden-dragon.mid does not match the supplied source file")
+}
+
 expectHtml(html, '<html lang="en">', "English fallback document language")
 expectHtml(html, 'name="apple-mobile-web-app-capable" content="yes"', "iPad standalone metadata")
 expectHtml(html, 'rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"', "iPad home-screen icon")
@@ -128,6 +138,7 @@ for (const asset of [
   "gymiquest-icon-512.png",
   "gymiquest-maskable-512.png",
   "apple-touch-icon.png",
+  "music/the-golden-dragon.mid",
 ]) {
   if (!serviceWorker.includes(`url:${JSON.stringify(asset)}`)) {
     fail(`${asset} is missing from the service-worker precache`)

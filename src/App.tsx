@@ -296,6 +296,7 @@ import {
   ArchivePracticeResultsView,
   ArchiveSourcePracticePlayer,
 } from "./features/ArchiveSourcePractice"
+import { BackgroundMusicControl } from "./features/BackgroundMusicControl"
 import { ExerciseReportView } from "./features/ExerciseReportView"
 import {
   OfficialArchiveShelf,
@@ -508,11 +509,13 @@ function AppHeader({
   onProgress,
   displayName,
   subjectId = "math",
+  musicBlocked = false,
 }: {
   onHome: () => void
   onProgress?: () => void
   displayName?: string
   subjectId?: SubjectId
+  musicBlocked?: boolean
 }) {
   const { copy, intlLocale } = useLocalization()
   const profileInitial = displayName?.trim().charAt(0).toLocaleUpperCase(intlLocale) || "?"
@@ -527,6 +530,7 @@ function AppHeader({
         {runtime.shortTitle}
       </div>
       <div className="header-actions">
+        <BackgroundMusicControl blocked={musicBlocked} />
         <a
           className="header-data-link"
           href="/datenschutz.html"
@@ -12698,6 +12702,18 @@ function LearningApp() {
     )
   }
 
+  const musicBlocked = Boolean(
+    activeMock ||
+    activeArchivePractice ||
+    activeSession?.task.kind === "assessment" ||
+    activeSession?.task.kind === "placement" ||
+    (activeSubject === "german" && (
+      !germanCourse.startCheck?.completedAt ||
+      germanCourse.activeExam ||
+      germanCourse.activeSession?.kind === "assessment"
+    )),
+  )
+
   return (
     <div className="app-frame">
       <AppHeader
@@ -12707,6 +12723,7 @@ function LearningApp() {
           : undefined}
         displayName={learner.profileCompletedAt ? learner.displayName : undefined}
         subjectId={activeSubject}
+        musicBlocked={musicBlocked}
       />
       {showProfileSetup || !learner.profileCompletedAt ? (
         <ProfileSetupView
