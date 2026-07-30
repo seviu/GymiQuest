@@ -22,8 +22,10 @@ import {
   isCurriculumMastered,
   DEEP_RECOVERY_BREAK_HOURS,
   LIGHT_RECOVERY_BREAK_HOURS,
+  MANY_TOPIC_MISTAKES,
   MAX_TOPIC_INACTIVITY_DAYS,
   migrateLearnerState,
+  nextLearningTaskAt,
   nextLessonRecoveryAt,
   nextReviewAt,
   recordCompletion,
@@ -31,6 +33,8 @@ import {
   requestTeacherSupport,
   resolveTeacherSupport,
   selectAssessmentTopicIds,
+  skipTopicUntilTomorrow,
+  topicLearningReturnAt,
   topicNeedsTeacherSupport,
 } from "./learningEngine"
 
@@ -702,19 +706,25 @@ describe("learning engine", () => {
     )
   })
 
-  it("returns a difficult review later with a fresh deterministic seed", () => {
+  it("returns a review with many mistakes the next day with a fresh deterministic seed", () => {
     const state = createSeededLearner(now)
     const review = taskOfKind(state, "review")
     const result = recordCompletion(
       state,
       review,
-      completion(review, "needs-more", { mistakes: 2, hints: 1 }),
+      completion(review, "needs-more", { mistakes: MANY_TOPIC_MISTAKES, hints: 1 }),
     )
 
     expect(buildAssignments(result.state, now).some((task) => task.topicIds[0] === review.topicIds[0])).toBe(false)
 
     const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000)
-    const nextReview = buildAssignments(result.state, fourHoursLater).find(
+    expect(buildAssignments(result.state, fourHoursLater).some(
+      (task) => task.kind === "review" && task.topicIds[0] === review.topicIds[0],
+    )).toBe(false)
+
+    const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    expect(result.state.mastery[review.topicIds[0]!].dueAt).toBe(nextDay.toISOString())
+    const nextReview = buildAssignments(result.state, nextDay).find(
       (task) => task.kind === "review" && task.topicIds[0] === review.topicIds[0],
     )
 
@@ -1076,6 +1086,63 @@ describe("learning engine", () => {
     state.xpSinceAssessment = state.assessmentThreshold
 
     expect(() => buildErrorRefresh(state, "mass-units")).toThrow(/current assessment/)
+  })
+
+  it("skips a topic until tomorrow and lets the learner skip it again", () => {
+    const state = completePlacementWithoutCheck(createInitialLearner(now), now)
+    const lesson = taskOfKind(state, "lesson")
+    const topicId = lesson.topicIds[0]!
+    const originalMastery = structuredClone(state.mastery[topicId])
+    const firstReturn = new Date(now.getTime() + 24 * 60 * 60 * 1_000)
+
+    const skipped = skipTopicUntilTomorrow(state, topicId, now)
+
+    expect(state.mastery[topicId]).toEqual(originalMastery)
+    expect(skipped.mastery[topicId]).toEqual({
+      ...originalMastery,
+      deferredUntil: firstReturn.toISOString(),
+    })
+    expect(skipped.totalXp).toBe(state.totalXp)
+    expect(skipped.learningEvents).toEqual(state.learningEvents)
+    expect(skipped.xpLedger).toEqual(state.xpLedger)
+    expect(buildAssignments(skipped, now).flatMap((task) => task.topicIds)).not.toContain(topicId)
+    expect(topicLearningReturnAt(skipped, topicId, now)).toBe(firstReturn.toISOString())
+    expect(nextLearningTaskAt(skipped, now)).toBe(firstReturn.toISOString())
+    expect(() => buildTopicLesson(skipped, topicId, now)).toThrow(/skipped until/)
+    expect(buildTopicLesson(skipped, topicId, firstReturn).topicIds).toEqual([topicId])
+
+    const secondReturn = new Date(firstReturn.getTime() + 24 * 60 * 60 * 1_000)
+    const skippedAgain = skipTopicUntilTomorrow(skipped, topicId, firstReturn)
+    expect(skippedAgain.mastery[topicId].deferredUntil).toBe(secondReturn.toISOString())
+    expect(buildAssignments(skippedAgain, firstReturn).flatMap((task) => task.topicIds)).not.toContain(topicId)
+    expect(buildTopicLesson(skippedAgain, topicId, secondReturn).topicIds).toEqual([topicId])
+  })
+
+  it("keeps an explicitly skipped topic paused even when inactivity already made it due", () => {
+    const state = createSeededLearner(now)
+    const topicId: TopicId = "fraction-of-quantity"
+    const ordinaryDueAt = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1_000).toISOString()
+    state.mastery[topicId].masteredAt = new Date(
+      now.getTime() - (MAX_TOPIC_INACTIVITY_DAYS + 1) * 24 * 60 * 60 * 1_000,
+    ).toISOString()
+    state.mastery[topicId].lastReviewedAt = undefined
+    state.mastery[topicId].dueAt = ordinaryDueAt
+
+    expect(buildAssignments(state, now).flatMap((task) => task.topicIds)).toContain(topicId)
+
+    const skipped = skipTopicUntilTomorrow(state, topicId, now)
+    const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1_000)
+
+    expect(skipped.mastery[topicId].dueAt).toBe(ordinaryDueAt)
+    expect(skipped.mastery[topicId].deferredUntil).toBe(nextDay.toISOString())
+    expect(buildAssignments(skipped, now).flatMap((task) => task.topicIds)).not.toContain(topicId)
+    expect(() => buildPrerequisiteRefresh(skipped, topicId, now)).toThrow(/skipped until/)
+    expect(() => buildErrorRefresh(skipped, topicId, now)).toThrow(/skipped until/)
+    expect(buildAssignments(skipped, nextDay).flatMap((task) => task.topicIds)).toContain(topicId)
+
+    skipped.xpSinceAssessment = skipped.assessmentThreshold
+    expect(selectAssessmentTopicIds(skipped, now)).not.toContain(topicId)
+    expect(buildAssignments(skipped, now)[0]?.topicIds).not.toContain(topicId)
   })
 
   it("pauses one exact topic without changing XP or mastery evidence", () => {

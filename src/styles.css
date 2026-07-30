@@ -15188,6 +15188,10 @@ button.profile-chip:hover {
 }
 
 @media (max-width: 520px) {
+  .brand > span {
+    display: none;
+  }
+
   .question-card > h1 {
     hyphens: auto;
     overflow-wrap: anywhere;

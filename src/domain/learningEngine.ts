@@ -40,6 +40,7 @@ export const REVIEW_INTERVAL_DAYS = [1, 3, 7, 14, 30, 60] as const
 export const MAX_TOPIC_INACTIVITY_DAYS = 21
 export const LIGHT_RECOVERY_BREAK_HOURS = 8
 export const DEEP_RECOVERY_BREAK_HOURS = 24
+export const MANY_TOPIC_MISTAKES = 2
 export const ASSESSMENT_TOPIC_LIMIT = ACTIVE_CURRICULUM_PACKAGE.assessment.topicLimit
 export const PLACEMENT_TOPIC_IDS: TopicId[] = [
   ...ACTIVE_CURRICULUM_PACKAGE.placement.topicIds,
@@ -216,6 +217,12 @@ export function migrateLearnerState(state: LearnerState): LearnerState {
           )
         : 0
     }
+    if (
+      mastery.deferredUntil !== undefined &&
+      validTimestamp(mastery.deferredUntil) === undefined
+    ) {
+      mastery.deferredUntil = undefined
+    }
   }
 
   next.mastery = existingMastery as LearnerState["mastery"]
@@ -319,6 +326,39 @@ export function resolveTeacherSupport(
   next.topicHelpRequests = next.topicHelpRequests.filter(
     (request) => request.topicId !== topicId,
   )
+  next.updatedAt = now.toISOString()
+  return next
+}
+
+/**
+ * Defers one currently learnable topic without manufacturing completion,
+ * mastery, or XP evidence. Repeating the action after the topic returns moves
+ * it forward by another full day.
+ */
+export function skipTopicUntilTomorrow(
+  state: LearnerState,
+  topicId: TopicId,
+  now = new Date(),
+): LearnerState {
+  if (!state.placementCompletedAt) {
+    throw new Error("Complete placement before skipping a topic.")
+  }
+  if (topicNeedsTeacherSupport(state, topicId)) {
+    throw new Error("This topic is paused for teacher support.")
+  }
+
+  const current = refreshTopicAvailability(state)
+  const mastery = current.mastery[topicId]
+  if (mastery.status === "locked") {
+    throw new Error("This topic is not currently available.")
+  }
+
+  const next = copyState(current)
+  const tomorrow = now.getTime() + 24 * 60 * 60 * 1_000
+  const existingDeferral = validTimestamp(next.mastery[topicId].deferredUntil) ?? 0
+  next.mastery[topicId].deferredUntil = new Date(
+    Math.max(tomorrow, existingDeferral),
+  ).toISOString()
   next.updatedAt = now.toISOString()
   return next
 }
@@ -513,13 +553,17 @@ function assessmentHistory(
  * the assessment adaptive without allowing one weak topic to crowd out the
  * rest of the curriculum indefinitely.
  */
-export function selectAssessmentTopicIds(state: LearnerState): TopicId[] {
+export function selectAssessmentTopicIds(
+  state: LearnerState,
+  now = new Date(),
+): TopicId[] {
   const assessmentPolicy = curriculumPackageFor(state).assessment
   const masteredTopicIds = curriculumTopics(state)
     .map((topic) => topic.id)
     .filter((topicId) => (
       state.mastery[topicId].status === "mastered" &&
-      !topicNeedsTeacherSupport(state, topicId)
+      !topicNeedsTeacherSupport(state, topicId) &&
+      !topicLearningReturnAt(state, topicId, now)
     ))
 
   if (masteredTopicIds.length <= assessmentPolicy.topicLimit) return masteredTopicIds
@@ -585,10 +629,13 @@ export function selectAssessmentTopicIds(state: LearnerState): TopicId[] {
   return selected
 }
 
-function assessmentTask(state: LearnerState): LearningTask | undefined {
+function assessmentTask(
+  state: LearnerState,
+  now = new Date(),
+): LearningTask | undefined {
   if (state.xpSinceAssessment < state.assessmentThreshold) return undefined
 
-  const topicIds = selectAssessmentTopicIds(state)
+  const topicIds = selectAssessmentTopicIds(state, now)
   if (topicIds.length === 0) return undefined
   const questionCount = Math.max(6, topicIds.length)
 
@@ -652,9 +699,11 @@ function effectiveReviewTimestamp(
 ): number {
   const scheduledTimestamp = validTimestamp(state.mastery[topicId].dueAt)
   const inactivityTimestamp = inactivityReviewTimestamp(state, topicId)
-  return scheduledTimestamp === undefined
+  const ordinaryTimestamp = scheduledTimestamp === undefined
     ? inactivityTimestamp
     : Math.min(scheduledTimestamp, inactivityTimestamp)
+  const deferredTimestamp = validTimestamp(state.mastery[topicId].deferredUntil) ?? 0
+  return Math.max(ordinaryTimestamp, deferredTimestamp)
 }
 
 function topicIsNeglected(
@@ -746,10 +795,39 @@ function lessonRecoveryReadyTimestamp(
   const evidence = latestLessonRecoveryEvidence(state, topicId)
   if (!evidence) return 0
   const completedAt = validTimestamp(evidence.completedAt) ?? 0
-  const breakHours = evidence.mistakes >= 2 || evidence.hintsUsed > 0
+  const breakHours = evidence.mistakes >= MANY_TOPIC_MISTAKES || evidence.hintsUsed > 0
     ? DEEP_RECOVERY_BREAK_HOURS
     : LIGHT_RECOVERY_BREAK_HOURS
   return completedAt + breakHours * 60 * 60 * 1_000
+}
+
+function topicLearningReadyTimestamp(
+  state: LearnerState,
+  topicId: TopicId,
+): number {
+  const mastery = state.mastery[topicId]
+  const deferredUntil = validTimestamp(mastery.deferredUntil) ?? 0
+  return mastery.status === "learning"
+    ? Math.max(lessonRecoveryReadyTimestamp(state, topicId), deferredUntil)
+    : deferredUntil
+}
+
+export function topicLearningReturnAt(
+  state: LearnerState,
+  topicId: TopicId,
+  now = new Date(),
+): string | undefined {
+  const status = state.mastery[topicId].status
+  if (
+    status === "locked" ||
+    topicNeedsTeacherSupport(state, topicId)
+  ) {
+    return undefined
+  }
+  const readyTimestamp = topicLearningReadyTimestamp(state, topicId)
+  return readyTimestamp > now.getTime()
+    ? new Date(readyTimestamp).toISOString()
+    : undefined
 }
 
 function lessonRecoveryTaskForTopic(state: LearnerState, topicId: TopicId): LearningTask {
@@ -757,10 +835,10 @@ function lessonRecoveryTaskForTopic(state: LearnerState, topicId: TopicId): Lear
   const taskPrefix = `lesson-recovery:${topicId}:`
   const sequence = state.learningEvents.filter((event) => event.taskId.startsWith(taskPrefix)).length
   const latestEvidence = latestLessonRecoveryEvidence(state, topicId)
-  const readyTimestamp = lessonRecoveryReadyTimestamp(state, topicId)
+  const readyTimestamp = topicLearningReadyTimestamp(state, topicId)
   const needsGentleReturn = Boolean(
     latestEvidence &&
-    (latestEvidence.mistakes >= 2 || latestEvidence.hintsUsed > 0),
+    (latestEvidence.mistakes >= MANY_TOPIC_MISTAKES || latestEvidence.hintsUsed > 0),
   )
   return {
     id: `${taskPrefix}${sequence}`,
@@ -786,18 +864,19 @@ function nextLessonTask(state: LearnerState, now: Date): LearningTask | undefine
     .filter((candidate) => (
       state.mastery[candidate.id].status === "learning" &&
       !topicNeedsTeacherSupport(state, candidate.id) &&
-      lessonRecoveryReadyTimestamp(state, candidate.id) <= now.getTime()
+      topicLearningReadyTimestamp(state, candidate.id) <= now.getTime()
     ))
     .sort((left, right) => (
-      lessonRecoveryReadyTimestamp(state, left.id) -
-      lessonRecoveryReadyTimestamp(state, right.id)
+      topicLearningReadyTimestamp(state, left.id) -
+      topicLearningReadyTimestamp(state, right.id)
     ))[0]
   if (learningTopic) return lessonRecoveryTaskForTopic(state, learningTopic.id)
 
   const topic = curriculumTopics(state).find(
     (candidate) => (
       state.mastery[candidate.id].status === "available" &&
-      !topicNeedsTeacherSupport(state, candidate.id)
+      !topicNeedsTeacherSupport(state, candidate.id) &&
+      topicLearningReadyTimestamp(state, candidate.id) <= now.getTime()
     ),
   )
   return topic ? lessonTaskForTopic(state, topic.id) : undefined
@@ -812,6 +891,7 @@ function nextLessonTask(state: LearnerState, now: Date): LearningTask | undefine
 export function buildTopicLesson(
   state: LearnerState,
   topicId: TopicId,
+  now = new Date(),
 ): LearningTask {
   if (!state.placementCompletedAt) {
     throw new Error("Complete placement before starting a lesson.")
@@ -820,8 +900,12 @@ export function buildTopicLesson(
     throw new Error("This topic is paused for teacher support.")
   }
   const current = refreshTopicAvailability(state)
-  if (assessmentTask(current)) {
+  if (assessmentTask(current, now)) {
     throw new Error("Complete the current assessment before starting a new lesson.")
+  }
+  const returnAt = topicLearningReturnAt(current, topicId, now)
+  if (returnAt) {
+    throw new Error(`This topic is skipped until ${returnAt}.`)
   }
   if (current.mastery[topicId].status === "learning") {
     return lessonRecoveryTaskForTopic(current, topicId)
@@ -839,7 +923,7 @@ export function buildTopicLesson(
 export function buildAssignments(state: LearnerState, now = new Date()): LearningTask[] {
   if (!state.placementCompletedAt) return []
   const current = refreshTopicAvailability(state)
-  const assessment = assessmentTask(current)
+  const assessment = assessmentTask(current, now)
   if (assessment && !current.completedTaskIds.includes(assessment.id)) {
     return [assessment]
   }
@@ -861,12 +945,17 @@ export function buildAssignments(state: LearnerState, now = new Date()): Learnin
 export function buildPrerequisiteRefresh(
   state: LearnerState,
   topicId: TopicId,
+  now = new Date(),
 ): LearningTask {
   if (!state.placementCompletedAt) {
     throw new Error("Complete placement before starting a refresh.")
   }
   if (topicNeedsTeacherSupport(state, topicId)) {
     throw new Error("This topic is paused for teacher support.")
+  }
+  const returnAt = topicLearningReturnAt(state, topicId, now)
+  if (returnAt) {
+    throw new Error(`This topic is skipped until ${returnAt}.`)
   }
   const topic = topics[topicId]
   const sequence = state.learningEvents.filter(
@@ -892,6 +981,7 @@ export function buildPrerequisiteRefresh(
 export function buildErrorRefresh(
   state: LearnerState,
   topicId: TopicId,
+  now = new Date(),
 ): LearningTask {
   if (!state.placementCompletedAt) {
     throw new Error("Complete placement before starting an error refresh.")
@@ -900,8 +990,12 @@ export function buildErrorRefresh(
     throw new Error("This topic is paused for teacher support.")
   }
   const current = refreshTopicAvailability(state)
-  if (assessmentTask(current)) {
+  if (assessmentTask(current, now)) {
     throw new Error("Complete the current assessment before starting an error refresh.")
+  }
+  const returnAt = topicLearningReturnAt(current, topicId, now)
+  if (returnAt) {
+    throw new Error(`This topic is skipped until ${returnAt}.`)
   }
   const topic = topics[topicId]
   const sequence = state.learningEvents.filter(
@@ -1088,7 +1182,9 @@ function applyReviewEvidence(
   } else {
     mastery.reviewStage = Math.max(0, mastery.reviewStage - 1)
     mastery.retention = Math.max(0.2, mastery.retention - 0.12)
-    mastery.dueAt = addHours(completedAt, event.hintsUsed > 0 ? 4 : 24)
+    mastery.dueAt = event.mistakes >= MANY_TOPIC_MISTAKES
+      ? addDays(completedAt, 1)
+      : addHours(completedAt, event.hintsUsed > 0 ? 4 : 24)
   }
 }
 
@@ -1181,6 +1277,13 @@ export function recordCompletion(
   const completedAt = new Date(event.completedAt)
   const award = createAward(next, task, event)
 
+  for (const topicId of task.topicIds) {
+    const deferredUntil = validTimestamp(next.mastery[topicId].deferredUntil)
+    if (deferredUntil !== undefined && deferredUntil <= completedAt.getTime()) {
+      next.mastery[topicId].deferredUntil = undefined
+    }
+  }
+
   next.learningEvents.push(recordedEvent)
   next.xpLedger.push(award)
   next.completedTaskIds.push(task.id)
@@ -1253,7 +1356,23 @@ export function nextLessonRecoveryAt(
       state.mastery[topic.id].status === "learning" &&
       !topicNeedsTeacherSupport(state, topic.id)
     ))
-    .map((topic) => lessonRecoveryReadyTimestamp(state, topic.id))
+    .map((topic) => topicLearningReadyTimestamp(state, topic.id))
+    .filter((timestamp) => timestamp > now.getTime())
+    .sort((left, right) => left - right)
+    .map((timestamp) => new Date(timestamp).toISOString())[0]
+}
+
+export function nextLearningTaskAt(
+  state: LearnerState,
+  now = new Date(),
+): string | undefined {
+  return curriculumTopics(state)
+    .filter((topic) => (
+      (state.mastery[topic.id].status === "available" ||
+        state.mastery[topic.id].status === "learning") &&
+      !topicNeedsTeacherSupport(state, topic.id)
+    ))
+    .map((topic) => topicLearningReadyTimestamp(state, topic.id))
     .filter((timestamp) => timestamp > now.getTime())
     .sort((left, right) => left - right)
     .map((timestamp) => new Date(timestamp).toISOString())[0]

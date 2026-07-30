@@ -502,6 +502,100 @@ test("runs a persisted 2022 source training and records only bounded self-review
   })).toEqual({ totalXp: 0, historyCount: 1, activeCount: 0 })
 })
 
+test("skips an unclear topic until the next day without recording progress", async ({ page }) => {
+  await createFoundationsLearner(page, "Skip-Test")
+
+  const lessonCard = page.locator(".task-card.lesson").first()
+  const lessonTitle = (await lessonCard.getByRole("heading").textContent())?.trim()
+  if (!lessonTitle) throw new Error("Missing lesson title for skip test")
+  const before = await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("gymiquest", 8)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const learner = await new Promise<{ totalXp: number; learningEvents: unknown[] }>((resolve, reject) => {
+      const request = database.transaction("learner", "readonly").objectStore("learner").get("zh-zap1-math@1")
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    database.close()
+    return { totalXp: learner.totalXp, eventCount: learner.learningEvents.length }
+  })
+  const skippedAt = Date.now()
+
+  await lessonCard.getByRole("button", { name: "Starten" }).click()
+  await page.getByRole("button", { name: "Ich verstehe dieses Thema noch nicht" }).click()
+  await page.getByRole("button", { name: "Ich brauche trotzdem Hilfe" }).click()
+  await expect(page.getByRole("alert")).toContainText("holt das Thema morgen zurück")
+  const skipAudit = await new AxeBuilder({ page })
+    .include(".topic-help-confirmation")
+    .withTags(wcagTags)
+    .analyze()
+  expect(skipAudit.violations).toEqual([])
+  await page.getByRole("button", { name: "Bis morgen überspringen" }).click()
+
+  await expect(page.getByRole("heading", { name: "Dein Lernplan" })).toBeVisible()
+  await expect(page.locator(".task-card").filter({ hasText: lessonTitle })).toHaveCount(0)
+  await expect.poll(async () => page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("gymiquest", 8)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const learner = await new Promise<{
+      totalXp: number
+      learningEvents: unknown[]
+      mastery: Record<string, { deferredUntil?: string }>
+    }>((resolve, reject) => {
+      const request = database.transaction("learner", "readonly").objectStore("learner").get("zh-zap1-math@1")
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const activeSessionCount = await new Promise<number>((resolve, reject) => {
+      const request = database.transaction("session", "readonly").objectStore("session").count()
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    database.close()
+    const deferredUntil = Object.values(learner.mastery)
+      .map((mastery) => mastery.deferredUntil)
+      .find(Boolean)
+    return {
+      totalXp: learner.totalXp,
+      eventCount: learner.learningEvents.length,
+      activeSessionCount,
+      deferredUntil,
+    }
+  })).toMatchObject({
+    totalXp: before.totalXp,
+    eventCount: before.eventCount,
+    activeSessionCount: 0,
+  })
+
+  const persisted = await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("gymiquest", 8)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const learner = await new Promise<{
+      mastery: Record<string, { deferredUntil?: string }>
+    }>((resolve, reject) => {
+      const request = database.transaction("learner", "readonly").objectStore("learner").get("zh-zap1-math@1")
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    database.close()
+    return Object.values(learner.mastery)
+      .map((mastery) => mastery.deferredUntil)
+      .find(Boolean)
+  })
+  expect(persisted).toBeDefined()
+  expect(Date.parse(persisted!) - skippedAt).toBeGreaterThan(23 * 60 * 60 * 1_000)
+  expect(Date.parse(persisted!) - skippedAt).toBeLessThanOrEqual(24 * 60 * 60 * 1_000 + 60_000)
+})
+
 test("reports a generated task, pauses its topic, shows an honest mock trend, reopens it, and resets onboarding", async ({ page, context }) => {
   await createFoundationsLearner(page, "Support-Test")
 
@@ -546,7 +640,9 @@ test("reports a generated task, pauses its topic, shows an honest mock trend, re
 
   await page.getByRole("button", { name: "Ich verstehe dieses Thema noch nicht" }).click()
   await page.getByRole("button", { name: "Ich brauche trotzdem Hilfe" }).click()
-  await expect(page.getByRole("alert")).toContainText("keine weitere Trainingsaufgabe")
+  await expect(page.getByRole("alert")).toContainText(
+    "Pausieren und melden wartet stattdessen auf eine Begleitperson",
+  )
   await page.getByRole("button", { name: "Pausieren und melden" }).click()
   await expect(page.getByRole("heading", { name: "Dein Lernplan" })).toBeVisible()
   await expect(page.locator(".task-card").filter({ hasText: lessonTitle })).toHaveCount(0)

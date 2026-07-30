@@ -841,6 +841,7 @@ function isTopicMastery(
     isNonNegativeInteger(value.reviewStage, 1_000) &&
     isNonNegativeInteger(value.reviewIteration, 1_000_000) &&
     isOptionalDate(value.dueAt) &&
+    isOptionalDate(value.deferredUntil) &&
     isOptionalDate(value.masteredAt) &&
     isOptionalDate(value.lastReviewedAt) &&
     isNonNegativeInteger(value.independentSuccesses, 1_000_000)

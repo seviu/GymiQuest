@@ -937,6 +937,34 @@ describe("assessment UI flow", () => {
     expect(container.querySelector(".primary-plan-step .task-card")).toBeNull()
   })
 
+  it("offers a visible skip action for the next topic without starting it", () => {
+    const now = new Date("2026-07-14T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+    const nextTask = buildAssignments(learner, now)[0]!
+    const onStart = vi.fn()
+    const onSkip = vi.fn()
+
+    act(() => {
+      root.render(
+        <Home
+          learner={learner}
+          now={now}
+          onStart={onStart}
+          onSkip={onSkip}
+          onResume={() => undefined}
+          onPrerequisite={() => undefined}
+          onOpenCurriculum={() => undefined}
+          onOpenMock={() => undefined}
+        />,
+      )
+    })
+
+    act(() => buttonWithText(container, "Bis morgen überspringen").click())
+    expect(onSkip).toHaveBeenCalledOnce()
+    expect(onSkip).toHaveBeenCalledWith(nextTask.topicIds[0])
+    expect(onStart).not.toHaveBeenCalled()
+  })
+
   it("shows an adaptive daily quest and durable local badge progress", () => {
     const now = new Date("2026-07-14T12:00:00.000Z")
     const learner = createSeededLearner(now)
@@ -6124,11 +6152,12 @@ describe("assessment UI flow", () => {
     expect(onRequestTeacherSupport).toHaveBeenCalledWith(review.topicIds[0])
   })
 
-  it("also offers the topic pause before a lesson's questions begin", () => {
+  it("also offers to skip the topic before a lesson's questions begin", () => {
     const now = new Date("2026-07-14T12:00:00.000Z")
     const learner = createSeededLearner(now)
     const lesson = buildAssignments(learner, now).find((task) => task.kind === "lesson")!
     const onRequestTeacherSupport = vi.fn()
+    const onSkipTopic = vi.fn()
 
     act(() => {
       root.render(
@@ -6139,6 +6168,7 @@ describe("assessment UI flow", () => {
           onPrerequisite={() => undefined}
           onSessionChange={() => undefined}
           onRequestTeacherSupport={onRequestTeacherSupport}
+          onSkipTopic={onSkipTopic}
         />,
       )
     })
@@ -6150,9 +6180,10 @@ describe("assessment UI flow", () => {
     expect(theorySupport?.querySelector(".topic-theory-support-visual")).not.toBeNull()
     expect(onRequestTeacherSupport).not.toHaveBeenCalled()
     act(() => buttonWithText(container, "Ich brauche trotzdem Hilfe").click())
-    expect(container.textContent).toContain("wartet in der Begleitansicht")
-    act(() => buttonWithText(container, "Pausieren und melden").click())
-    expect(onRequestTeacherSupport).toHaveBeenCalledWith(lesson.topicIds[0])
+    expect(container.textContent).toContain("holt das Thema morgen zurück")
+    act(() => buttonWithText(container, "Bis morgen überspringen").click())
+    expect(onSkipTopic).toHaveBeenCalledWith(lesson.topicIds[0])
+    expect(onRequestTeacherSupport).not.toHaveBeenCalled()
   })
 
   it("lets a companion reopen a paused topic from the protected dashboard", () => {

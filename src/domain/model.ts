@@ -169,6 +169,8 @@ export interface TopicMastery {
   reviewStage: number
   reviewIteration: number
   dueAt?: string
+  /** Learner-chosen pause; unlike dueAt, this overrides inactivity reviews. */
+  deferredUntil?: string
   masteredAt?: string
   lastReviewedAt?: string
   independentSuccesses: number

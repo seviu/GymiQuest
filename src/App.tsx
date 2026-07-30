@@ -121,7 +121,7 @@ import {
   createInitialLearner,
   isCurriculumMastered,
   migrateLearnerState,
-  nextLessonRecoveryAt,
+  nextLearningTaskAt,
   nextReviewAt,
   PLACEMENT_QUESTION_COUNT,
   recordArchivePracticeResult,
@@ -130,6 +130,8 @@ import {
   recordMockExamResult,
   requestTeacherSupport,
   resolveTeacherSupport,
+  skipTopicUntilTomorrow,
+  topicLearningReturnAt,
   topicNeedsTeacherSupport,
 } from "./domain/learningEngine"
 import {
@@ -986,6 +988,7 @@ function StatPanel({
 function TaskCard({
   task,
   onStart,
+  onSkip,
   onPrerequisite,
   checkpointNumber,
   minimalFocus = false,
@@ -994,6 +997,7 @@ function TaskCard({
 }: {
   task: LearningTask
   onStart: (task: LearningTask) => void
+  onSkip?: (topicId: TopicId) => void
   onPrerequisite: (topicId: TopicId) => void
   checkpointNumber?: number
   minimalFocus?: boolean
@@ -1073,6 +1077,11 @@ function TaskCard({
               : t("home.checkpoint.startReturn")
             : t("common.start")}
         </button>
+        {onSkip && task.topicIds.length === 1 && task.kind !== "assessment" && (
+          <button className="text-button" type="button" onClick={() => onSkip(task.topicIds[0]!)}>
+            {t("home.task.skip")}
+          </button>
+        )}
       </div>
     </article>
   )
@@ -1244,6 +1253,7 @@ export function Home({
   activeMock,
   activeArchivePractice,
   onStart,
+  onSkip,
   onResume,
   onPrerequisite,
   onOpenCurriculum,
@@ -1258,6 +1268,7 @@ export function Home({
   activeMock?: ActiveMockExam
   activeArchivePractice?: ActiveArchivePractice
   onStart: (task: LearningTask) => void
+  onSkip?: (topicId: TopicId) => void
   onResume: () => void
   onPrerequisite: (topicId: TopicId) => void
   onOpenCurriculum: () => void
@@ -1281,7 +1292,7 @@ export function Home({
   const assessmentReady = allAssignments.some((task) => task.kind === "assessment")
   const curriculumMastered = isCurriculumMastered(learner)
   const scheduledReviewAt = nextReviewAt(learner)
-  const recoveryReturnAt = nextLessonRecoveryAt(learner, now)
+  const learningReturnAt = nextLearningTaskAt(learner, now)
   const dailyQuest = minimalFocus
     ? undefined
     : buildDailyQuest(learner, allAssignments, now, "Europe/Zurich", locale)
@@ -1352,8 +1363,8 @@ export function Home({
                 ? t("home.plan.assessmentReady")
                 : hasRecovery
                   ? t("home.plan.recovery")
-                : !primaryTask && recoveryReturnAt
-                  ? t("home.plan.resting", { date: formatReviewDate(recoveryReturnAt, locale) })
+                : !primaryTask && learningReturnAt
+                  ? t("home.plan.resting", { date: formatReviewDate(learningReturnAt, locale) })
                 : curriculumMastered && reviewCount === 1
                   ? t("home.plan.consolidationOne")
                   : curriculumMastered && reviewCount > 1
@@ -1401,6 +1412,7 @@ export function Home({
             <TaskCard
               task={primaryTask}
               onStart={onStart}
+              onSkip={onSkip}
               onPrerequisite={onPrerequisite}
               checkpointNumber={primaryTask.kind === "review" && primaryTask.topicIds.some(
                 (topicId) => pendingCheckpointTopicIds.has(topicId),
@@ -1413,15 +1425,15 @@ export function Home({
             <div className="empty-plan">
               <span aria-hidden="true">✓</span>
               <h2>
-                {recoveryReturnAt
+                {learningReturnAt
                   ? t("home.plan.restingTitle")
                   : curriculumMastered
                     ? t("home.plan.emptyMastered")
                     : t("home.plan.empty")}
               </h2>
               <p>
-                {recoveryReturnAt
-                  ? t("home.plan.restingBody", { date: formatReviewDate(recoveryReturnAt, locale) })
+                {learningReturnAt
+                  ? t("home.plan.restingBody", { date: formatReviewDate(learningReturnAt, locale) })
                   : curriculumMastered
                   ? scheduledReviewAt
                     ? t("home.plan.nextScheduled", { date: formatReviewDate(scheduledReviewAt, locale) })
@@ -2226,6 +2238,7 @@ function curriculumGroupCopy(
 export function CurriculumView({
   learner,
   examRunning = false,
+  now = new Date(),
   onBack,
   onStartLesson,
   onRefresh,
@@ -2233,6 +2246,7 @@ export function CurriculumView({
 }: {
   learner: LearnerState
   examRunning?: boolean
+  now?: Date
   onBack: () => void
   onStartLesson: (topicId: TopicId) => void
   onRefresh: (topicId: TopicId) => void
@@ -2353,8 +2367,11 @@ export function CurriculumView({
                 const mastery = learner.mastery[topicId]
                 const status = mastery.status
                 const teacherPaused = topicNeedsTeacherSupport(learner, topicId)
+                const returnAt = topicLearningReturnAt(learner, topicId, now)
                 const statusLabel = teacherPaused
                   ? t("curriculum.status.paused")
+                  : returnAt
+                    ? t("common.scheduled")
                   : status === "mastered"
                   ? t("curriculum.status.mastered")
                   : status === "available"
@@ -2371,9 +2388,10 @@ export function CurriculumView({
                     <div className="curriculum-topic-copy">
                       <div className="curriculum-topic-titleline">
                         <span className={`curriculum-status ${status}`}>{statusLabel}</span>
-                        {status === "mastered" && mastery.dueAt && !teacherPaused && (
+                        {status === "mastered" && mastery.dueAt && !teacherPaused && !returnAt && (
                           <small>{t("curriculum.nextReview", { date: formatReviewDate(mastery.dueAt, locale) })}</small>
                         )}
+                        {returnAt && <small>{t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })}</small>}
                         {teacherPaused && <small>{t("curriculum.pausedBody")}</small>}
                       </div>
                       <h3>{topic.title}</h3>
@@ -2405,21 +2423,27 @@ export function CurriculumView({
                         <button
                           className="secondary-button"
                           type="button"
-                          disabled={learningBlocked || teacherPaused}
+                          disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
                           onClick={() => onRefresh(topicId)}
                         >
-                          {teacherPaused ? t("curriculum.pausedTraining") : t("curriculum.startRefresh")}
+                          {teacherPaused
+                            ? t("curriculum.pausedTraining")
+                            : returnAt
+                              ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
+                              : t("curriculum.startRefresh")}
                         </button>
                       ) : status === "available" || status === "learning" ? (
                         <button
                           className="primary-button compact"
                           type="button"
-                          disabled={learningBlocked || teacherPaused}
+                          disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
                           onClick={() => onStartLesson(topicId)}
                         >
                           {teacherPaused
                             ? t("curriculum.pausedTraining")
-                            : status === "learning" ? t("curriculum.startRecovery") : t("curriculum.startLesson")}
+                            : returnAt
+                              ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
+                              : status === "learning" ? t("curriculum.startRecovery") : t("curriculum.startLesson")}
                         </button>
                       ) : (
                         <span>{t("curriculum.learnPrerequisites")}</span>
@@ -7526,6 +7550,7 @@ function conceptPracticeLabel(
 function ConceptLabTopic({
   learner,
   topicId,
+  now,
   practiceBlocked,
   onChooseTopic,
   onStartPractice,
@@ -7534,6 +7559,7 @@ function ConceptLabTopic({
 }: {
   learner: LearnerState
   topicId: TopicId
+  now: Date
   practiceBlocked: boolean
   onChooseTopic: (topicId: TopicId) => void
   onStartPractice: (topicId: TopicId) => void
@@ -7546,6 +7572,7 @@ function ConceptLabTopic({
   const topic = topicForLocale(topicId, locale)
   const mastery = learner.mastery[topicId]
   const teacherPaused = topicNeedsTeacherSupport(learner, topicId)
+  const returnAt = topicLearningReturnAt(learner, topicId, now)
   const guidance = topicGuidanceForLocale(topicId, locale)
   const [phase, setPhase] = useState<ConceptLabPhase>("idea")
   const [conceptStep, setConceptStep] = useState(0)
@@ -7780,8 +7807,12 @@ function ConceptLabTopic({
               <>
                 <button className="secondary-button" type="button" onClick={resetRound}>{t("concept.lab.freshRound")}</button>
                 {mastery.status !== "locked" && (
-                  <button className="primary-button" type="button" disabled={practiceBlocked || teacherPaused} onClick={() => onStartPractice(topicId)}>
-                    {teacherPaused ? t("concept.lab.waiting") : conceptPracticeLabel(mastery.status, locale)}
+                  <button className="primary-button" type="button" disabled={practiceBlocked || teacherPaused || Boolean(returnAt)} onClick={() => onStartPractice(topicId)}>
+                    {teacherPaused
+                      ? t("concept.lab.waiting")
+                      : returnAt
+                        ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
+                        : conceptPracticeLabel(mastery.status, locale)}
                   </button>
                 )}
               </>
@@ -7805,12 +7836,14 @@ export function ConceptLibraryView({
   learner,
   initialTopicId,
   practiceBlocked = false,
+  now = new Date(),
   onBack,
   onStartPractice,
 }: {
   learner: LearnerState
   initialTopicId?: TopicId
   practiceBlocked?: boolean
+  now?: Date
   onBack: () => void
   onStartPractice: (topicId: TopicId) => void
 }) {
@@ -7827,6 +7860,7 @@ export function ConceptLibraryView({
         key={selectedTopicId}
         learner={learner}
         topicId={selectedTopicId}
+        now={now}
         practiceBlocked={practiceBlocked}
         onChooseTopic={setSelectedTopicId}
         onStartPractice={onStartPractice}
@@ -8436,6 +8470,7 @@ export function QuestionStage({
   onFinish,
   onPrerequisite,
   onRequestTeacherSupport,
+  onSkipTopic,
   helpStyle = "visual",
 }: {
   session: ActiveLearningSession
@@ -8443,9 +8478,10 @@ export function QuestionStage({
   onFinish: (event: LearningEvent) => void
   onPrerequisite?: (topicId: TopicId) => void
   onRequestTeacherSupport?: (topicId: TopicId) => void
+  onSkipTopic?: (topicId: TopicId) => void
   helpStyle?: LearnerHelpStyle
 }) {
-  const { locale, copy } = useLocalization()
+  const { locale, copy, t } = useLocalization()
   const [teacherSupportStage, setTeacherSupportStage] = useState<"idle" | "theory" | "confirm">("idle")
   const { task, activeSeconds } = session
   const contentLocale = task.contentLocale ?? "de"
@@ -8489,6 +8525,7 @@ export function QuestionStage({
   const isAssessment = task.kind === "assessment"
   const isPlacement = task.kind === "placement"
   const isSilentCheck = isAssessment || isPlacement
+  const canSkipTopic = Boolean(onSkipTopic && !isSilentCheck)
   const assessmentAnswerSubmitted = isAssessment && feedback !== null
   const questionFinalized = feedback === "correct" || assessmentAnswerSubmitted
   const usesPracticeSteps = shouldUsePracticeSteps(task, question)
@@ -9130,7 +9167,7 @@ export function QuestionStage({
               {copy.player.reportIssue}
               <span aria-hidden="true">↗</span>
             </a>
-            {!questionFinalized && !isPlacement && onRequestTeacherSupport && teacherSupportStage === "idle" && (
+            {!questionFinalized && !isPlacement && (onRequestTeacherSupport || canSkipTopic) && teacherSupportStage === "idle" && (
               <button
                 className="text-button"
                 type="button"
@@ -9140,7 +9177,7 @@ export function QuestionStage({
               </button>
             )}
           </div>
-          {!questionFinalized && teacherSupportStage === "theory" && onRequestTeacherSupport && !isSilentCheck && (
+          {!questionFinalized && teacherSupportStage === "theory" && (onRequestTeacherSupport || canSkipTopic) && !isSilentCheck && (
             <MathematicsTheorySupport
               className="question-theory-support"
               topicId={question.topicId}
@@ -9151,15 +9188,22 @@ export function QuestionStage({
               onRequestSupport={() => setTeacherSupportStage("confirm")}
             />
           )}
-          {!questionFinalized && teacherSupportStage === "confirm" && onRequestTeacherSupport && (
+          {!questionFinalized && teacherSupportStage === "confirm" && (onRequestTeacherSupport || canSkipTopic) && (
             <div className="topic-help-confirmation" role="alert">
               <div>
                 <strong>{copy.player.pauseTopic(localizedTopic.shortTitle)}</strong>
-                <p>{copy.player.questionPauseBody}</p>
+                <p>{canSkipTopic ? t("home.task.skipChoice") : copy.player.questionPauseBody}</p>
               </div>
               <div>
                 <button className="text-button" type="button" onClick={() => setTeacherSupportStage("idle")}>{copy.player.keepTrying}</button>
-                <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(question.topicId)}>{copy.player.pauseAndReport}</button>
+                {canSkipTopic && (
+                  <button className="secondary-button compact" type="button" onClick={() => onSkipTopic!(question.topicId)}>
+                    {t("home.task.skip")}
+                  </button>
+                )}
+                {onRequestTeacherSupport && (
+                  <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(question.topicId)}>{copy.player.pauseAndReport}</button>
+                )}
               </div>
             </div>
           )}
@@ -9184,6 +9228,7 @@ export function TaskPlayer({
   onPrerequisite,
   onSessionChange,
   onRequestTeacherSupport,
+  onSkipTopic,
   prerequisiteReturnXp,
   helpStyle = "visual",
   minimalFocus = false,
@@ -9195,11 +9240,12 @@ export function TaskPlayer({
   onPrerequisite: (topicId: TopicId, origin: ActiveLearningSession) => void
   onSessionChange: (session: ActiveLearningSession) => void
   onRequestTeacherSupport?: (topicId: TopicId) => void
+  onSkipTopic?: (topicId: TopicId) => void
   prerequisiteReturnXp?: number
   helpStyle?: LearnerHelpStyle
   minimalFocus?: boolean
 }) {
-  const { locale, copy } = useLocalization()
+  const { locale, copy, t } = useLocalization()
   const [session, setSession] = useState(initialSession)
   const [lessonSupportStage, setLessonSupportStage] = useState<"idle" | "theory" | "confirm">("idle")
   const { task, phase, pageIndex, activeSeconds } = session
@@ -9320,17 +9366,24 @@ export function TaskPlayer({
         </section>
       ) : (
         <>
-          {phase === "lesson" && task.topicIds.length === 1 && onRequestTeacherSupport && (
+          {phase === "lesson" && task.topicIds.length === 1 && (onRequestTeacherSupport || onSkipTopic) && (
             <div className="lesson-topic-help">
               {lessonSupportStage === "confirm" ? (
                 <div className="topic-help-confirmation" role="alert">
                   <div>
                     <strong>{copy.player.pauseTopic(localizedTopic?.shortTitle ?? task.title)}</strong>
-                    <p>{copy.player.lessonPauseBody}</p>
+                    <p>{onSkipTopic ? t("home.task.skipChoice") : copy.player.lessonPauseBody}</p>
                   </div>
                   <div>
                     <button className="text-button" type="button" onClick={() => setLessonSupportStage("idle")}>{copy.player.keepViewingLesson}</button>
-                    <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(task.topicIds[0]!)}>{copy.player.pauseAndReport}</button>
+                    {onSkipTopic && (
+                      <button className="secondary-button compact" type="button" onClick={() => onSkipTopic(task.topicIds[0]!)}>
+                        {t("home.task.skip")}
+                      </button>
+                    )}
+                    {onRequestTeacherSupport && (
+                      <button className="danger-button" type="button" onClick={() => onRequestTeacherSupport(task.topicIds[0]!)}>{copy.player.pauseAndReport}</button>
+                    )}
                   </div>
                 </div>
               ) : lessonSupportStage === "theory" ? (
@@ -9399,6 +9452,7 @@ export function TaskPlayer({
                 ? undefined
                 : (topicId) => onPrerequisite(topicId, session)}
               onRequestTeacherSupport={onRequestTeacherSupport}
+              onSkipTopic={onSkipTopic}
               helpStyle={helpStyle}
             />
           )}
@@ -12074,6 +12128,7 @@ function LearningApp() {
 
   const startPrerequisite = (topicId: TopicId) => {
     if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
+    if (topicLearningReturnAt(learner, topicId)) return
     startTask(buildPrerequisiteRefresh(learner, topicId))
   }
 
@@ -12082,6 +12137,7 @@ function LearningApp() {
     origin: ActiveLearningSession,
   ) => {
     if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
+    if (topicLearningReturnAt(learner, topicId)) return
     const task = {
       ...buildPrerequisiteRefresh(learner, topicId),
       contentLocale: origin.task.contentLocale ?? locale,
@@ -12107,12 +12163,14 @@ function LearningApp() {
   const startErrorPractice = (topicId: TopicId) => {
     if (!learner || activeSession || activeMock || activeArchivePractice) return
     if (topicNeedsTeacherSupport(learner, topicId)) return
+    if (topicLearningReturnAt(learner, topicId)) return
     if (buildAssignments(learner).some((task) => task.kind === "assessment")) return
     startTask(buildErrorRefresh(learner, topicId))
   }
 
   const startTopicLesson = (topicId: TopicId) => {
     if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
+    if (topicLearningReturnAt(learner, topicId)) return
     startTask(buildTopicLesson(learner, topicId))
   }
 
@@ -12121,6 +12179,7 @@ function LearningApp() {
     if (topicNeedsTeacherSupport(learner, topicId)) return
     if (buildAssignments(learner).some((task) => task.kind === "assessment")) return
     const status = learner.mastery[topicId].status
+    if (topicLearningReturnAt(learner, topicId)) return
     if (status === "locked") return
     if (status === "mastered") {
       startPrerequisite(topicId)
@@ -12566,6 +12625,30 @@ function LearningApp() {
     }
   }
 
+  const skipTopic = (topicId: TopicId) => {
+    if (!learner) return
+    const state = skipTopicUntilTomorrow(learner, topicId)
+    const origin = activeSession?.prerequisiteDetour
+      ? resolveResumableSession(originatingSession(activeSession), state)
+      : undefined
+    setLearner(state)
+    setActiveSession(origin)
+    setPlayerOpen(false)
+    setPrerequisiteReturnXp(undefined)
+    setCompletion(undefined)
+    setShowCurriculum(false)
+    setShowConceptLibrary(false)
+    setShowCollection(false)
+    setConceptTopicId(undefined)
+    setShowProgress(false)
+    if (origin) {
+      void saveLearnerAndActiveSession(state, origin)
+    } else {
+      void clearActiveSession()
+      void saveLearnerState(state)
+    }
+  }
+
   const resolveTopicSupport = (topicId: TopicId) => {
     if (!learner) return
     const state = resolveTeacherSupport(learner, topicId)
@@ -12827,6 +12910,7 @@ function LearningApp() {
           onPrerequisite={startPrerequisiteDetour}
           onSessionChange={persistSession}
           onRequestTeacherSupport={requestTopicSupport}
+          onSkipTopic={skipTopic}
           prerequisiteReturnXp={prerequisiteReturnXp}
           helpStyle={learner.preferences.helpStyle}
           minimalFocus={learner.preferences.visualMode === "focus"}
@@ -12891,6 +12975,7 @@ function LearningApp() {
           activeMock={activeMock}
           activeArchivePractice={activeArchivePractice}
           onStart={startTask}
+          onSkip={skipTopic}
           onResume={() => setPlayerOpen(true)}
           onPrerequisite={startPrerequisite}
           onOpenCurriculum={() => {
