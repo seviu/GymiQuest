@@ -5777,7 +5777,7 @@ button.profile-chip:hover {
 
 .player-toolbar {
   display: grid;
-  grid-template-columns: 1fr minmax(0, auto) 1fr;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
   min-height: 60px;
   margin-bottom: 25px;
@@ -5845,31 +5845,6 @@ button.profile-chip:hover {
 .back-button span {
   margin-right: 7px;
   font-size: 19px;
-}
-
-.player-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.player-title span {
-  padding: 5px 8px;
-  border-radius: 7px;
-  color: var(--blue-dark);
-  background: var(--sky);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.player-title strong {
-  overflow: hidden;
-  font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .timer-chip {
@@ -8818,19 +8793,25 @@ button.profile-chip:hover {
 }
 
 .help-panel {
+  width: fit-content;
   overflow: hidden;
   margin-top: 18px;
   border: 1px solid rgba(23, 59, 87, 0.13);
-  border-radius: 16px;
+  border-radius: 999px;
   background: #fffefa;
 }
 
+.help-panel[open] {
+  width: 100%;
+  border-radius: 16px;
+}
+
 .help-heading {
-  display: flex;
-  min-height: 62px;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
+  display: grid;
+  width: 52px;
+  min-height: 52px;
+  place-items: center;
+  padding: 7px;
   list-style: none;
   cursor: pointer;
 }
@@ -8848,6 +8829,8 @@ button.profile-chip:hover {
 }
 
 .help-panel[open] > .help-heading {
+  width: 100%;
+  justify-items: start;
   border-bottom: 1px solid #e1e7e3;
 }
 
@@ -8861,33 +8844,6 @@ button.profile-chip:hover {
   background: var(--yellow-soft);
   font-size: 19px;
   font-weight: 900;
-}
-
-.help-heading div {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.help-heading strong {
-  font-size: 14px;
-}
-
-.help-heading small {
-  color: var(--ink-soft);
-  font-size: 10px;
-}
-
-.help-heading > b {
-  color: var(--ink-soft);
-  font-size: 15px;
-  transition: transform 160ms ease;
-}
-
-.help-panel[open] > .help-heading > b {
-  transform: rotate(180deg);
 }
 
 .topic-theory-disclosure {
@@ -14947,7 +14903,7 @@ button.profile-chip:hover {
   }
 
   .player-toolbar {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: 8px;
   }
 
@@ -14959,19 +14915,6 @@ button.profile-chip:hover {
 
   .back-button span {
     margin-right: 30px;
-  }
-
-  .player-title {
-    display: block;
-    text-align: center;
-  }
-
-  .player-title span {
-    display: none;
-  }
-
-  .player-title strong {
-    display: block;
   }
 
   .player-timer-controls {

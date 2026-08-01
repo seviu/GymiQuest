@@ -578,7 +578,7 @@ describe("assessment UI flow", () => {
       )
     })
 
-    expect(container.textContent).toContain("Convert kilograms and grams confidently")
+    expect(container.textContent).not.toContain("Convert kilograms and grams confidently")
     expect(container.textContent).toContain("One kilogram is 1,000 grams")
     expect(container.textContent).toContain("Takeaway")
     expect(container.textContent).toContain("Practise now")
@@ -589,7 +589,10 @@ describe("assessment UI flow", () => {
     expect(container.textContent).toContain("Question 1 of 1")
     expect(container.textContent).toMatch(/How many (grams|kilograms)/u)
     expect(container.textContent).toContain("Report an error in this exercise")
-    expect(container.textContent).toContain("I do not understand it yet")
+    expect(container.textContent).not.toContain("I do not understand it yet")
+    expect(container.querySelector(".help-heading")?.getAttribute("aria-label")).toBe(
+      "I do not understand it yet. Choose exactly the help you need.",
+    )
   })
 
   it("keeps English hints and diagnostic feedback inside the localized question flow", () => {
@@ -676,6 +679,11 @@ describe("assessment UI flow", () => {
 
     const helpHeading = container.querySelector(".help-heading")
     if (!(helpHeading instanceof HTMLElement)) throw new Error("Missing help heading")
+    expect(container.querySelector(".player-title")).toBeNull()
+    expect(helpHeading.textContent?.trim()).toBe("?")
+    expect(helpHeading.getAttribute("aria-label")).toBe(
+      "Ich verstehe es noch nicht. Wähle genau die Hilfe, die du brauchst.",
+    )
     act(() => helpHeading.click())
 
     const theory = container.querySelector('[data-topic-theory="mass-units"]')

@@ -7989,10 +7989,11 @@ function HelpPanel({
       open={helpOpen}
       onToggle={(event) => setHelpOpen(event.currentTarget.open)}
     >
-      <summary className="help-heading">
+      <summary
+        className="help-heading"
+        aria-label={`${copy.player.helpTitle}. ${copy.player.helpSubtitle}`}
+      >
         <span aria-hidden="true">?</span>
-        <div><strong>{copy.player.helpTitle}</strong><small>{copy.player.helpSubtitle}</small></div>
-        <b aria-hidden="true">⌄</b>
       </summary>
       <TopicTheoryDisclosure
         topicId={question.topicId}
@@ -9281,18 +9282,6 @@ export function TaskPlayer({
   const localizedTopic = task.topicIds.length === 1
     ? topicForLocale(task.topicIds[0]!, locale)
     : undefined
-  const localizedKind = task.purpose === "lesson-recovery"
-    ? copy.player.recovery
-    : copy.player.taskKinds[task.kind]
-  const localizedTaskTitle = task.kind === "lesson" && localizedTopic
-    ? lessonForLocale(localizedTopic.id, locale).title
-    : task.kind === "assessment"
-      ? copy.player.assessmentEyebrow(task.assessmentNumber, true)
-      : task.kind === "placement"
-        ? copy.player.taskKinds.placement
-        : localizedTopic
-          ? `${localizedKind}: ${localizedTopic.shortTitle}`
-          : localizedKind
   const toggleTimerPause = () => {
     if (!canPauseTimer) return
     setSession((current) => ({
@@ -9309,10 +9298,6 @@ export function TaskPlayer({
           <span aria-hidden="true">←</span>{" "}
           {backLabel ?? (isPrerequisiteDetour ? copy.player.returnToQuestion : copy.player.learningPlan)}
         </button>
-        <div className="player-title">
-          <span>{localizedKind}</span>
-          <strong>{localizedTaskTitle}</strong>
-        </div>
         {phase === "assessment-intro" ? (
           <div className="timer-chip ready" aria-label={copy.player.assessmentReadyAria}><span aria-hidden="true">◆</span>{copy.player.ready}</div>
         ) : (
