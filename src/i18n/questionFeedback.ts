@@ -330,11 +330,35 @@ export function diagnoseWrongAnswerForLocale(
       question.response.numerator * parsed.denominator
     const divisor = greatestCommonDivisor(parsed.numerator, parsed.denominator)
     if (equivalent && question.response.requireSimplified && divisor > 1) {
+      const fractionMeaning = question.visual?.kind === "number-line"
+        ? question.visual.variant === "fraction-distance"
+          ? text(
+              "exactly the right distance between A and B",
+              "esattamente la distanza giusta tra A e B",
+              "exactamente la distancia correcta entre A y B",
+            )
+          : question.visual.variant === "fraction-midpoint"
+            ? text(
+                "exactly the fraction halfway between A and B",
+                "esattamente la frazione a metà tra A e B",
+                "exactamente la fracción a mitad de camino entre A y B",
+              )
+            : text("the right result", "il risultato corretto", "el resultado correcto")
+        : text("the right result", "il risultato corretto", "el resultado correcto")
+      const reducedAnswer = `${question.response.numerator}/${question.response.denominator}`
       return {
         kind: "fraction-structure",
         title: text("The value is correct—simplify the fraction once more.", "Il valore è corretto: semplifica ancora la frazione.", "El valor es correcto; simplifica la fracción una vez más."),
-        message: text(`${parsed.numerator}/${parsed.denominator} represents the correct area but is not fully simplified.`, `${parsed.numerator}/${parsed.denominator} rappresenta l'area corretta, ma non è completamente semplificata.`, `${parsed.numerator}/${parsed.denominator} representa el área correcta, pero no está completamente simplificada.`),
-        nextStep: text(`Divide the numerator and denominator by ${divisor}.`, `Dividi numeratore e denominatore per ${divisor}.`, `Divide el numerador y el denominador entre ${divisor}.`),
+        message: text(
+          `${parsed.numerator}/${parsed.denominator} is ${fractionMeaning}, but is not fully simplified. A fully simplified fraction has no common factor greater than 1 in its numerator and denominator.`,
+          `${parsed.numerator}/${parsed.denominator} è ${fractionMeaning}, ma non è ridotta ai minimi termini. Una frazione ridotta ai minimi termini non ha divisori comuni maggiori di 1 nel numeratore e nel denominatore.`,
+          `${parsed.numerator}/${parsed.denominator} es ${fractionMeaning}, pero no está completamente simplificada. Una fracción completamente simplificada no tiene un divisor común mayor que 1 en el numerador y el denominador.`,
+        ),
+        nextStep: text(
+          `Divide both by ${divisor}: ${parsed.numerator} ÷ ${divisor} = ${parsed.numerator / divisor} and ${parsed.denominator} ÷ ${divisor} = ${parsed.denominator / divisor}. Write ${reducedAnswer}.`,
+          `Dividi entrambi per ${divisor}: ${parsed.numerator} ÷ ${divisor} = ${parsed.numerator / divisor} e ${parsed.denominator} ÷ ${divisor} = ${parsed.denominator / divisor}. Scrivi ${reducedAnswer}.`,
+          `Divide ambos entre ${divisor}: ${parsed.numerator} ÷ ${divisor} = ${parsed.numerator / divisor} y ${parsed.denominator} ÷ ${divisor} = ${parsed.denominator / divisor}. Escribe ${reducedAnswer}.`,
+        ),
       }
     }
     return conceptDiagnosis(question, locale)

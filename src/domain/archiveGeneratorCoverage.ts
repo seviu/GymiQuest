@@ -642,6 +642,25 @@ function generateNumberLineQuestion(
   const left = `${leftNumerator}/${denominator}`
   const right = `${rightNumerator}/${denominator}`
   const answer = `${answerNumerator}/${answerDenominator}`
+  const unsimplifiedDistanceNumerator = rightNumerator - leftNumerator
+  const unsimplifiedDistance = `${unsimplifiedDistanceNumerator}/${denominator}`
+  const reductionFactor = denominator / answerDenominator
+  const distanceNeedsReducing = reductionFactor > 1
+  const distanceReductionExplanation = distanceNeedsReducing
+    ? localText(
+        locale,
+        `${unsimplifiedDistance} ist nicht falsch: Es ist gleich viel wie ${answer}. Vollständig gekürzt bedeutet, dass Zähler und Nenner keinen gemeinsamen Teiler mehr ausser 1 haben.`,
+        `${unsimplifiedDistance} is not wrong: it has the same value as ${answer}. Fully simplified means that the numerator and denominator have no common factor greater than 1.`,
+        `${unsimplifiedDistance} non è sbagliato: ha lo stesso valore di ${answer}. Ridotta ai minimi termini significa che numeratore e denominatore non hanno più un divisore comune maggiore di 1.`,
+        `${unsimplifiedDistance} no es incorrecta: tiene el mismo valor que ${answer}. Completamente simplificada significa que el numerador y el denominador ya no tienen un divisor común mayor que 1.`,
+      )
+    : localText(
+        locale,
+        `${unsimplifiedDistance} ist bereits vollständig gekürzt: Zähler und Nenner haben keinen gemeinsamen Teiler mehr ausser 1.`,
+        `${unsimplifiedDistance} is already fully simplified: the numerator and denominator have no common factor greater than 1.`,
+        `${unsimplifiedDistance} è già ridotta ai minimi termini: numeratore e denominatore non hanno un divisore comune maggiore di 1.`,
+        `${unsimplifiedDistance} ya está completamente simplificada: el numerador y el denominador no tienen un divisor común mayor que 1.`,
+      )
 
   return {
     id,
@@ -680,10 +699,10 @@ function generateNumberLineQuestion(
         )
       : localText(
           locale,
-          "Bei gleichem Nenner erhältst du den Abstand, indem du den kleineren Zähler vom grösseren abziehst.",
-          "With equal denominators, find the distance by subtracting the smaller numerator from the larger one.",
-          "Con denominatori uguali trovi la distanza sottraendo il numeratore minore da quello maggiore.",
-          "Con denominadores iguales, halla la distancia restando el numerador menor del mayor.",
+          `Gehe auf der Zahlengeraden von A zu B. Bei gleichem Nenner rechnest du den Zähler von B minus den Zähler von A: ${rightNumerator} − ${leftNumerator}.`,
+          `Move along the number line from A to B. With equal denominators, subtract A's numerator from B's numerator: ${rightNumerator} − ${leftNumerator}.`,
+          `Sulla retta numerica vai da A a B. Con denominatori uguali sottrai il numeratore di A da quello di B: ${rightNumerator} − ${leftNumerator}.`,
+          `En la recta numérica ve de A a B. Con denominadores iguales, resta el numerador de A al de B: ${rightNumerator} − ${leftNumerator}.`,
         ),
     easierExplanation: asksForMidpoint
       ? localText(
@@ -695,22 +714,51 @@ function generateNumberLineQuestion(
         )
       : localText(
           locale,
-          `Der Zählerabstand ist ${rightNumerator} − ${leftNumerator} = ${rightNumerator - leftNumerator}. Der Nenner bleibt zunächst ${denominator}.`,
-          `The numerator distance is ${rightNumerator} − ${leftNumerator} = ${rightNumerator - leftNumerator}. The denominator initially stays ${denominator}.`,
-          `La distanza tra i numeratori è ${rightNumerator} − ${leftNumerator} = ${rightNumerator - leftNumerator}. Il denominatore resta inizialmente ${denominator}.`,
-          `La distancia entre los numeradores es ${rightNumerator} − ${leftNumerator} = ${rightNumerator - leftNumerator}. El denominador sigue siendo ${denominator} al principio.`,
+          `Von A = ${left} bis B = ${right} liegen ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator} gleich grosse Teilstrecken. Der Abstand ist zuerst ${unsimplifiedDistance}. ${distanceReductionExplanation}`,
+          `From A = ${left} to B = ${right}, there are ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator} equal sections. The distance is first ${unsimplifiedDistance}. ${distanceReductionExplanation}`,
+          `Da A = ${left} a B = ${right} ci sono ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator} intervalli uguali. La distanza è prima ${unsimplifiedDistance}. ${distanceReductionExplanation}`,
+          `Desde A = ${left} hasta B = ${right} hay ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator} tramos iguales. La distancia es primero ${unsimplifiedDistance}. ${distanceReductionExplanation}`,
         ),
     explanation: asksForMidpoint
       ? `(${left} + ${right}) : 2 = ${answer}.`
-      : `${right} − ${left} = ${answer}.`,
+      : distanceNeedsReducing
+        ? localText(
+            locale,
+            `Der Abstand von A nach B ist ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} und ${answer} sind gleich viel: ${unsimplifiedDistanceNumerator} : ${reductionFactor} = ${answerNumerator} und ${denominator} : ${reductionFactor} = ${answerDenominator}. Deshalb lautet der vollständig gekürzte Bruch ${answer}.`,
+            `The distance from A to B is ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} and ${answer} have the same value: ${unsimplifiedDistanceNumerator} ÷ ${reductionFactor} = ${answerNumerator} and ${denominator} ÷ ${reductionFactor} = ${answerDenominator}. So the fully simplified fraction is ${answer}.`,
+            `La distanza da A a B è ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} e ${answer} hanno lo stesso valore: ${unsimplifiedDistanceNumerator} ÷ ${reductionFactor} = ${answerNumerator} e ${denominator} ÷ ${reductionFactor} = ${answerDenominator}. Quindi la frazione ridotta ai minimi termini è ${answer}.`,
+            `La distancia de A a B es ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} y ${answer} tienen el mismo valor: ${unsimplifiedDistanceNumerator} ÷ ${reductionFactor} = ${answerNumerator} y ${denominator} ÷ ${reductionFactor} = ${answerDenominator}. Por eso, la fracción completamente simplificada es ${answer}.`,
+          )
+        : localText(
+            locale,
+            `Der Abstand von A nach B ist ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} ist bereits vollständig gekürzt.`,
+            `The distance from A to B is ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} is already fully simplified.`,
+            `La distanza da A a B è ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} è già ridotta ai minimi termini.`,
+            `La distancia de A a B es ${right} − ${left} = ${unsimplifiedDistance}. ${unsimplifiedDistance} ya está completamente simplificada.`,
+          ),
     workedSteps: asksForMidpoint
       ? [
           `(${leftNumerator} + ${rightNumerator}) : 2 = ${(leftNumerator + rightNumerator) / 2}`,
           `${(leftNumerator + rightNumerator) / 2}/${denominator} = ${answer}`,
         ]
       : [
-          `${rightNumerator} − ${leftNumerator} = ${rightNumerator - leftNumerator}`,
-          `${rightNumerator - leftNumerator}/${denominator} = ${answer}`,
+          localText(
+            locale,
+            `Von A bis B: ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator}`,
+            `From A to B: ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator}`,
+            `Da A a B: ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator}`,
+            `De A a B: ${rightNumerator} − ${leftNumerator} = ${unsimplifiedDistanceNumerator}`,
+          ),
+          `${right} − ${left} = ${unsimplifiedDistance}`,
+          ...(distanceNeedsReducing
+            ? [localText(
+                locale,
+                `${unsimplifiedDistance} = ${answer} (Zähler und Nenner durch ${reductionFactor} teilen)`,
+                `${unsimplifiedDistance} = ${answer} (divide the numerator and denominator by ${reductionFactor})`,
+                `${unsimplifiedDistance} = ${answer} (dividi numeratore e denominatore per ${reductionFactor})`,
+                `${unsimplifiedDistance} = ${answer} (divide el numerador y el denominador entre ${reductionFactor})`,
+              )]
+            : []),
         ],
     visual: {
       kind: "number-line",

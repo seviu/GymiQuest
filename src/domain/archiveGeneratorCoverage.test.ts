@@ -7,10 +7,12 @@ import {
   supportsArchiveCoverageTopic,
   type ArchiveCoverageTopicId,
 } from "./archiveGeneratorCoverage"
+import { generateQuestionsForTask } from "./generators"
 import {
   learningLocaleIds,
   topicIds,
   type GeneratedQuestion,
+  type LearningTask,
   type LearningLocale,
 } from "./model"
 
@@ -146,6 +148,42 @@ function verifyQuestionInvariant(question: GeneratedQuestion): string {
 }
 
 describe("archive generator coverage wave", () => {
+  it("explains the reported 7/8-to-11/8 distance through 4/8 before reducing it", () => {
+    const task: LearningTask = {
+      id: "lesson:fraction-of-quantity",
+      kind: "lesson",
+      title: "Den Bruchteil einer Menge bestimmen",
+      description: "Einen Bruch wie 3/4 von einer gegebenen Menge berechnen.",
+      topicIds: ["fraction-of-quantity"],
+      prerequisiteIds: [],
+      maxXp: 25,
+      questionCount: 3,
+      seed: "lesson:local-learner:fraction-of-quantity",
+      curriculum: { courseId: "zh-zap1-math", version: 1 },
+      generation: {
+        version: 6,
+        difficultyBands: ["foundation", "foundation", "standard"],
+      },
+      contentLocale: "de",
+    }
+    const question = generateQuestionsForTask(task)[2]!
+
+    expect(question.visual).toMatchObject({
+      kind: "number-line",
+      variant: "fraction-distance",
+      values: [7, 8, 11, 8, 1, 2],
+    })
+    expect(question.easierExplanation).toContain("Der Abstand ist zuerst 4/8.")
+    expect(question.easierExplanation).toContain("4/8 ist nicht falsch: Es ist gleich viel wie 1/2.")
+    expect(question.explanation).toContain("11/8 − 7/8 = 4/8.")
+    expect(question.explanation).toContain("4 : 4 = 1 und 8 : 4 = 2.")
+    expect(question.workedSteps).toEqual([
+      "Von A bis B: 11 − 7 = 4",
+      "11/8 − 7/8 = 4/8",
+      "4/8 = 1/2 (Zähler und Nenner durch 4 teilen)",
+    ])
+  })
+
   it("publishes five stable families, ten templates and large solved spaces", () => {
     const diagnostics = archiveCoverageDiagnostics()
 

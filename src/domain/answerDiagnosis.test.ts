@@ -42,7 +42,7 @@ describe("wrong-answer diagnosis", () => {
     expect(diagnoseWrongAnswer(question, "6/8")).toMatchObject({
       kind: "fraction-structure",
       title: "Der Wert stimmt – kürze den Bruch noch.",
-      nextStep: "Teile Zähler und Nenner durch 2.",
+      nextStep: "Teile beide durch 2: 6 : 2 = 3 und 8 : 2 = 4. Schreibe 3/4.",
     })
     expect(diagnoseWrongAnswer(question, "4/3")).toMatchObject({
       kind: "fraction-structure",
@@ -51,6 +51,38 @@ describe("wrong-answer diagnosis", () => {
     expect(diagnoseWrongAnswer(question, "3/0")).toMatchObject({
       kind: "fraction-structure",
       title: "Ein Nenner darf nicht null sein.",
+    })
+  })
+
+  it("shows why 4/8 is a correct distance before guiding the reduction to 1/2", () => {
+    const question: GeneratedQuestion = {
+      id: "diagnosis:number-line-distance",
+      topicId: "fraction-of-quantity",
+      prompt: "A = 7/8, B = 11/8. Wie gross ist der Abstand?",
+      answerLabel: "Abstand",
+      response: {
+        kind: "fraction",
+        numerator: 1,
+        denominator: 2,
+        requireSimplified: true,
+      },
+      hint: "Gehe von A zu B.",
+      easierExplanation: "Zuerst 4/8, dann 1/2.",
+      explanation: "11/8 − 7/8 = 4/8 = 1/2.",
+      workedSteps: ["11 − 7 = 4", "4/8 = 1/2"],
+      visual: {
+        kind: "number-line",
+        variant: "fraction-distance",
+        values: [7, 8, 11, 8, 1, 2],
+        labels: ["A", "B", "?"],
+      },
+    }
+
+    expect(diagnoseWrongAnswer(question, "4/8")).toEqual({
+      kind: "fraction-structure",
+      title: "Der Wert stimmt – kürze den Bruch noch.",
+      message: "4/8 ist genau der richtige Abstand zwischen A und B, aber noch nicht vollständig gekürzt. Vollständig gekürzt bedeutet: Zähler und Nenner haben keinen gemeinsamen Teiler mehr ausser 1.",
+      nextStep: "Teile beide durch 4: 4 : 4 = 1 und 8 : 4 = 2. Schreibe 1/2.",
     })
   })
 

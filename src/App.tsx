@@ -6975,34 +6975,42 @@ function QuestionVisual({ question }: { question: GeneratedQuestion }) {
 
   if (visual.kind === "number-line") {
     const [leftNumerator, leftDenominator, rightNumerator, rightDenominator] = visual.values ?? []
-    const leftValue = (leftNumerator ?? 0) / Math.max(1, leftDenominator ?? 1)
-    const rightValue = (rightNumerator ?? 0) / Math.max(1, rightDenominator ?? 1)
+    const denominator = Math.max(1, leftDenominator ?? rightDenominator ?? 1)
+    const leftValue = (leftNumerator ?? 0) / denominator
+    const rightValue = (rightNumerator ?? 0) / denominator
     const midpointValue = (leftValue + rightValue) / 2
-    const maxValue = Math.max(2, Math.ceil(rightValue))
+    const maxValue = Math.max(2, Math.ceil(Math.max(leftValue, rightValue)))
     const position = (value: number) => 8 + value / maxValue * 84
+    const [leftLabel = "A", rightLabel = "B", targetLabel = "?"] = visual.labels ?? []
     return (
       <figure
         className="question-visual fraction-number-line-question"
         role="img"
-        aria-label={`A ${leftNumerator}/${leftDenominator}, B ${rightNumerator}/${rightDenominator}`}
+        aria-label={`A ${leftNumerator}/${denominator}, B ${rightNumerator}/${denominator}`}
       >
-        <div className="fraction-number-line-track" aria-hidden="true">
-          {Array.from({ length: maxValue + 1 }, (_, index) => (
-            <i style={{ left: `${position(index)}%` }} key={index}><small>{index}</small></i>
+        <div className={`fraction-number-line-track ${visual.variant === "fraction-distance" ? "distance" : "midpoint"}`} aria-hidden="true">
+          {Array.from({ length: maxValue * denominator + 1 }, (_, numerator) => (
+            <i
+              className={numerator % denominator === 0 ? "whole" : undefined}
+              data-number-line-value={numerator / denominator}
+              style={{ left: `${position(numerator / denominator)}%` }}
+              key={numerator}
+            />
           ))}
-          <span className="point a" style={{ left: `${position(leftValue)}%` }}>
-            <strong>A</strong><small>{leftNumerator}/{leftDenominator}</small>
+          <span className="point a" data-number-line-point={leftLabel} style={{ left: `${position(leftValue)}%` }}>
+            <strong>{leftLabel}</strong>
           </span>
-          <span className="point b" style={{ left: `${position(rightValue)}%` }}>
-            <strong>B</strong><small>{rightNumerator}/{rightDenominator}</small>
+          <small className="point-value a" style={{ left: `${position(leftValue)}%` }}>{leftNumerator}/{denominator}</small>
+          <span className="point b" data-number-line-point={rightLabel} style={{ left: `${position(rightValue)}%` }}>
+            <strong>{rightLabel}</strong>
           </span>
+          <small className="point-value b" style={{ left: `${position(rightValue)}%` }}>{rightNumerator}/{denominator}</small>
           {visual.variant === "fraction-midpoint" ? (
-            <span className="point target" style={{ left: `${position(midpointValue)}%` }}>
-              <strong>?</strong>
+            <span className="point target" data-number-line-point={targetLabel} style={{ left: `${position(midpointValue)}%` }}>
+              <strong>{targetLabel}</strong>
             </span>
           ) : null}
         </div>
-        <figcaption>{visual.variant === "fraction-midpoint" ? "A - ? - B" : "A - B = ?"}</figcaption>
       </figure>
     )
   }

@@ -252,11 +252,19 @@ export function diagnoseWrongAnswer(
       question.response.numerator * parsed.denominator
     const divisor = greatestCommonDivisor(parsed.numerator, parsed.denominator)
     if (equivalent && question.response.requireSimplified && divisor > 1) {
+      const fractionMeaning = question.visual?.kind === "number-line"
+        ? question.visual.variant === "fraction-distance"
+          ? "genau der richtige Abstand zwischen A und B"
+          : question.visual.variant === "fraction-midpoint"
+            ? "genau der Bruch in der Mitte zwischen A und B"
+            : "das richtige Ergebnis"
+        : "das richtige Ergebnis"
+      const reducedAnswer = `${question.response.numerator}/${question.response.denominator}`
       return {
         kind: "fraction-structure",
         title: "Der Wert stimmt – kürze den Bruch noch.",
-        message: `${parsed.numerator}/${parsed.denominator} beschreibt die richtige Fläche, ist aber noch nicht vollständig gekürzt.`,
-        nextStep: `Teile Zähler und Nenner durch ${divisor}.`,
+        message: `${parsed.numerator}/${parsed.denominator} ist ${fractionMeaning}, aber noch nicht vollständig gekürzt. Vollständig gekürzt bedeutet: Zähler und Nenner haben keinen gemeinsamen Teiler mehr ausser 1.`,
+        nextStep: `Teile beide durch ${divisor}: ${parsed.numerator} : ${divisor} = ${parsed.numerator / divisor} und ${parsed.denominator} : ${divisor} = ${parsed.denominator / divisor}. Schreibe ${reducedAnswer}.`,
       }
     }
 

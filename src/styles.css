@@ -7662,70 +7662,86 @@ button.profile-chip:hover {
 
 .fraction-number-line-question {
   width: min(690px, 100%);
+  padding-bottom: 46px;
 }
 
 .fraction-number-line-track {
   position: relative;
-  height: 176px;
+  height: 142px;
   border-bottom: 4px solid var(--ink);
 }
 
 .fraction-number-line-track > i {
   position: absolute;
-  bottom: -9px;
+  z-index: 1;
+  bottom: -7px;
   width: 2px;
-  height: 18px;
+  height: 14px;
   background: var(--ink);
+  opacity: 0.58;
   transform: translateX(-50%);
 }
 
-.fraction-number-line-track > i small {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  color: var(--ink-soft);
-  font-size: 10px;
-  font-style: normal;
-  transform: translateX(-50%);
+.fraction-number-line-track > i.whole {
+  bottom: -13px;
+  width: 3px;
+  height: 26px;
+  opacity: 1;
 }
 
 .fraction-number-line-track .point {
   position: absolute;
-  bottom: 10px;
-  display: flex;
-  min-width: 54px;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  border-radius: 10px 10px 10px 2px;
+  z-index: 2;
+  bottom: 31px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
   color: var(--paper);
   background: var(--blue);
   transform: translateX(-50%);
 }
 
-.fraction-number-line-track .point small {
-  color: inherit;
-  font-size: 10px;
+.fraction-number-line-track .point::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 3px;
+  height: 31px;
+  background: currentColor;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.fraction-number-line-track .point strong {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.fraction-number-line-track .point-value {
+  position: absolute;
+  z-index: 3;
+  bottom: -41px;
+  color: var(--ink);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
 
 .fraction-number-line-track .point.target {
-  bottom: 120px;
-  min-width: 38px;
+  bottom: 86px;
   color: var(--violet);
   background: var(--violet-soft);
 }
 
-.fraction-number-line-track .point.b {
-  bottom: 65px;
-}
-
-.fraction-number-line-question figcaption {
-  margin-top: 30px;
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 850;
-  text-align: center;
+.fraction-number-line-track .point.target::after {
+  height: 86px;
 }
 
 .composite-area-question {
