@@ -95,6 +95,10 @@ describe("exercise report view", () => {
     act(() => root.render(<ExerciseReportView encoded="invalid" />))
     expect(container.textContent).toContain("Dieser Bericht ist unvollständig.")
     expect(container.querySelector("textarea")).toBeNull()
+    expect(Array.from(container.querySelectorAll("button")).some((button) => (
+      button.textContent?.includes("Zurück")
+    ))).toBe(true)
+    expect(container.querySelector('a[href="/"]')?.textContent).toContain("GymiQuest öffnen")
   })
 
   it("labels a zero-XP author sample as Prüflabor instead of a learner review", () => {

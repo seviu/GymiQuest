@@ -93,10 +93,8 @@ export function GermanComprehensionView({
               createGermanComprehensionExerciseReportReference(session, prompt),
               window.location.origin,
             )}
-            target="_blank"
-            rel="noopener noreferrer"
           >
-            <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue} ↗
+            <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue}
           </a>
           <fieldset>
             <legend>{copy.evidenceLegend}</legend>

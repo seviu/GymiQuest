@@ -615,15 +615,15 @@ test("reports a generated task, pauses its topic, shows an honest mock trend, re
   await secondaryActions.locator("summary").click()
   await expect(reportLink).toBeVisible()
 
-  const reportPagePromise = context.waitForEvent("page")
   await reportLink.click()
-  const reportPage = await reportPagePromise
-  await expect(reportPage).toHaveURL(/\/exercise-report\?data=/u)
-  await expect(reportPage.getByRole("heading", { name: "Was stimmt an dieser Aufgabe nicht?" })).toBeVisible()
-  await expect(reportPage.getByText("keinen Namen, keine eingegebene Antwort und keinen Lernverlauf")).toBeVisible()
-  await reportPage.locator("#exercise-report-issue").fill("Die Bewertung dieser Aufgabe ist nicht nachvollziehbar.")
-  await expect(reportPage.getByRole("button", { name: "Kopieren", exact: true })).toBeEnabled()
-  await reportPage.close()
+  await expect(page).toHaveURL(/\/exercise-report\?data=/u)
+  await expect(page.getByRole("heading", { name: "Was stimmt an dieser Aufgabe nicht?" })).toBeVisible()
+  await expect(page.getByText("keinen Namen, keine eingegebene Antwort und keinen Lernverlauf")).toBeVisible()
+  await page.locator("#exercise-report-issue").fill("Die Bewertung dieser Aufgabe ist nicht nachvollziehbar.")
+  await expect(page.getByRole("button", { name: "Kopieren", exact: true })).toBeEnabled()
+  await page.getByRole("button", { name: /Zurück/u }).click()
+  await expect(page).toHaveURL(/\/$/u)
+  await page.locator(".question-secondary-actions summary").click()
 
   await page.getByRole("button", { name: "Ich verstehe dieses Thema noch nicht" }).click()
   const alternateTheory = page.locator("[data-topic-theory-support]")

@@ -13,6 +13,7 @@ import {
   isResumableSession,
   originatingSession,
   resolveResumableSession,
+  setActiveLearningSessionContentLocale,
 } from "./session"
 
 const now = new Date("2026-07-14T10:00:00.000Z")
@@ -58,6 +59,31 @@ describe("active learning session", () => {
     delete session.timerPaused
 
     expect(isResumableSession(session, learner)).toBe(true)
+  })
+
+  it("changes a paused session and its prerequisite return path to the selected language", () => {
+    const learner = createSeededLearner(now)
+    const source = createActiveLearningSession({
+      ...buildAssignments(learner, now)[0]!,
+      contentLocale: "en",
+    }, now)
+    source.question.answer = "24"
+    const detour = createPrerequisiteDetourSession(
+      { ...buildPrerequisiteRefresh(learner, "mass-units"), contentLocale: "en" },
+      source,
+      now,
+    )
+
+    const localized = setActiveLearningSessionContentLocale(
+      detour,
+      "de",
+      new Date("2026-07-14T10:01:00.000Z"),
+    )
+
+    expect(localized.task.contentLocale).toBe("de")
+    expect(localized.prerequisiteDetour?.origin.task.contentLocale).toBe("de")
+    expect(localized.prerequisiteDetour?.origin.question.answer).toBe("24")
+    expect(localized.updatedAt).toBe("2026-07-14T10:01:00.000Z")
   })
 
   it("preserves the exact question state through a prerequisite detour", () => {

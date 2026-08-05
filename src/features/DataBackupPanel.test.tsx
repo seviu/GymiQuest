@@ -84,6 +84,41 @@ describe("encrypted data backup panel", () => {
     expect(container.textContent).toContain("Die beiden Passwörter stimmen nicht überein.")
   })
 
+  it("creates a backup without requiring a password", async () => {
+    const learner = createSeededLearner(now)
+    const download = vi.fn()
+    act(() => {
+      root.render(
+        <DataBackupPanel
+          learner={learner}
+          onRestore={async () => undefined}
+          download={download}
+        />,
+      )
+    })
+
+    const passwordInput = container.querySelector("#backup-password") as HTMLInputElement
+    const confirmationInput = container.querySelector("#backup-password-confirmation") as HTMLInputElement
+    const restorePasswordInput = container.querySelector("#restore-password") as HTMLInputElement
+    expect(passwordInput.required).toBe(false)
+    expect(confirmationInput.required).toBe(false)
+    expect(restorePasswordInput.required).toBe(false)
+    expect(passwordInput.hasAttribute("minlength")).toBe(false)
+    expect(confirmationInput.hasAttribute("minlength")).toBe(false)
+    expect(restorePasswordInput.hasAttribute("minlength")).toBe(false)
+
+    await act(async () => {
+      submit(container.querySelectorAll("form")[0]!)
+      await vi.waitFor(() => expect(download).toHaveBeenCalledOnce())
+    })
+
+    const [serialized] = download.mock.calls[0] as [string, string]
+    await expect(openEncryptedBackup(serialized, "")).resolves.toMatchObject({
+      learner: { learnerId: learner.learnerId },
+    })
+    expect(container.textContent).toContain("Sicherung erstellt.")
+  })
+
   it("offers restore without an export form on a fresh profile", () => {
     act(() => {
       root.render(
@@ -205,7 +240,7 @@ describe("encrypted data backup panel", () => {
     })
 
     expect(onRestore).not.toHaveBeenCalled()
-    expect(container.textContent).toContain("ENTSCHLÜSSELTE VORSCHAU")
+    expect(container.textContent).toContain("SICHERUNGSVORSCHAU")
     expect(container.textContent).toContain("Zürich ZAP1 Mathematik · Paket v1")
     expect(container.textContent).toContain("Deutsch (Schweiz) · ZAP1 Langgymnasium")
     expect(container.textContent).toContain("Zürich ZAP1 Deutsch · Paket v1")
@@ -261,7 +296,7 @@ describe("encrypted data backup panel", () => {
     expect(container.textContent).toContain(
       "Das Passwort stimmt nicht oder die Sicherungsdatei wurde beschädigt.",
     )
-    expect(container.textContent).not.toContain("ENTSCHLÜSSELTE VORSCHAU")
+    expect(container.textContent).not.toContain("SICHERUNGSVORSCHAU")
     expect(onRestore).not.toHaveBeenCalled()
   })
 })

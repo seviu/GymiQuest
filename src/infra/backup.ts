@@ -147,7 +147,6 @@ const validCourseKeys = new Set<string>(Object.values(courseKeys))
 
 export type BackupErrorCode =
   | "crypto-unavailable"
-  | "weak-passphrase"
   | "invalid-format"
   | "unsupported-version"
   | "unsupported-curriculum"
@@ -201,15 +200,6 @@ function cryptoApi(): Crypto {
     )
   }
   return globalThis.crypto
-}
-
-function assertPassphrase(passphrase: string): void {
-  if (passphrase.length < 8) {
-    throw new BackupError(
-      "weak-passphrase",
-      "Das Sicherungspasswort muss mindestens 8 Zeichen lang sein.",
-    )
-  }
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -1533,7 +1523,6 @@ export async function createEncryptedBackup(
   courseIndex?: LearnerCourseIndex,
   germanSourcePractice?: GermanSourcePracticeState,
 ): Promise<string> {
-  assertPassphrase(passphrase)
   const api = cryptoApi()
   const createdAt = now.toISOString()
   const salt = api.getRandomValues(new Uint8Array(16))
@@ -1582,7 +1571,6 @@ export async function openEncryptedBackup(
   serialized: string,
   passphrase: string,
 ): Promise<GymiQuestBackupPayload> {
-  assertPassphrase(passphrase)
   const envelope = parseEnvelope(serialized)
   const salt = base64ToBytes(envelope.kdf.salt)
   const iv = base64ToBytes(envelope.cipher.iv)

@@ -92,6 +92,7 @@ import { generateQuestionsForTask, isCorrectAnswer, parseNumericAnswer } from ".
 import {
   buildExerciseReportUrl,
   createExerciseReportReference,
+  exerciseReportDataFromSearch,
 } from "./domain/exerciseReport"
 import {
   buildErrorCompass,
@@ -213,6 +214,7 @@ import {
   createPrerequisiteDetourSession,
   originatingSession,
   resolveResumableSession,
+  setActiveLearningSessionContentLocale,
   type ActiveLearningSession,
   type ConceptRepairProgress,
   type HelpKind,
@@ -9171,10 +9173,9 @@ export function QuestionStage({
             <b aria-hidden="true">⌄</b>
           </summary>
           <div className="question-meta-actions">
-            <a href={exerciseReportUrl} target="_blank" rel="noopener noreferrer">
+            <a href={exerciseReportUrl}>
               <span aria-hidden="true">⚑</span>
               {copy.player.reportIssue}
-              <span aria-hidden="true">↗</span>
             </a>
             {!questionFinalized && !isPlacement && (onRequestTeacherSupport || canSkipTopic) && teacherSupportStage === "idle" && (
               <button
@@ -11822,6 +11823,14 @@ function LearningApp() {
   ])
 
   useEffect(() => {
+    if (!activeSession) return
+    const localizedSession = setActiveLearningSessionContentLocale(activeSession, locale)
+    if (localizedSession === activeSession) return
+    setActiveSession(localizedSession)
+    void saveActiveSession(localizedSession)
+  }, [activeSession, locale])
+
+  useEffect(() => {
     window.scrollTo(0, 0)
   }, [
     activeSession?.id,
@@ -12990,7 +12999,7 @@ export function App() {
   return (
     <LocalizationProvider>
       {window.location.pathname === "/exercise-report" ? (
-        <ExerciseReportView encoded={new URLSearchParams(window.location.search).get("data") ?? undefined} />
+        <ExerciseReportView encoded={exerciseReportDataFromSearch(window.location.search)} />
       ) : (
         <LearningApp />
       )}

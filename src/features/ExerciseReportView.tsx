@@ -32,6 +32,14 @@ async function copyText(value: string): Promise<void> {
   if (!copied) throw new Error("Copy failed")
 }
 
+function returnFromReport(): void {
+  if (window.history.length > 1) {
+    window.history.back()
+    return
+  }
+  window.location.assign("/")
+}
+
 export function ExerciseReportView({ encoded }: { encoded?: string }) {
   const { copy, locale, t } = useLocalization()
   const reference = useMemo(() => decodeExerciseReport(encoded), [encoded])
@@ -46,7 +54,12 @@ export function ExerciseReportView({ encoded }: { encoded?: string }) {
           <span className="eyebrow">{t("report.invalidEyebrow")}</span>
           <h1>{t("report.invalidTitle")}</h1>
           <p>{t("report.invalidBody")}</p>
-          <a className="primary-button" href="/">{t("report.openApp")}</a>
+          <nav className="exercise-report-navigation" aria-label={t("report.openApp")}>
+            <button className="text-button" type="button" onClick={returnFromReport}>
+              ← {copy.player.back}
+            </button>
+            <a className="primary-button" href="/">{t("report.openApp")}</a>
+          </nav>
         </section>
       </main>
     )
@@ -118,6 +131,12 @@ export function ExerciseReportView({ encoded }: { encoded?: string }) {
       <section className="exercise-report-card">
         <header>
           <div>
+            <nav className="exercise-report-navigation" aria-label={t("report.openApp")}>
+              <button className="text-button" type="button" onClick={returnFromReport}>
+                ← {copy.player.back}
+              </button>
+              <a href="/">{t("report.openApp")}</a>
+            </nav>
             <span className="eyebrow">{t("report.eyebrow")}</span>
             <h1>{t("report.title")}</h1>
             <p>{t("report.privacy")}</p>

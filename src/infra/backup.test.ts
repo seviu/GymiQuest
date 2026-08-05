@@ -1495,10 +1495,17 @@ describe("encrypted learner backup", () => {
     ).rejects.toMatchObject({ code: "locked-or-damaged" })
   })
 
-  it("rejects weak passwords and unrelated files", async () => {
-    await expect(
-      createEncryptedBackup(createSeededLearner(now), undefined, "kurz", now),
-    ).rejects.toMatchObject({ code: "weak-passphrase" })
+  it("accepts a one-character symbol or blank password and rejects unrelated files", async () => {
+    const learner = createSeededLearner(now)
+    const symbolPasswordBackup = await createEncryptedBackup(learner, undefined, "!", now)
+    const passwordFreeBackup = await createEncryptedBackup(learner, undefined, "", now)
+
+    await expect(openEncryptedBackup(symbolPasswordBackup, "!")).resolves.toMatchObject({
+      learner: { learnerId: learner.learnerId },
+    })
+    await expect(openEncryptedBackup(passwordFreeBackup, "")).resolves.toMatchObject({
+      learner: { learnerId: learner.learnerId },
+    })
     await expect(openEncryptedBackup("not-json", password)).rejects.toMatchObject({
       code: "invalid-format",
     })

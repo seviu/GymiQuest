@@ -207,8 +207,6 @@ export function DataBackupPanel({
               id="backup-password"
               type="password"
               autoComplete="new-password"
-              minLength={8}
-              required
               aria-describedby="backup-password-warning"
               value={exportPassphrase}
               onChange={(event) => setExportPassphrase(event.target.value)}
@@ -219,8 +217,6 @@ export function DataBackupPanel({
               id="backup-password-confirmation"
               type="password"
               autoComplete="new-password"
-              minLength={8}
-              required
               aria-describedby="backup-password-warning"
               value={exportConfirmation}
               onChange={(event) => setExportConfirmation(event.target.value)}
@@ -256,8 +252,6 @@ export function DataBackupPanel({
             id="restore-password"
             type="password"
             autoComplete="current-password"
-            minLength={8}
-            required
             aria-describedby="backup-password-warning"
             value={importPassphrase}
             onChange={(event) => setImportPassphrase(event.target.value)}

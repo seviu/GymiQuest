@@ -149,10 +149,8 @@ export function GermanExamView({
           <a
             className="exercise-report-link"
             href={exerciseReportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
           >
-            <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue} ↗
+            <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue}
           </a>
           <GermanQuestionResponseInput
             question={question}

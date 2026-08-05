@@ -123,7 +123,7 @@ async function answerGeneratedGermanQuestion(
   }
 }
 
-test("keeps Mathematics and German isolated and resumes the paused German subject", async ({ page, context }) => {
+test("keeps Mathematics and German isolated and resumes the paused German subject", async ({ page }) => {
   await createFoundationsLearner(page)
 
   await page.getByRole("button", { name: "Deutsch", exact: true }).click()
@@ -147,16 +147,12 @@ test("keeps Mathematics and German isolated and resumes the paused German subjec
   await page.getByRole("button", { name: "Mit neuen Aufgaben üben" }).click()
   await expect(page.locator(".german-passage")).toBeVisible()
   await expect(page.getByText("Aufgabe 1 von 5")).toBeVisible()
-  const reportPagePromise = context.waitForEvent("page")
   await page.getByRole("link", { name: /Fehler in dieser Aufgabe melden/u }).click()
-  const reportPage = await reportPagePromise
-  await expect(reportPage).toHaveURL(/\/exercise-report\?data=/u)
-  await expect(reportPage.getByRole("heading", { name: "Was stimmt an dieser Aufgabe nicht?" })).toBeVisible()
-  await expect(reportPage.getByText("zh-zap1-german@1")).toBeVisible()
-  await expect(reportPage.getByText("keinen Namen, keine eingegebene Antwort und keinen Lernverlauf")).toBeVisible()
-  await reportPage.close()
-  await page.getByRole("button", { name: /Zum Deutsch-Lernplan/u }).click()
-
+  await expect(page).toHaveURL(/\/exercise-report\?data=/u)
+  await expect(page.getByRole("heading", { name: "Was stimmt an dieser Aufgabe nicht?" })).toBeVisible()
+  await expect(page.getByText("zh-zap1-german@1")).toBeVisible()
+  await expect(page.getByText("keinen Namen, keine eingegebene Antwort und keinen Lernverlauf")).toBeVisible()
+  await page.getByRole("button", { name: /Zurück/u }).click()
   await expect(page.getByRole("button", { name: "Fortsetzen" })).toBeVisible()
   await page.getByRole("button", { name: "Mathematik", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Dein Lernplan" })).toBeVisible()
@@ -198,7 +194,7 @@ test("keeps Mathematics and German isolated and resumes the paused German subjec
   expect(audit.violations, JSON.stringify(audit.violations, null, 2)).toEqual([])
 })
 
-test("completes the human-reviewed German short-response loop at iPad width", async ({ page, context }, testInfo) => {
+test("completes the human-reviewed German short-response loop at iPad width", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "webkit-ipad", "This is the portrait iPad interaction check.")
   test.setTimeout(60_000)
   await page.setViewportSize({ width: 1024, height: 1366 })
@@ -219,13 +215,12 @@ test("completes the human-reviewed German short-response loop at iPad width", as
   await page.locator("#german-comprehension-answer").fill(response)
   await expect.poll(async () => (await readGermanCourse(page)).activeComprehension?.response).toBe(response)
 
-  const reportPagePromise = context.waitForEvent("page")
   await page.getByRole("link", { name: /Fehler in dieser Aufgabe melden/u }).click()
-  const reportPage = await reportPagePromise
-  await expect(reportPage).toHaveURL(/\/exercise-report\?data=/u)
-  await expect(reportPage.getByText("Einen Textbeleg selbst formulieren")).toBeVisible()
-  await expect(reportPage.getByText(response)).toHaveCount(0)
-  await reportPage.close()
+  await expect(page).toHaveURL(/\/exercise-report\?data=/u)
+  await expect(page.getByText("Einen Textbeleg selbst formulieren")).toBeVisible()
+  await expect(page.getByText(response)).toHaveCount(0)
+  await page.getByRole("button", { name: /Zurück/u }).click()
+  await expect(page.locator("#german-comprehension-answer")).toHaveValue(response)
 
   await page.reload()
   await expect(page.locator("#german-comprehension-answer")).toHaveValue(response)
@@ -490,7 +485,7 @@ test("runs a mixed German assessment and schedules reviews only for missed Germa
   expect(state.xpLedger.at(-1)).toMatchObject({ kind: "assessment", totalXp: 10, mistakes: 2 })
 })
 
-test("persists, reports, and grades a strict German language-exam simulation without XP", async ({ page, context }) => {
+test("persists, reports, and grades a strict German language-exam simulation without XP", async ({ page }) => {
   await createFoundationsLearner(page)
   await page.getByRole("button", { name: "Deutsch", exact: true }).click()
   await page.getByRole("button", { name: "Deutsch-Start-Check beginnen" }).click()
@@ -525,13 +520,14 @@ test("persists, reports, and grades a strict German language-exam simulation wit
   await answerGeneratedGermanQuestion(page, firstQuestion, false)
   await page.getByRole("button", { name: "Zum Prüfen markieren" }).click()
 
-  const reportPagePromise = context.waitForEvent("page")
   await page.getByRole("link", { name: /Fehler in dieser Aufgabe melden/u }).click()
-  const reportPage = await reportPagePromise
-  await expect(reportPage).toHaveURL(/\/exercise-report\?data=/u)
-  await expect(reportPage.getByText("Deutsch-Sprachprüfung trainieren")).toBeVisible()
-  await expect(reportPage.getByText("zh-zap1-german@1")).toBeVisible()
-  await reportPage.close()
+  await expect(page).toHaveURL(/\/exercise-report\?data=/u)
+  await expect(page.getByText("Deutsch-Sprachprüfung trainieren")).toBeVisible()
+  await expect(page.getByText("zh-zap1-german@1")).toBeVisible()
+  await page.getByRole("button", { name: /Zurück/u }).click()
+  await expect(page.getByRole("button", { name: "Sprachprüfung fortsetzen" })).toBeVisible()
+  await page.getByRole("button", { name: "Sprachprüfung fortsetzen" }).click()
+  await expect(page.getByRole("button", { name: "Weiter →", exact: true })).toBeVisible()
 
   await page.getByRole("button", { name: "Weiter →", exact: true }).click()
   await page.getByRole("button", { name: "Pausieren und zum Lernplan" }).click()

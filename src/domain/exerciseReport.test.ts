@@ -9,6 +9,7 @@ import {
   createGermanWritingExerciseReportReference,
   decodeExerciseReport,
   encodeExerciseReport,
+  exerciseReportDataFromSearch,
   exerciseReportFilename,
   isGermanExerciseReport,
   isMathematicsExerciseReport,
@@ -173,6 +174,17 @@ describe("exercise defect reports", () => {
     expect(report).toContain("Die richtige Eingabe wird als falsch bewertet.")
     expect(report).toContain("no learner name, typed answer, or progress history")
     expect(exerciseReportFilename(reference)).toMatch(/^gymiquest-report-[a-z0-9-]+-1\.md$/u)
+  })
+
+  it("recovers a copied report link with whitespace around its data key", () => {
+    const learner = createSeededLearner(now)
+    const task = buildAssignments(learner, now)[0]!
+    const question = generateQuestionsForTask(task)[0]!
+    const reference = createExerciseReportReference(task, question, 0)
+    const encoded = encodeExerciseReport(reference)
+
+    expect(exerciseReportDataFromSearch(`?data =${encoded}`)).toBe(encoded)
+    expect(decodeExerciseReport(exerciseReportDataFromSearch(`?data =${encoded}`))).toEqual(reference)
   })
 
   it("rejects malformed, oversized, and cross-topic report payloads", () => {

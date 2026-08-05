@@ -85,7 +85,7 @@ describe("German comprehension learner views", () => {
     expect(reportReference && isGermanExerciseReport(reportReference)).toBe(true)
     expect(JSON.stringify(reportReference)).not.toContain("evidenceLines")
     expect(JSON.stringify(reportReference)).not.toContain('"response":')
-    expect(reportLink.target).toBe("_blank")
+    expect(reportLink.target).toBe("")
     const submit = buttonWithText(container, "Send for feedback")
     expect(submit.disabled).toBe(true)
     const firstLine = container.querySelector('input[type="checkbox"]') as HTMLInputElement

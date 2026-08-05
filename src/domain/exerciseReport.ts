@@ -822,6 +822,21 @@ export function decodeExerciseReport(encoded: string | undefined): ExerciseRepor
   }
 }
 
+/**
+ * Accept a report link that acquired harmless whitespace while being copied
+ * into a message (for example, `?data =...`). The payload still has to pass
+ * the full report-reference validation above.
+ */
+export function exerciseReportDataFromSearch(search: string): string | undefined {
+  const parameters = new URLSearchParams(search)
+  const direct = parameters.get("data")
+  if (direct) return direct
+  for (const [key, value] of parameters) {
+    if (key.trim() === "data") return value.trim() || undefined
+  }
+  return undefined
+}
+
 export function buildExerciseReportUrl(
   reference: ExerciseReportReference,
   origin: string,

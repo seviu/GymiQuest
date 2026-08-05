@@ -187,6 +187,42 @@ describe("dynamic exercise generators", () => {
     expect(question && isCorrectAnswer(question, "72")).toBe(false)
   })
 
+  it("renders the reported recovery boxes question in German with concrete groups", () => {
+    const task: LearningTask = {
+      id: "lesson-recovery:arithmetic-equations:1",
+      kind: "repair",
+      purpose: "lesson-recovery",
+      title: "Sicherungsrunde: Rechenketten",
+      description: "Nach einer kurzen Pause festigen zwei neue Aufgaben dieselbe Idee mit frischen Zahlen. Deine bisherigen XP bleiben erhalten.",
+      topicIds: ["arithmetic-equations"],
+      prerequisiteIds: [],
+      maxXp: 4,
+      questionCount: 2,
+      seed: "lesson-recovery:local-learner:arithmetic-equations:1",
+      curriculum: { courseId: "zh-zap1-math", version: 1 },
+      generation: {
+        version: 6,
+        difficultyBands: ["standard", "exam"],
+      },
+      contentLocale: "de",
+    }
+
+    const [question] = generateQuestionsForTask(task)
+
+    expect(question?.prompt).toBe(
+      "In beiden Kisten zusammen liegen 28 Bausteine.\nGelbe Kiste: eine unbekannte Anzahl.\nBlaue Kiste: 3-mal so viele wie gelb + 12 zusätzliche Bausteine.\n\nWie viele Bausteine liegen in der blauen Kiste?",
+    )
+    expect(question?.response).toEqual({ kind: "number", value: 24, decimals: 0 })
+    expect(question?.easierExplanation).toContain(
+      "Diese 16 Bausteine sind 4 gleiche Gruppen: eine gelbe Gruppe und 3 Gruppen für Blau.",
+    )
+    expect(question?.workedSteps).toEqual([
+      "28 − 12 = 16 (die Extra-Bausteine aus Blau wegnehmen)",
+      "16 : 4 = 4 (eine gelbe Gruppe)",
+      "3 · 4 + 12 = 24 (blaue Kiste)",
+    ])
+  })
+
   it("uses generation v6 for new task profiles while replaying v2-v5 requests", () => {
     expect(buildTaskGenerationProfile(["foundation", "exam"])).toEqual({
       version: 6,

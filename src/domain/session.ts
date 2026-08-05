@@ -1,5 +1,6 @@
 import type {
   LearnerState,
+  LearningLocale,
   LearningTask,
   QuestionDiagnosticEvidence,
   QuestionResult,
@@ -97,6 +98,43 @@ export function createActiveLearningSession(
     },
     startedAt: timestamp,
     updatedAt: timestamp,
+  }
+}
+
+/**
+ * Keeps a paused Mathematics session in the learner's explicitly selected
+ * language. The generated values and answer remain unchanged; only the
+ * deterministic learner-facing rendering is switched and saved for resume.
+ */
+export function setActiveLearningSessionContentLocale(
+  session: ActiveLearningSession,
+  contentLocale: LearningLocale,
+  now = new Date(),
+): ActiveLearningSession {
+  const localizeTask = (task: LearningTask): LearningTask => (
+    task.contentLocale === contentLocale ? task : { ...task, contentLocale }
+  )
+  const task = localizeTask(session.task)
+  const origin = session.prerequisiteDetour?.origin
+  const originTask = origin ? localizeTask(origin.task) : undefined
+  const localizedOrigin = origin && originTask && originTask !== origin.task
+    ? { ...origin, task: originTask, updatedAt: now.toISOString() }
+    : origin
+
+  if (task === session.task && localizedOrigin === origin) return session
+
+  return {
+    ...session,
+    task,
+    updatedAt: now.toISOString(),
+    ...(session.prerequisiteDetour && localizedOrigin
+      ? {
+          prerequisiteDetour: {
+            ...session.prerequisiteDetour,
+            origin: localizedOrigin,
+          },
+        }
+      : {}),
   }
 }
 

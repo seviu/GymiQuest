@@ -96,10 +96,8 @@ export function GermanWritingView({
           createGermanWritingExerciseReportReference(session, selectedPrompt, selectedPromptIndex),
           window.location.origin,
         )}
-        target="_blank"
-        rel="noopener noreferrer"
       >
-        <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue} ↗
+        <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue}
       </a>
       <strong>{copy.requirements}</strong>
       <ul>{selectedPrompt.requirements.map((requirement) => <li key={requirement}>{requirement}</li>)}</ul>
@@ -177,10 +175,8 @@ export function GermanWritingView({
                     createGermanWritingExerciseReportReference(session, prompt, index),
                     window.location.origin,
                   )}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
-                  <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue} ↗
+                  <span aria-hidden="true">⚑</span> {appCopy.player.reportIssue}
                 </a>
                 <button
                   className="primary-button"

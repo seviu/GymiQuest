@@ -17070,6 +17070,20 @@ button.profile-chip:hover {
   gap: 24px;
 }
 
+.exercise-report-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.exercise-report-navigation a {
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .exercise-report-card h1 {
   margin: 7px 0 10px;
   font-size: clamp(28px, 5vw, 44px);
@@ -17109,7 +17123,6 @@ button.profile-chip:hover {
 }
 
 .exercise-report-card.invalid a {
-  margin-top: 12px;
   text-decoration: none;
 }
 

@@ -6133,8 +6133,8 @@ describe("assessment UI flow", () => {
       link.textContent?.includes("Fehler in dieser Aufgabe melden")
     ))
     if (!(reportLink instanceof HTMLAnchorElement)) throw new Error("Missing exercise report link")
-    expect(reportLink.target).toBe("_blank")
-    expect(reportLink.rel).toContain("noopener")
+    expect(reportLink.target).toBe("")
+    expect(reportLink.rel).toBe("")
     expect(new URL(reportLink.href).pathname).toBe("/exercise-report")
     expect(new URL(reportLink.href).searchParams.get("data")).toBeTruthy()
 
