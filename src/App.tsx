@@ -7257,7 +7257,7 @@ function ConceptRepairAnswerControl({
           <input
             id="concept-check-x"
             type="text"
-            inputMode="decimal"
+            inputMode="text"
             autoComplete="off"
             value={coordinate?.x ?? ""}
             disabled={disabled}
@@ -7271,7 +7271,7 @@ function ConceptRepairAnswerControl({
           <input
             id="concept-check-y"
             type="text"
-            inputMode="decimal"
+            inputMode="text"
             autoComplete="off"
             value={coordinate?.y ?? ""}
             disabled={disabled}
@@ -8976,7 +8976,7 @@ export function QuestionStage({
                 <input
                   id="coordinate-x"
                   type="text"
-                  inputMode="decimal"
+                  inputMode="text"
                   autoComplete="off"
                   value={coordinateDraft?.x ?? ""}
                   disabled={feedback === "correct" || assessmentAnswerSubmitted}
@@ -9002,7 +9002,7 @@ export function QuestionStage({
                 <input
                   id="coordinate-y"
                   type="text"
-                  inputMode="decimal"
+                  inputMode="text"
                   autoComplete="off"
                   value={coordinateDraft?.y ?? ""}
                   disabled={feedback === "correct" || assessmentAnswerSubmitted}
@@ -9053,7 +9053,7 @@ export function QuestionStage({
               <div className="answer-input-wrap">
                 <input
                   id="answer"
-                  inputMode={question.response.kind === "number" ? "decimal" : "text"}
+                  inputMode={question.response.kind === "number" && question.response.value >= 0 ? "decimal" : "text"}
                   autoComplete="off"
                   placeholder={
                     question.response.kind === "fraction"
@@ -10545,7 +10545,7 @@ function MockAnswerControl({
           <input
             id={`${safeId}-x`}
             type="text"
-            inputMode="decimal"
+            inputMode="text"
             autoComplete="off"
             value={coordinate?.x ?? ""}
             aria-label={ui.answer.coordinateX(part.label)}
@@ -10558,7 +10558,7 @@ function MockAnswerControl({
           <input
             id={`${safeId}-y`}
             type="text"
-            inputMode="decimal"
+            inputMode="text"
             autoComplete="off"
             value={coordinate?.y ?? ""}
             aria-label={ui.answer.coordinateY(part.label)}
