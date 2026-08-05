@@ -93,14 +93,19 @@ mis-grades with no human fallback.
    product/pedagogy decision: changing it means replacing those two contracts and deciding
    what a "final" submission means. The parser improvements in P0 #1 shrink how often the
    dilemma triggers, whatever is decided.
-2. **Placement-only loci distractor weakness.** `geometric-loci` choice options are built
-   in fixed order (correct answer always position 0-2 of 4). Lessons, reviews,
-   assessments, and mocks render the construction workbench instead
-   (`shouldUseGeometryConstruction`, `geometryConstruction.ts:70-76`; mock branch
-   `App.tsx:10526`); only the placement start-check renders the fixed-order list
-   (`task.kind === "placement"`, and `geometric-loci` ∈ `placementTopicIds`,
-   `curriculumPackage.ts:55-65`). One-line fix if touched: `shuffle(random, options)`
-   (grading is id-based, so safe) + a position-uniformity assertion over 500 seeds.
+2. **Placement-only loci distractor weakness** *(attempted, reverted — needs a generation
+   bump)*. `geometric-loci` choice options are built in fixed order (correct answer
+   always position 0-2 of 4). Lessons, reviews, assessments, and mocks render the
+   construction workbench instead (`shouldUseGeometryConstruction`,
+   `geometryConstruction.ts:70-76`; mock branch `App.tsx:10526`); only the placement
+   start-check renders the fixed-order list (`task.kind === "placement"`, and
+   `geometric-loci` ∈ `placementTopicIds`, `curriculumPackage.ts:55-65`). A seeded-shuffle
+   fix was implemented and **reverted** (`e01be62`): generator output is byte-pinned for
+   persisted versions v2-v6 (v5 golden test, replayable mock blueprints, stored session
+   seeds), and v6 is the current persisted version, so any output change requires a
+   deliberate generation-version bump (v7: version registry, task profiles, goldens, mock
+   blueprint, i18n replay tests). Bundle the shuffle into the next such bump; until then
+   the exposure stays placement-only and cosmetic.
 3. **Difficulty bands are intra-topic tertiles**, not calibrated to exam demand:
    "Prüfungsnah" = hardest third of the topic's own pool. For structurally simple topics
    (mass-units) the exam band can sit far below real exam tasks. Follow the
