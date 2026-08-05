@@ -22,8 +22,11 @@ parsing are deliberate tested contracts, reframed below as policy/locale items.
 
 Fixes: locale-aware parsing driven by `task.contentLocale` (de-CH → comma decimal +
 `'`/`’` grouping; en → dot decimal + comma grouping) — do **not** add a digit-count
-heuristic, it breaks valid decimal-comma input. Alternative: expected-aware alternate
-interpretations at grading time. Reject mixed-number input as a format diagnostic.
+heuristic, it breaks valid decimal-comma input. *(Implemented in `d1e2474` exactly this
+way, one value per locale, after the expected-aware dual-interpretation shortcut proved
+unsound: it made a factor-1000 slip false-correct in de mode. Locale also flows through
+mock `part.contentLocale` grading and the localized feedback pipeline.)* Reject
+mixed-number input as a format diagnostic.
 `inputMode="text"` where the canonical answer can be negative. Explicit `testTimeout`
 (60-120 s) on the two property sweeps, or globally in `vitest.config.ts`.
 
