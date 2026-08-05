@@ -832,19 +832,34 @@ describe("dynamic exercise generators", () => {
     expect(isCorrectNumericInput("12,5", 12.5, 1, "en")).toBe(false)
     expect(isCorrectNumericInput("12,5", 125, 0, "en")).toBe(false)
     expect(parseNumericAnswer("12,5", "en")).toBeUndefined()
-    // it/es: dot is grouping, comma the school decimal mark
-    expect(isCorrectNumericInput("1.250", 1250, 0, "it")).toBe(true)
-    expect(isCorrectNumericInput("1.250", 1.25, 2, "it")).toBe(false)
+    // es: dot is grouping, comma the decimal mark
+    expect(isCorrectNumericInput("1.250", 1250, 0, "es")).toBe(true)
+    expect(isCorrectNumericInput("1.250", 1.25, 2, "es")).toBe(false)
     expect(isCorrectNumericInput("12,5", 12.5, 1, "es")).toBe(true)
-    expect(isCorrectNumericInput("1.5", 1.5, 1, "it")).toBe(true)
+    // it-CH displays dot decimals like de-CH: "1.250" is 1.25 — a factor-1000 slip
+    // must not silently become 1250
+    expect(isCorrectNumericInput("1.250", 1.25, 2, "it")).toBe(true)
+    expect(isCorrectNumericInput("1.250", 1250, 0, "it")).toBe(false)
+    expect(isCorrectNumericInput("12,5", 12.5, 1, "it")).toBe(true)
     // Swiss apostrophe grouping parses in every locale (the app displays it)
     expect(isCorrectNumericInput("12'000", 12000, 0)).toBe(true)
     expect(isCorrectNumericInput("12'000", 12000, 0, "en")).toBe(true)
     expect(isCorrectNumericInput("-3,000", -3000, 0, "en")).toBe(true)
     // no false-correct: incomplete groups never become grouping separators
     expect(isCorrectNumericInput("12.5", 125, 0)).toBe(false)
-    expect(isCorrectNumericInput("12.5", 125, 0, "it")).toBe(false)
+    expect(isCorrectNumericInput("12.5", 125, 0, "es")).toBe(false)
     expect(isCorrectNumericInput("30,00", 3000, 0, "en")).toBe(false)
+  })
+
+  it("round-trips every locale's own Intl display format through the parser", () => {
+    const displayed = 1234567.5
+    expect(parseNumericAnswer(new Intl.NumberFormat("de-CH").format(displayed))).toBe(displayed)
+    expect(parseNumericAnswer(new Intl.NumberFormat("en-GB").format(displayed), "en")).toBe(displayed)
+    expect(parseNumericAnswer(new Intl.NumberFormat("it-CH").format(displayed), "it")).toBe(displayed)
+    expect(parseNumericAnswer(new Intl.NumberFormat("es-ES").format(displayed), "es")).toBe(displayed)
+    // grouped decimals typed by learners in grouping locales also parse
+    expect(parseNumericAnswer("1,234.5", "en")).toBe(1234.5)
+    expect(parseNumericAnswer("1.234,5", "es")).toBe(1234.5)
   })
 
   it("parses unordered integer sets and rejects duplicates or malformed separators", () => {

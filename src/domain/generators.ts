@@ -572,21 +572,23 @@ export function parseNumericAnswer(
   if (!stripped) return undefined
   let normalized: string
   if (locale === "en") {
-    // en: comma is only a 3-digit group separator, never a decimal mark.
-    if (/^-?\d{1,3}(,\d{3})+$/.test(stripped)) {
+    // en-GB display: comma grouping, dot decimal ("1,234,567.5"). Comma is never
+    // a decimal mark; it is only valid as a complete 3-digit group separator.
+    if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(stripped)) {
       normalized = stripped.replace(/,/g, "")
     } else if (stripped.includes(",")) {
       return undefined
     } else {
       normalized = stripped
     }
-  } else if (locale === "it" || locale === "es") {
-    // it/es: dot is a 3-digit group separator, comma the school decimal mark.
-    normalized = /^-?\d{1,3}(\.\d{3})+$/.test(stripped)
-      ? stripped.replace(/\./g, "")
+  } else if (locale === "es") {
+    // es-ES display: dot grouping, comma decimal ("1.234.567,5").
+    normalized = /^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(stripped)
+      ? stripped.replace(/\./g, "").replace(",", ".")
       : stripped.replace(",", ".")
   } else {
-    // de: comma is the school decimal mark (kept: generators.test.ts contract).
+    // de-CH and it-CH display: apostrophe grouping, dot decimal ("1'234'567.5");
+    // school comma decimals stay accepted (kept: generators.test.ts contract).
     normalized = stripped.replace(",", ".")
   }
   const parsed = Number(normalized)
