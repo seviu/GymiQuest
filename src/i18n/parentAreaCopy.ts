@@ -138,6 +138,10 @@ interface ParentAreaCopy {
     releaseTitle: string
     releaseBody: string
     releaseOpen: string
+    teacherEyebrow: string
+    teacherTitle: string
+    teacherBody: string
+    teacherDownload: string
     privacyTitle: string
     privacyBody: string
   }
@@ -291,6 +295,10 @@ const baseCopy = {
       releaseTitle: "Keep real device, marking, and pilot evidence separate.",
       releaseBody: "Guided local checklists and an exportable log—without learner data and without pretending that ticks are an independent release decision.",
       releaseOpen: "Open release log",
+      teacherEyebrow: "REPORT FOR THE TEACHER",
+      teacherTitle: "Share progress as a report.",
+      teacherBody: "Creates a Markdown file with practice rounds, success rate, wrong answers, hint use, and active time per topic and exercise — generated locally, without typed answers.",
+      teacherDownload: "Download report",
       privacyTitle: "Stays on this device.",
       privacyBody: "No account, advertising, or third-party behavioural analytics. The parent PIN is stored only as a salted verifier and is not included in backup files.",
     },
@@ -442,6 +450,10 @@ const baseCopy = {
       releaseTitle: "Mantén separadas las evidencias de dispositivos reales, corrección y prueba.",
       releaseBody: "Listas locales guiadas y un registro exportable, sin datos del estudiante y sin fingir que las marcas constituyen una decisión de publicación independiente.",
       releaseOpen: "Abrir registro de publicación",
+      teacherEyebrow: "INFORME PARA EL DOCENTE",
+      teacherTitle: "Comparte el progreso como informe.",
+      teacherBody: "Crea un archivo Markdown con sesiones de práctica, tasa de aciertos, respuestas incorrectas, uso de pistas y tiempo activo por tema y ejercicio — generado localmente, sin respuestas escritas.",
+      teacherDownload: "Descargar informe",
       privacyTitle: "Se queda en este dispositivo.",
       privacyBody: "Sin cuenta, publicidad ni analítica de comportamiento de terceros. El PIN familiar solo se guarda como verificador con sal y no se incluye en las copias de seguridad.",
     },
@@ -593,6 +605,10 @@ const baseCopy = {
       releaseTitle: "Tieni separate le prove reali su dispositivi, correzione e pilota.",
       releaseBody: "Liste di controllo locali guidate e un registro esportabile, senza dati dello studente e senza fingere che le spunte costituiscano una decisione di rilascio indipendente.",
       releaseOpen: "Apri registro di rilascio",
+      teacherEyebrow: "RAPPORTO PER L'INSEGNANTE",
+      teacherTitle: "Condividi i progressi come rapporto.",
+      teacherBody: "Crea un file Markdown con sessioni di esercizio, tasso di riuscita, risposte errate, uso dei suggerimenti e tempo attivo per argomento ed esercizio — generato localmente, senza risposte digitate.",
+      teacherDownload: "Scarica il rapporto",
       privacyTitle: "Resta su questo dispositivo.",
       privacyBody: "Nessun account, pubblicità o analisi comportamentale di terzi. Il PIN genitore viene salvato soltanto come verificatore con salt e non è incluso nei file di backup.",
     },
@@ -744,6 +760,10 @@ const baseCopy = {
       releaseTitle: "Echte Geräte-, Korrektur- und Pilotbelege sauber trennen.",
       releaseBody: "Geführte lokale Checklisten und ein exportierbares Protokoll – ohne Lernerdaten und ohne aus Haken eine unabhängige Freigabe zu erfinden.",
       releaseOpen: "Freigabeprotokoll öffnen",
+      teacherEyebrow: "BERICHT FÜR DIE LEHRPERSON",
+      teacherTitle: "Lernstand als Bericht teilen.",
+      teacherBody: "Erzeugt eine Markdown-Datei mit Übungsrunden, Erfolgsquote, falschen Antworten, Hinweisnutzung und aktiver Übungszeit pro Thema und Übung – lokal erstellt, ohne eingegebene Antworten.",
+      teacherDownload: "Bericht herunterladen",
       privacyTitle: "Bleibt auf diesem Gerät.",
       privacyBody: "Kein Konto, keine Werbung und keine Verhaltensanalyse durch Dritte. Der Eltern-PIN wird nur als gesalzener Prüfwiderstand gespeichert und ist nicht Teil der Sicherungsdatei.",
     },

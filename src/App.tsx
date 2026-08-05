@@ -36,6 +36,11 @@ import {
   type AuthorValidationTemplateKey,
 } from "./domain/authorValidation"
 import { buildAssessmentReport, isSecureAssessmentResult } from "./domain/assessmentReport"
+import {
+  buildTeacherReport,
+  formatTeacherReportMarkdown,
+  teacherReportFilename,
+} from "./domain/teacherReport"
 import { buildConceptRepairQuestions, type ConceptRepairQuestions } from "./domain/conceptRepair"
 import { buildConceptLabRound } from "./domain/conceptLab"
 import {
@@ -4790,6 +4795,30 @@ export function ParentDashboardView({
           <button className="secondary-button" type="button" onClick={onOpenReleaseReadiness}>{ui.releaseOpen}</button>
         </section>
       )}
+
+      <section className="parent-panel parent-teacher-report-entry" aria-labelledby="parent-teacher-report-title">
+        <div>
+          <span className="parent-teacher-report-mark" aria-hidden="true">⤓</span>
+          <div>
+            <span className="eyebrow">{ui.teacherEyebrow}</span>
+            <h2 id="parent-teacher-report-title">{ui.teacherTitle}</h2>
+            <p>{ui.teacherBody}</p>
+          </div>
+        </div>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => {
+            const report = buildTeacherReport(learner)
+            downloadReleaseReadiness(
+              formatTeacherReportMarkdown(report, locale),
+              teacherReportFilename(report),
+            )
+          }}
+        >
+          {ui.teacherDownload}
+        </button>
+      </section>
 
       <aside className="parent-privacy-note">
         <span aria-hidden="true">⌁</span>

@@ -13339,7 +13339,8 @@ button.profile-chip:hover {
   flex: 0 0 auto;
 }
 
-.parent-release-readiness-entry {
+.parent-release-readiness-entry,
+.parent-teacher-report-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -13351,14 +13352,16 @@ button.profile-chip:hover {
     linear-gradient(135deg, #f2f8ff, #fffefa 65%);
 }
 
-.parent-release-readiness-entry > div {
+.parent-release-readiness-entry > div,
+.parent-teacher-report-entry > div {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
   align-items: center;
   gap: 15px;
 }
 
-.parent-release-readiness-mark {
+.parent-release-readiness-mark,
+.parent-teacher-report-mark {
   display: grid;
   width: 52px;
   height: 52px;
@@ -13371,17 +13374,20 @@ button.profile-chip:hover {
   font-weight: 900;
 }
 
-.parent-release-readiness-entry .eyebrow {
+.parent-release-readiness-entry .eyebrow,
+.parent-teacher-report-entry .eyebrow {
   color: var(--blue-dark);
 }
 
-.parent-release-readiness-entry h2 {
+.parent-release-readiness-entry h2,
+.parent-teacher-report-entry h2 {
   margin: 4px 0 5px;
   font-size: 18px;
   letter-spacing: -0.035em;
 }
 
-.parent-release-readiness-entry p {
+.parent-release-readiness-entry p,
+.parent-teacher-report-entry p {
   max-width: 700px;
   margin: 0;
   color: var(--ink-soft);
@@ -13389,7 +13395,8 @@ button.profile-chip:hover {
   line-height: 1.55;
 }
 
-.parent-release-readiness-entry > button {
+.parent-release-readiness-entry > button,
+.parent-teacher-report-entry > button {
   flex: 0 0 auto;
 }
 
@@ -14621,6 +14628,7 @@ button.profile-chip:hover {
 
   .parent-author-validation-entry,
   .parent-release-readiness-entry,
+  .parent-teacher-report-entry,
   .author-validation-preview > header,
   .author-validation-preview > footer {
     align-items: stretch;
@@ -14629,6 +14637,7 @@ button.profile-chip:hover {
 
   .parent-author-validation-entry > button,
   .parent-release-readiness-entry > button,
+  .parent-teacher-report-entry > button,
   .author-validation-preview > footer a {
     width: 100%;
   }

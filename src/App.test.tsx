@@ -5032,6 +5032,19 @@ describe("assessment UI flow", () => {
     expect(onLock).toHaveBeenCalledOnce()
   })
 
+  it("offers the teacher report download in the parent dashboard", () => {
+    const now = new Date("2026-08-05T12:00:00.000Z")
+    const learner = createSeededLearner(now)
+
+    act(() => {
+      root.render(<ParentDashboardView learner={learner} onLock={() => undefined} now={now} />)
+    })
+
+    expect(container.textContent).toContain("BERICHT FÜR DIE LEHRPERSON")
+    expect(container.textContent).toContain("Lernstand als Bericht teilen.")
+    expect(buttonWithText(container, "Bericht herunterladen")).toBeInstanceOf(HTMLButtonElement)
+  })
+
   it("keeps public-readiness attestations honest, exportable, and outside learner data", () => {
     const now = new Date("2026-07-15T12:00:00.000Z")
     const record = setReleaseReadinessCheck(
