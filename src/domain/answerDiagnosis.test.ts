@@ -54,6 +54,34 @@ describe("wrong-answer diagnosis", () => {
     })
   })
 
+  it("treats a mixed number as a format slip, never as the value 11/2", () => {
+    const question: GeneratedQuestion = {
+      id: "diagnosis:mixed-number",
+      topicId: "area-fractions",
+      prompt: "Wie gross ist der Anteil?",
+      answerLabel: "Anteil",
+      response: {
+        kind: "fraction",
+        numerator: 3,
+        denominator: 2,
+        requireSimplified: false,
+      },
+      hint: "Zähle die Flächen.",
+      easierExplanation: "Drei Halbe.",
+      explanation: "3/2",
+      workedSteps: ["3/2"],
+    }
+
+    expect(isCorrectAnswer(question, "1 1/2")).toBe(false)
+    expect(diagnoseWrongAnswer(question, "1 1/2")).toMatchObject({
+      kind: "format",
+      title: "Schreibe den Bruch mit einem Schrägstrich.",
+    })
+    // the true a/b forms of the same value still grade correctly
+    expect(isCorrectAnswer(question, "3/2")).toBe(true)
+    expect(isCorrectAnswer(question, "6/4")).toBe(true)
+  })
+
   it("shows why 4/8 is a correct distance before guiding the reduction to 1/2", () => {
     const question: GeneratedQuestion = {
       id: "diagnosis:number-line-distance",

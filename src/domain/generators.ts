@@ -580,6 +580,8 @@ export function parseGroupedNumericAnswer(value: string): number | undefined {
 export function parseFractionAnswer(
   value: string,
 ): { numerator: number; denominator: number } | undefined {
+  // Mixed numbers ("1 1/2") must not collapse into 11/2 once whitespace is stripped.
+  if (/\d\s+\d/.test(value.trim())) return undefined
   const normalized = value.trim().replace(/\s/g, "")
   const match = normalized.match(/^(-?\d+)\/(-?\d+)$/)
   if (!match) return undefined

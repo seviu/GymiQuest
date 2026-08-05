@@ -8,6 +8,7 @@ import {
   isCorrectAnswer,
   isCorrectNumericInput,
   parseCoordinateAnswer,
+  parseFractionAnswer,
   parseIntegerSequenceAnswer,
   parseIntegerSetAnswer,
   parseNumericAnswer,
@@ -808,6 +809,14 @@ describe("dynamic exercise generators", () => {
     expect(parseNumericAnswer("1’234’567,5")).toBe(1234567.5)
     expect(parseNumericAnswer(new Intl.NumberFormat("de-CH").format(1234567.5))).toBe(1234567.5)
     expect(parseNumericAnswer("3'000")).toBe(3000)
+  })
+
+  it("rejects mixed-number fraction input instead of silently reading it as a single fraction", () => {
+    expect(parseFractionAnswer("1 1/2")).toBeUndefined()
+    expect(parseFractionAnswer("2  3/4")).toBeUndefined()
+    expect(parseFractionAnswer("11/2")).toEqual({ numerator: 11, denominator: 2 })
+    expect(parseFractionAnswer(" 3/4 ")).toEqual({ numerator: 3, denominator: 4 })
+    expect(parseFractionAnswer("3 / 4")).toEqual({ numerator: 3, denominator: 4 })
   })
 
   it("grades 3-digit group separators by expected-aware interpretation without breaking decimal commas", () => {
