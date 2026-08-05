@@ -43,6 +43,24 @@ For each task, confirm that the title, part split, point maximum, original task 
 
 Compare all 37 whole-point totals against the official mathematics column. Pay special attention to year-specific boundaries where 2024 differs from 2025, including `20 points = 3.75`, `21 points = 4.0`, and `36 points = 6.0`.
 
+The complete mathematics column (source: `notenskala_zap_lg_2024.pdf`, §1):
+
+| Points | Mathematics grade | Points | Mathematics grade |
+|---:|---:|---:|---:|
+| 0 | 1.00 | 19–20 | 3.75 |
+| 1–2 | 1.25 | 21–22 | 4.00 |
+| 3–4 | 1.50 | 23–24 | 4.25 |
+| 5–6 | 1.75 | 25–26 | 4.50 |
+| 7–8 | 2.00 | 27 | 4.75 |
+| 9 | 2.25 | 28–29 | 5.00 |
+| 10–11 | 2.50 | 30–31 | 5.25 |
+| 12–13 | 2.75 | 32–33 | 5.50 |
+| 14–15 | 3.00 | 34–35 | 5.75 |
+| 16–17 | 3.25 | 36 | 6.00 |
+| 18 | 3.50 |  |  |
+
+`officialGradeScale.test.ts` keeps the code scale in sync with this table, so an edit on only one side fails CI.
+
 The UI must say `Mathematiknote 2024`, never `Gesamtnote`, `bestanden`, or a 2025 scale identifier.
 
 ## 5. Sign-off

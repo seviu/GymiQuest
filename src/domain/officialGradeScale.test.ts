@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { readFileSync } from "node:fs"
 import {
   formatSwissGrade,
   officialMathematicsGradeForEdition,
@@ -87,5 +88,55 @@ describe("official 2025 mathematics grade scale", () => {
     expect(formatSwissGrade(6)).toBe("6.0")
     expect(formatSwissGrade(4.75)).toBe("4.75")
     expect(formatSwissGrade(5.5)).toBe("5.5")
+  })
+})
+
+describe("published docs grade tables", () => {
+  function readDoc(relativeDocPath: string): string {
+    return readFileSync(new URL(relativeDocPath, import.meta.url), "utf8")
+  }
+
+  /** Parses the four-column `| points | grade | points | grade |` docs tables. */
+  function docsGradeMap(relativeDocPath: string): Map<number, number> {
+    const markdown = readDoc(relativeDocPath)
+    const grades = new Map<number, number>()
+    for (const line of markdown.split("\n")) {
+      const cells = line.split("|").slice(1, -1).map((cell) => cell.trim())
+      for (let index = 0; index + 1 < cells.length; index += 2) {
+        const pointsCell = cells[index]!
+        const gradeCell = cells[index + 1]!
+        const range = pointsCell.match(/^(\d+)(?:–(\d+))?$/)
+        if (!range || !/^\d+(\.\d+)?$/.test(gradeCell)) continue
+        const from = Number(range[1])
+        const to = Number(range[2] ?? range[1])
+        for (let points = from; points <= to; points += 1) {
+          grades.set(points, Number(gradeCell))
+        }
+      }
+    }
+    return grades
+  }
+
+  it("keeps the 2024 checklist table in sync with the code scale for all 37 totals", () => {
+    const grades = docsGradeMap("../../docs/2024-author-validation-checklist.md")
+    expect(grades.size).toBe(37)
+    for (let points = 0; points <= 36; points += 1) {
+      expect(grades.get(points), `points ${points}`).toBe(official2024MathematicsGrade(points))
+    }
+  })
+
+  it("keeps the 2025 inventory table in sync with the code scale for all 37 totals", () => {
+    const grades = docsGradeMap("../../docs/2025-curriculum-inventory.md")
+    expect(grades.size).toBe(37)
+    for (let points = 0; points <= 36; points += 1) {
+      expect(grades.get(points), `points ${points}`).toBe(official2025MathematicsGrade(points))
+    }
+  })
+
+  it("binds the 2024 code scale to the checklist source hash and URL", () => {
+    const checklist = readDoc("../../docs/2024-author-validation-checklist.md")
+    expect(checklist).toContain(official2024MathGradeScale.sourceSha256)
+    expect(checklist).toContain("notenskala_zap_lg_2024.pdf")
+    expect(official2024MathGradeScale.sourceUrl).toContain("notenskala_zap_lg_2024.pdf")
   })
 })

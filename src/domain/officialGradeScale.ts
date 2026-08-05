@@ -13,6 +13,10 @@ export const official2024MathGradeScale = {
   editionId: "zap-zh-lg-2024",
   title: "Notenskala ZAP Langgymnasium 2024 · Mathematik",
   publishedAt: "2024-03-15",
+  sourceUrl:
+    "https://www.zh.ch/content/dam/zhweb/bilder-dokumente/themen/bildung/schulen/maturitaetsschulen/zap/korrekturschema-und-notenskala-zap-2024/lg-zap-1/notenskala_zap_lg_2024.pdf",
+  /** SHA-256 of the source PDF at sourceUrl, per docs/2024-author-validation-checklist.md §1. */
+  sourceSha256: "37d3e442800c29a7878d2f90c9cb15016a96e5d41b8e06a7ce6bae7f540823cb",
   maxPoints: 36,
   bands: [
     { fromPoints: 0, toPoints: 0, grade: 1 },
