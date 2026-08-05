@@ -3,9 +3,26 @@ import type {
   LearningEvent,
   LearningLocale,
   LearnerState,
+  QuestionResult,
   TaskKind,
   TopicId,
 } from "./model"
+
+/**
+ * Known outcome, consistent with sessionReview: an independently solved
+ * question is always assessable; otherwise fall back to solved evidence
+ * (`solved ?? diagnostic?.resolved`). Legacy non-independent results without
+ * either stay not-assessable — no manufactured certainty, and the independent
+ * numerator can never exceed the assessable denominator.
+ */
+function knownSolved(result: QuestionResult): boolean | undefined {
+  if (result.independentlySolved) return true
+  return result.solved ?? result.diagnostic?.resolved
+}
+
+function isAssessable(result: QuestionResult): boolean {
+  return knownSolved(result) !== undefined
+}
 
 /** Detail rows are bounded so the report stays readable; aggregates use the full history. */
 const EXERCISE_DETAIL_LIMIT = 50
@@ -59,7 +76,7 @@ function toExercise(event: LearningEvent): TeacherReportExercise {
     topicIds: event.topicIds,
     questionCount: event.questionResults.length,
     independentlySolvedCount: event.questionResults.filter((question) => question.independentlySolved).length,
-    assessableCount: event.questionResults.filter((question) => question.solved !== undefined).length,
+    assessableCount: event.questionResults.filter(isAssessable).length,
     mistakes: event.mistakes,
     hintsUsed: event.hintsUsed,
     activeSeconds: event.activeSeconds,
@@ -125,10 +142,10 @@ export function buildTeacherReport(
         if (questionResult.topicId !== topicId) continue
         row.questionCount += 1
         row.independentlySolvedCount += questionResult.independentlySolved ? 1 : 0
-        row.assessableCount += questionResult.solved !== undefined ? 1 : 0
+        row.assessableCount += isAssessable(questionResult) ? 1 : 0
         // Wrong submissions: every attempt when never solved, all but the final
         // one when solved (outcome unknown for legacy results → count attempts − 1).
-        row.mistakes += questionResult.solved === false
+        row.mistakes += knownSolved(questionResult) === false
           ? questionResult.attempts
           : Math.max(0, questionResult.attempts - 1)
         row.hintsUsed += questionResult.hintsUsed

@@ -119,6 +119,33 @@ describe("teacher report", () => {
     expect(report.slowest[1]).toMatchObject({ activeSeconds: 120 })
   })
 
+  it("keeps the independent rate inside its assessable base for legacy results", () => {
+    // Legacy events omit `solved`; independent results are still assessable,
+    // so the numerator can never outrun the denominator (no >100%, no false "–").
+    const legacy = event({
+      id: "legacy",
+      taskKind: "lesson",
+      questionResults: [
+        question({ questionId: "e", independentlySolved: true, solved: undefined }),
+        question({ questionId: "f", independentlySolved: false, solved: undefined }),
+      ],
+    })
+    const report = buildTeacherReport(stateWith([legacy]), new Date("2026-08-05T12:00:00.000Z"))
+
+    expect(report.questionCount).toBe(2)
+    expect(report.independentlySolvedCount).toBe(1)
+    expect(report.assessableCount).toBe(1)
+    expect(report.topicRows[0]).toMatchObject({
+      independentlySolvedCount: 1,
+      assessableCount: 1,
+      mistakes: 0,
+    })
+
+    const markdown = formatTeacherReportMarkdown(report, "de")
+    expect(markdown).toContain("100 %")
+    expect(markdown).not.toContain("– |")
+  })
+
   it("renders a localized Markdown report with per-exercise detail", () => {
     const report = buildTeacherReport(stateWith(events), new Date("2026-08-05T12:00:00.000Z"))
     const markdown = formatTeacherReportMarkdown(report, "de")
