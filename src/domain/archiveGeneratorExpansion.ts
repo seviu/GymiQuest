@@ -1,3 +1,4 @@
+import { buildRepeatedDigitConstraintFilter, type DigitRelation } from "./combinatorics"
 import type { GeneratedQuestion, LearningLocale, TopicId } from "./model"
 import { createRandom, pickIndex } from "./random"
 
@@ -513,8 +514,6 @@ function generateRentalTableQuestion(
   }
 }
 
-type DigitRelation = "greater" | "less"
-
 interface RepeatedDigitCandidate {
   digits: [number, number, number, number]
   divisor: number
@@ -522,30 +521,6 @@ interface RepeatedDigitCandidate {
   lowerBound: number
   relation: DigitRelation
   solutions: number[]
-}
-
-function enumerateRepeatedDigitSolutions(
-  digits: readonly number[],
-  divisor: number,
-  digitSum: number,
-  lowerBound: number,
-  relation: DigitRelation,
-): number[] {
-  const solutions: number[] = []
-  for (const thousands of digits) {
-    for (const hundreds of digits) {
-      for (const tens of digits) {
-        for (const units of digits) {
-          const value = 1000 * thousands + 100 * hundreds + 10 * tens + units
-          if (value <= lowerBound || value % divisor !== 0) continue
-          if (thousands + hundreds + tens + units !== digitSum) continue
-          if (relation === "greater" ? thousands <= units : thousands >= units) continue
-          solutions.push(value)
-        }
-      }
-    }
-  }
-  return [...new Set(solutions)].sort((left, right) => left - right)
 }
 
 function buildRepeatedDigitCandidates(): RepeatedDigitCandidate[] {
@@ -559,13 +534,16 @@ function buildRepeatedDigitCandidates(): RepeatedDigitCandidate[] {
       for (const digitSum of [12, 16, 18, 20, 22, 24, 26, 28]) {
         for (const lowerBound of [3000, 5000, 7000]) {
           for (const relation of ["greater", "less"] as const) {
-            const solutions = enumerateRepeatedDigitSolutions(
+            // Single implementation lives in combinatorics.ts (shared with
+            // conceptPlayground); digits are odd so the leading-zero guard there
+            // never triggers for this pool.
+            const solutions = buildRepeatedDigitConstraintFilter(
               digits,
               divisor,
               digitSum,
               lowerBound,
               relation,
-            )
+            ).solutions
             // The mathematical set remains complete, but the learner should
             // not have to transcribe a dozen four-digit values on an iPad.
             if (solutions.length < 2 || solutions.length > 8) continue
