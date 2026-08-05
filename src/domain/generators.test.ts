@@ -819,21 +819,32 @@ describe("dynamic exercise generators", () => {
     expect(parseFractionAnswer("3 / 4")).toEqual({ numerator: 3, denominator: 4 })
   })
 
-  it("grades 3-digit group separators by expected-aware interpretation without breaking decimal commas", () => {
-    // de decimal-comma contract stays: "3,000" can still mean 3
+  it("resolves group and decimal separators by content locale, one value per locale", () => {
+    // de keeps the school decimal comma: "3,000" is 3 — and only 3. A factor-1000
+    // slip must grade wrong, never match an alternate grouping interpretation.
     expect(isCorrectNumericInput("3,000", 3, 0)).toBe(true)
+    expect(isCorrectNumericInput("3,000", 3000, 0)).toBe(false)
     expect(isCorrectNumericInput("12,5", 12.5, 1)).toBe(true)
-    // en/it grouping interpretations now also match when the canonical parse cannot
-    expect(isCorrectNumericInput("3,000", 3000, 0)).toBe(true)
-    expect(isCorrectNumericInput("3.000", 3000, 0)).toBe(true)
+    expect(isCorrectNumericInput("1.250", 1.25, 2)).toBe(true)
+    // en: comma is grouping, never a decimal mark
+    expect(isCorrectNumericInput("3,000", 3000, 0, "en")).toBe(true)
+    expect(isCorrectNumericInput("3,000", 3, 0, "en")).toBe(false)
+    expect(isCorrectNumericInput("12,5", 12.5, 1, "en")).toBe(false)
+    expect(isCorrectNumericInput("12,5", 125, 0, "en")).toBe(false)
+    expect(parseNumericAnswer("12,5", "en")).toBeUndefined()
+    // it/es: dot is grouping, comma the school decimal mark
+    expect(isCorrectNumericInput("1.250", 1250, 0, "it")).toBe(true)
+    expect(isCorrectNumericInput("1.250", 1.25, 2, "it")).toBe(false)
+    expect(isCorrectNumericInput("12,5", 12.5, 1, "es")).toBe(true)
+    expect(isCorrectNumericInput("1.5", 1.5, 1, "it")).toBe(true)
+    // Swiss apostrophe grouping parses in every locale (the app displays it)
     expect(isCorrectNumericInput("12'000", 12000, 0)).toBe(true)
-    expect(isCorrectNumericInput("-3,000", -3000, 0)).toBe(true)
+    expect(isCorrectNumericInput("12'000", 12000, 0, "en")).toBe(true)
+    expect(isCorrectNumericInput("-3,000", -3000, 0, "en")).toBe(true)
     // no false-correct: incomplete groups never become grouping separators
     expect(isCorrectNumericInput("12.5", 125, 0)).toBe(false)
-    expect(isCorrectNumericInput("12,5", 125, 0)).toBe(false)
-    expect(isCorrectNumericInput("30,00", 3000, 0)).toBe(false)
-    expect(isCorrectNumericInput("3,000", 30, 0)).toBe(false)
-    expect(isCorrectNumericInput("3,000", 300, 0)).toBe(false)
+    expect(isCorrectNumericInput("12.5", 125, 0, "it")).toBe(false)
+    expect(isCorrectNumericInput("30,00", 3000, 0, "en")).toBe(false)
   })
 
   it("parses unordered integer sets and rejects duplicates or malformed separators", () => {

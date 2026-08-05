@@ -561,20 +561,36 @@ export function generateQuestionsForTask(task: LearningTask): GeneratedQuestion[
   })
 }
 
-export function parseNumericAnswer(value: string): number | undefined {
-  const normalized = value.trim().replace(/\s/g, "").replace(/['’]/g, "").replace(",", ".")
-  if (!normalized) return undefined
+export function parseNumericAnswer(
+  value: string,
+  locale: LearningLocale = "de",
+): number | undefined {
+  // One value per locale — never dual interpretations: a factor-1000 slip must
+  // grade wrong, not match an alternate reading. Apostrophes are always Swiss
+  // grouping (the app displays them via Intl de-CH); comma/dot roles follow the locale.
+  const stripped = value.trim().replace(/\s/g, "").replace(/['’]/g, "")
+  if (!stripped) return undefined
+  let normalized: string
+  if (locale === "en") {
+    // en: comma is only a 3-digit group separator, never a decimal mark.
+    if (/^-?\d{1,3}(,\d{3})+$/.test(stripped)) {
+      normalized = stripped.replace(/,/g, "")
+    } else if (stripped.includes(",")) {
+      return undefined
+    } else {
+      normalized = stripped
+    }
+  } else if (locale === "it" || locale === "es") {
+    // it/es: dot is a 3-digit group separator, comma the school decimal mark.
+    normalized = /^-?\d{1,3}(\.\d{3})+$/.test(stripped)
+      ? stripped.replace(/\./g, "")
+      : stripped.replace(",", ".")
+  } else {
+    // de: comma is the school decimal mark (kept: generators.test.ts contract).
+    normalized = stripped.replace(",", ".")
+  }
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : undefined
-}
-
-// ponytail: expected-aware disambiguation of 3-digit grouping ("3,000" en / "3.000" it)
-// instead of threading contentLocale through every grading callsite; only plain integer
-// groups are recognized, decimals with grouping separators stay unparseable.
-export function parseGroupedNumericAnswer(value: string): number | undefined {
-  const normalized = value.trim().replace(/\s/g, "").replace(/['’]/g, "")
-  if (!/^-?\d{1,3}([.,]\d{3})+$/.test(normalized)) return undefined
-  return Number(normalized.replace(/[.,]/g, ""))
 }
 
 export function parseFractionAnswer(
@@ -631,14 +647,15 @@ export function parseIntegerSequenceAnswer(value: string): number[] | undefined 
 
 export function parseCoordinateAnswer(
   value: string,
+  locale: LearningLocale = "de",
 ): { x: number; y: number } | undefined {
   const normalized = value.trim().replace(/^\(/, "").replace(/\)$/, "")
   const separator = normalized.includes("|") ? "|" : normalized.includes(";") ? ";" : undefined
   if (!separator) return undefined
   const parts = normalized.split(separator)
   if (parts.length !== 2) return undefined
-  const x = parseNumericAnswer(parts[0] ?? "")
-  const y = parseNumericAnswer(parts[1] ?? "")
+  const x = parseNumericAnswer(parts[0] ?? "", locale)
+  const y = parseNumericAnswer(parts[1] ?? "", locale)
   return x === undefined || y === undefined ? undefined : { x, y }
 }
 
@@ -646,11 +663,12 @@ export function isCorrectNumericInput(
   value: string,
   expected: number,
   decimals: number,
+  locale: LearningLocale = "de",
 ): boolean {
+  const parsed = parseNumericAnswer(value, locale)
+  if (parsed === undefined) return false
   const tolerance = 10 ** -(decimals + 2)
-  const withinTolerance = (parsed: number | undefined) =>
-    parsed !== undefined && Math.abs(round(parsed - expected, decimals + 3)) <= tolerance
-  return withinTolerance(parseNumericAnswer(value)) || withinTolerance(parseGroupedNumericAnswer(value))
+  return Math.abs(round(parsed - expected, decimals + 3)) <= tolerance
 }
 
 function greatestCommonDivisor(left: number, right: number): number {
@@ -664,13 +682,18 @@ function greatestCommonDivisor(left: number, right: number): number {
   return a
 }
 
-export function isCorrectAnswer(question: GeneratedQuestion, value: string): boolean {
+export function isCorrectAnswer(
+  question: GeneratedQuestion,
+  value: string,
+  locale: LearningLocale = "de",
+): boolean {
   switch (question.response.kind) {
     case "number":
       return isCorrectNumericInput(
         value,
         question.response.value,
         question.response.decimals,
+        locale,
       )
     case "fraction": {
       const parsed = parseFractionAnswer(value)
@@ -702,7 +725,7 @@ export function isCorrectAnswer(question: GeneratedQuestion, value: string): boo
       )
     }
     case "coordinate": {
-      const parsed = parseCoordinateAnswer(value)
+      const parsed = parseCoordinateAnswer(value, locale)
       if (!parsed) return false
       return (
         Math.abs(parsed.x - question.response.x) <= 1e-8 &&

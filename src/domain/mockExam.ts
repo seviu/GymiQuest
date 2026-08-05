@@ -447,8 +447,12 @@ export function mockPartRequiresMethod(question: GeneratedQuestion): boolean {
   )
 }
 
-export function isMockPartAnswered(question: GeneratedQuestion, answer: string): boolean {
-  if (question.response.kind === "coordinate") return Boolean(parseCoordinateAnswer(answer))
+export function isMockPartAnswered(
+  question: GeneratedQuestion,
+  answer: string,
+  locale: LearningLocale = "de",
+): boolean {
+  if (question.response.kind === "coordinate") return Boolean(parseCoordinateAnswer(answer, locale))
   return Boolean(answer.trim())
 }
 
@@ -458,7 +462,7 @@ export function isMockTaskAnswered(
 ): boolean {
   return task.parts.every((part, index) => {
     const draft = progress.parts[index]
-    return Boolean(draft && isMockPartAnswered(generateMockPartQuestion(part), draft.answer))
+    return Boolean(draft && isMockPartAnswered(generateMockPartQuestion(part), draft.answer, part.contentLocale ?? "de"))
   })
 }
 
@@ -473,7 +477,7 @@ function gradePart(
         question.geometryConstruction,
         decodeGeometryConstructionAnswer(draft.answer),
       ).correct
-    : isCorrectAnswer(question, draft.answer)
+    : isCorrectAnswer(question, draft.answer, part.contentLocale ?? "de")
   const methodRequired = mockPartRequiresMethod(question)
   const hasWorking = Boolean(draft.working.trim())
   const certainPoints = answerCorrect && !methodRequired ? part.maxPoints : 0

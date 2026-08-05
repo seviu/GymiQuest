@@ -138,6 +138,59 @@ describe("generated strict mock exams", () => {
     expect(first.durationSeconds).toBe(FULL_MOCK_DURATION_SECONDS)
   })
 
+  it("grades grouping separators by the mock part's content locale", () => {
+    const start = new Date("2026-07-15T10:00:00.000Z")
+    const end = new Date("2026-07-15T10:50:00.000Z")
+
+    // Find a generated number part with a 4-digit integer expected answer (e.g. 1250 g).
+    const findNumberPart = (contentLocale: "en" | "de") => {
+      for (let index = 0; index < 200; index += 1) {
+        const seed = `locale-grading:${contentLocale}:${index}`
+        const blueprint = buildGeneratedMockBlueprint(seed, 6, contentLocale)
+        for (let taskIndex = 0; taskIndex < blueprint.tasks.length; taskIndex += 1) {
+          const parts = blueprint.tasks[taskIndex]!.parts
+          for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+            const question = generateMockPartQuestion(parts[partIndex]!)
+            if (
+              question.response.kind === "number" &&
+              Number.isInteger(question.response.value) &&
+              question.response.value >= 1000 &&
+              question.response.value < 10000
+            ) {
+              return { seed, taskIndex, partIndex, expected: question.response.value }
+            }
+          }
+        }
+      }
+      throw new Error(`No 4-digit number part found for ${contentLocale}`)
+    }
+
+    for (const contentLocale of ["en", "de"] as const) {
+      const { seed, taskIndex, partIndex, expected } = findNumberPart(contentLocale)
+      const grouped = contentLocale === "en"
+        ? expected.toLocaleString("en-US") // "1,250"
+        : expected.toLocaleString("de-DE") // "1.250" — dot grouping, not the Swiss convention
+      const exam = createActiveMockExam(seed, start, FULL_MOCK_DURATION_SECONDS, 6, contentLocale)
+      exam.progress[taskIndex]!.parts[partIndex]!.answer = grouped
+      const result = gradeMockExam(exam, "submitted", end)
+      const partResult = result.taskResults[taskIndex]!.parts[partIndex]!
+
+      if (contentLocale === "en") {
+        expect(partResult.answerCorrect).toBe(true)
+      } else {
+        // de reads the dot as the decimal mark: 1.250 ≠ 1250, a factor-1000 slip
+        // must grade wrong, never match an alternate grouping interpretation.
+        expect(partResult.answerCorrect).toBe(false)
+      }
+
+      const control = createActiveMockExam(seed, start, FULL_MOCK_DURATION_SECONDS, 6, contentLocale)
+      control.progress[taskIndex]!.parts[partIndex]!.answer = String(expected)
+      expect(
+        gradeMockExam(control, "submitted", end).taskResults[taskIndex]!.parts[partIndex]!.answerCorrect,
+      ).toBe(true)
+    }
+  })
+
   it("pins the nine mock slots to their recurrence-matrix rows at a flat 4 points", () => {
     expect(MOCK_SLOT_RECURRENCE_BINDING).toHaveLength(MOCK_TASK_COUNT)
     expect(MOCK_SLOT_RECURRENCE_BINDING.every((slot) => slot.points === 4)).toBe(true)

@@ -7383,7 +7383,7 @@ function ConceptRepairStage({
     onProgressChange({
       ...progress,
       attempts: progress.attempts + 1,
-      feedback: isCorrectAnswer(questions.check, progress.answer) ? "correct" : "wrong",
+      feedback: isCorrectAnswer(questions.check, progress.answer, locale) ? "correct" : "wrong",
     })
   }
 
@@ -7634,7 +7634,7 @@ function ConceptLabTopic({
     event.preventDefault()
     if (!answerReady || feedback === "correct") return
     setAttempts((current) => current + 1)
-    setFeedback(isCorrectAnswer(round.check, answer) ? "correct" : "wrong")
+    setFeedback(isCorrectAnswer(round.check, answer, locale) ? "correct" : "wrong")
   }
 
   return (
@@ -8559,7 +8559,7 @@ export function QuestionStage({
     feedback === "wrong" &&
     !isCountedLegacyFormatFeedback &&
     activePracticeStep &&
-    parseNumericAnswer(practiceAnswers[activePracticeStep.id] ?? "") === undefined,
+    parseNumericAnswer(practiceAnswers[activePracticeStep.id] ?? "", contentLocale) === undefined,
   )
   const practiceGrade = usesPracticeSteps && feedback === "wrong"
     ? gradePracticeSteps(
@@ -8616,12 +8616,12 @@ export function QuestionStage({
   const coordinateXHasFormatFeedback = Boolean(
     hasFormatFeedback &&
     coordinateDraft &&
-    parseNumericAnswer(coordinateDraft.x) === undefined,
+    parseNumericAnswer(coordinateDraft.x, contentLocale) === undefined,
   )
   const coordinateYHasFormatFeedback = Boolean(
     hasFormatFeedback &&
     coordinateDraft &&
-    parseNumericAnswer(coordinateDraft.y) === undefined,
+    parseNumericAnswer(coordinateDraft.y, contentLocale) === undefined,
   )
   const answerReady = usesPracticeSteps
     ? Boolean(activePracticeStep && practiceAnswers[activePracticeStep.id]?.trim())
@@ -8737,7 +8737,7 @@ export function QuestionStage({
       const diagnostic = correct
         ? undefined
         : {
-            kind: parseNumericAnswer(practiceAnswers[activePracticeStep.id] ?? "") === undefined
+            kind: parseNumericAnswer(practiceAnswers[activePracticeStep.id] ?? "", contentLocale) === undefined
               ? "format" as const
               : "stopped-early" as const,
             title: localizeSupportIssue(currentGrade.issue, question, contentLocale, "practice")?.title ?? (
@@ -8771,7 +8771,7 @@ export function QuestionStage({
     const attempt = submissions + 1
     const correct = usesGeometryConstruction
       ? gradeGeometryConstruction(question.geometryConstruction, constructionAnswer).correct
-      : isCorrectAnswer(question, answer)
+      : isCorrectAnswer(question, answer, contentLocale)
     const diagnostic = correct
       ? undefined
       : usesGeometryConstruction
@@ -11058,7 +11058,7 @@ export function MockExamPlayer({
       const answer = progress.parts[partIndex]?.answer ?? ""
       return part.kind === "official"
         ? !isOfficialPartAnswered(part, answer)
-        : !isMockPartAnswered(generateMockPartQuestion(part), answer)
+        : !isMockPartAnswered(generateMockPartQuestion(part), answer, part.contentLocale ?? "de")
     }).length
   }, 0)
 

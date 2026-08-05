@@ -255,11 +255,11 @@ export function diagnoseWrongAnswerForLocale(
   locale: LearningLocale,
 ): AnswerDiagnosis | undefined {
   if (locale === "de") return diagnoseWrongAnswer(question, answer)
-  if (isCorrectAnswer(question, answer)) return undefined
+  if (isCorrectAnswer(question, answer, locale)) return undefined
   const text = (english: string, italian: string, spanish: string) => localizedText(locale, english, italian, spanish)
 
   if (question.response.kind === "number") {
-    const parsed = parseNumericAnswer(answer)
+    const parsed = parseNumericAnswer(answer, locale)
     if (parsed === undefined) {
       const unitNote = question.response.unit
         ? text(
@@ -426,7 +426,7 @@ export function diagnoseWrongAnswerForLocale(
   }
 
   if (question.response.kind === "coordinate") {
-    const parsed = parseCoordinateAnswer(answer)
+    const parsed = parseCoordinateAnswer(answer, locale)
     if (!parsed) {
       return {
         kind: "format",
