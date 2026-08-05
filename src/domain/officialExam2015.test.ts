@@ -94,6 +94,47 @@ describe("official 2015 replay", () => {
     expect(isOfficialPartAnswered(matchingPart, "D|A|invented|C")).toBe(false)
   })
 
+  it("lets a single cube-match typo change the machine-certain task-9 score", () => {
+    expect(scoreOfficial2015CubeMatches(correctCubeMatches())).toMatchObject({
+      points: 4,
+      correctPairs: 3,
+      falsePairs: 0,
+    })
+    // One match flipped (field 4: C → B): 2 correct, 1 false.
+    const typo = encodeOfficialMatchingAnswers(["D", "A", "none", "B"])
+    expect(scoreOfficial2015CubeMatches(typo)).toMatchObject({
+      points: 2,
+      correctPairs: 2,
+      falsePairs: 1,
+    })
+
+    const start = new Date("2026-07-15T10:00:00.000Z")
+    const exam = createActiveOfficialExam2015("mutation-guard:cube-matches", start)
+    exam.progress[8]!.parts[0]!.answer = typo
+    const result = gradeOfficialExam2015(exam, "submitted", new Date("2026-07-15T10:50:00.000Z"))
+    expect(result.taskResults[8]).toMatchObject({ certainPoints: 2, reviewablePoints: 0 })
+  })
+
+  it("counts a 'kein Paar' entry on a real-cube field as neither correct nor false", () => {
+    // Regression pin for the undocumented 2015 Task 9 branch: entering "none"
+    // ("kein Paar") on a field whose expected answer is a real cube matches
+    // neither the correct-pair nor the false-pair branch in
+    // scoreOfficial2015CubeMatches, so it is silently dropped from scoring.
+    // D,A,none,none → field 4 expects "C" but "none" is entered: 2 correct,
+    // 0 false → 3 points. The official treatment awaits the human
+    // author-validation ruling (docs/2015-author-validation-checklist.md).
+    const score = scoreOfficial2015CubeMatches(
+      encodeOfficialMatchingAnswers(["D", "A", "none", "none"]),
+    )
+    expect(score).toEqual({ points: 3, correctPairs: 2, falsePairs: 0, unanswered: 0 })
+
+    const start = new Date("2026-07-15T10:00:00.000Z")
+    const exam = createActiveOfficialExam2015("kein-paar-regression", start)
+    exam.progress[8]!.parts[0]!.answer = encodeOfficialMatchingAnswers(["D", "A", "none", "none"])
+    const result = gradeOfficialExam2015(exam, "submitted", new Date("2026-07-15T10:50:00.000Z"))
+    expect(result.taskResults[8]).toMatchObject({ certainPoints: 3, reviewablePoints: 0 })
+  })
+
   it("locks only Task 9 and leaves every method-dependent point for the original rubric", () => {
     const start = new Date("2026-07-15T10:00:00.000Z")
     const exam = createActiveOfficialExam2015("safe-boundary", start)

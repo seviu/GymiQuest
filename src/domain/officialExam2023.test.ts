@@ -92,6 +92,27 @@ describe("official 2023 replay", () => {
     expect(isOfficialPartAnswered(truthPart, "true||true|false")).toBe(false)
   })
 
+  it("lets a single true-false flip change the machine-certain task-4 score", () => {
+    expect(scoreOfficial2023TrueFalse(correctTruthTable())).toMatchObject({
+      points: 4,
+      correctAnswers: 4,
+      incorrectAnswers: 0,
+    })
+    // One answer flipped (false → true at field 2): 3 correct − 1 incorrect.
+    const flipped = encodeOfficialTrueFalseAnswers(["true", "true", "true", "false"])
+    expect(scoreOfficial2023TrueFalse(flipped)).toMatchObject({
+      points: 2,
+      correctAnswers: 3,
+      incorrectAnswers: 1,
+    })
+
+    const start = new Date("2026-07-15T10:00:00.000Z")
+    const exam = createActiveOfficialExam2023("mutation-guard:true-false", start)
+    exam.progress[3]!.parts[0]!.answer = flipped
+    const result = gradeOfficialExam2023(exam, "submitted", new Date("2026-07-15T10:50:00.000Z"))
+    expect(result.taskResults[3]).toMatchObject({ certainPoints: 2, reviewablePoints: 0 })
+  })
+
   it("locks only the two machine-safe outcomes and leaves every other point for the original rubric", () => {
     const start = new Date("2026-07-15T10:00:00.000Z")
     const exam = createActiveOfficialExam2023("safe-boundary", start)

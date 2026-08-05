@@ -146,6 +146,11 @@ describe("official 2025 replay", () => {
     expect(gradeOnePart(7, 0, encodeOfficialFaceLabels(["2", "4"])).certainPoints).toBe(1)
     expect(gradeOnePart(7, 1, encodeOfficialFaceLabels(["4", "3", "2", "9"])).certainPoints).toBe(1)
 
+    const allTuples = "1,1,9\n1,2,7\n1,3,5\n1,4,3\n1,5,1\n2,1,4\n2,2,2"
+    expect(gradeOnePart(2, 0, allTuples).certainPoints).toBe(4)
+    expect(gradeOnePart(7, 0, encodeOfficialFaceLabels(["2", "1"])).certainPoints).toBe(2)
+    expect(gradeOnePart(7, 1, encodeOfficialFaceLabels(["4", "3", "2", "1"])).certainPoints).toBe(2)
+
     expect(gradeOnePart(8, 0, "0", {
       "block-length-15": "15",
       "block-width-6": "6",
@@ -168,6 +173,29 @@ describe("official 2025 replay", () => {
       "block-height-4": "4",
       "base-face": "180",
     }).certainPoints).toBe(2)
+  })
+
+  it("lets a single tuple typo change the machine-certain task-3 score", () => {
+    const all = "1,1,9\n1,2,7\n1,3,5\n1,4,3\n1,5,1\n2,1,4\n2,2,2"
+    expect(scoreOfficial2025CoinRows(all)).toMatchObject({ points: 4, correctRows: 7, falseRows: 0 })
+    // One tuple element flipped (1,1,9 → 1,6,9): the sole false row shares no
+    // leading pair with a published combination, so no addendum special case.
+    const typo = all.replace("1,1,9", "1,6,9")
+    expect(scoreOfficial2025CoinRows(typo)).toMatchObject({
+      points: 2,
+      correctRows: 6,
+      falseRows: 1,
+      specialCaseApplied: false,
+    })
+    expect(gradeOnePart(2, 0, typo).certainPoints).toBe(2)
+  })
+
+  it("lets a single face-label typo change the machine-certain task-8 score", () => {
+    expect(gradeOnePart(7, 0, encodeOfficialFaceLabels(["2", "1"])).certainPoints).toBe(2)
+    expect(gradeOnePart(7, 0, encodeOfficialFaceLabels(["2", "9"])).certainPoints).toBe(1)
+
+    expect(gradeOnePart(7, 1, encodeOfficialFaceLabels(["4", "3", "2", "1"])).certainPoints).toBe(2)
+    expect(gradeOnePart(7, 1, encodeOfficialFaceLabels(["4", "3", "2", "9"])).certainPoints).toBe(1)
   })
 
   it("prechecks only structured evidence and leaves written or geometric points for correction", () => {
