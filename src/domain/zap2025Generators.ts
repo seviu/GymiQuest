@@ -602,7 +602,7 @@ function generateGeometricLocus(
       },
     }
   }
-  const options = shuffle(random, locale === "en" ? [
+  const options = locale === "en" ? [
     { id: "parallel", label: "A line parallel to the given line" },
     { id: "circle", label: "A circle centred at the point" },
     { id: "bisector", label: "The perpendicular bisector of the segment" },
@@ -622,7 +622,7 @@ function generateGeometricLocus(
     { id: "circle", label: "Ein Kreis um den Punkt" },
     { id: "bisector", label: "Die Mittelsenkrechte der Punktstrecke" },
     { id: "angle", label: "Eine Winkelhalbierende" },
-  ])
+  ]
 
   return {
     id,
@@ -637,15 +637,6 @@ function generateGeometricLocus(
     geometryConstruction,
     visual: { kind: "locus", values: [distance], labels: ["s", "F", "B₁", "B₂"] },
   }
-}
-
-function shuffle<T>(random: () => number, values: readonly T[]): T[] {
-  const result = [...values]
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = pickIndex(random, index + 1)
-    ;[result[index], result[target]] = [result[target]!, result[index]!]
-  }
-  return result
 }
 
 function shuffledFaces(random: () => number): number[] {

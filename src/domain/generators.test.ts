@@ -334,7 +334,7 @@ describe("dynamic exercise generators", () => {
       "reverse-chains": "0373e98d",
       "inverse-proportion": "93b128de",
       "changing-rates": "41a90995",
-      "geometric-loci": "e1e72283",
+      "geometric-loci": "86ef4f13",
       "coordinate-transformations": "b5d9c5a4",
       "cube-nets": "bf04ec90",
       "spatial-rolling": "d403378f",
