@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { readFileSync } from "node:fs"
+import checklist2024 from "../../docs/2024-author-validation-checklist.md?raw"
+import inventory2025 from "../../docs/2025-curriculum-inventory.md?raw"
 import {
   formatSwissGrade,
   officialMathematicsGradeForEdition,
@@ -92,13 +93,8 @@ describe("official 2025 mathematics grade scale", () => {
 })
 
 describe("published docs grade tables", () => {
-  function readDoc(relativeDocPath: string): string {
-    return readFileSync(new URL(relativeDocPath, import.meta.url), "utf8")
-  }
-
   /** Parses the four-column `| points | grade | points | grade |` docs tables. */
-  function docsGradeMap(relativeDocPath: string): Map<number, number> {
-    const markdown = readDoc(relativeDocPath)
+  function docsGradeMap(markdown: string): Map<number, number> {
     const grades = new Map<number, number>()
     for (const line of markdown.split("\n")) {
       const cells = line.split("|").slice(1, -1).map((cell) => cell.trim())
@@ -118,7 +114,7 @@ describe("published docs grade tables", () => {
   }
 
   it("keeps the 2024 checklist table in sync with the code scale for all 37 totals", () => {
-    const grades = docsGradeMap("../../docs/2024-author-validation-checklist.md")
+    const grades = docsGradeMap(checklist2024)
     expect(grades.size).toBe(37)
     for (let points = 0; points <= 36; points += 1) {
       expect(grades.get(points), `points ${points}`).toBe(official2024MathematicsGrade(points))
@@ -126,7 +122,7 @@ describe("published docs grade tables", () => {
   })
 
   it("keeps the 2025 inventory table in sync with the code scale for all 37 totals", () => {
-    const grades = docsGradeMap("../../docs/2025-curriculum-inventory.md")
+    const grades = docsGradeMap(inventory2025)
     expect(grades.size).toBe(37)
     for (let points = 0; points <= 36; points += 1) {
       expect(grades.get(points), `points ${points}`).toBe(official2025MathematicsGrade(points))
@@ -134,7 +130,7 @@ describe("published docs grade tables", () => {
   })
 
   it("binds the 2024 code scale to the checklist source hash and URL", () => {
-    const checklist = readDoc("../../docs/2024-author-validation-checklist.md")
+    const checklist = checklist2024
     expect(checklist).toContain(official2024MathGradeScale.sourceSha256)
     expect(checklist).toContain("notenskala_zap_lg_2024.pdf")
     expect(official2024MathGradeScale.sourceUrl).toContain("notenskala_zap_lg_2024.pdf")

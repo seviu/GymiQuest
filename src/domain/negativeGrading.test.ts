@@ -32,8 +32,8 @@ describe("negative-grading sweeps", () => {
   it("rejects a number answer off by one across 200 seeds", () => {
     for (let index = 0; index < SEED_COUNT; index += 1) {
       const question = generateQuestion("mass-units", `negative:number:${index}`)
-      const expected = question.response.value
       if (question.response.kind !== "number") throw new Error("Expected a number response")
+      const expected = question.response.value
 
       expect(isCorrectAnswer(question, canonicalInput(question))).toBe(true)
       expect(isCorrectAnswer(question, String(expected + 1))).toBe(false)

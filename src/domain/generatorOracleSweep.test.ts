@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { generateDifficultyVariants, isCorrectAnswer } from "./generators"
-import type { DifficultyBand, GeneratedQuestion } from "./model"
+import type { DifficultyBand, GeneratedQuestion, TopicId } from "./model"
 
 const BANDS: readonly DifficultyBand[] = ["foundation", "standard", "exam"]
 const SEED_COUNT = 500
@@ -65,7 +65,7 @@ function deriveCanonicalValue(topicId: string, question: GeneratedQuestion): num
   }
 }
 
-function sweepTopic(topicId: string): void {
+function sweepTopic(topicId: TopicId): void {
   for (let index = 0; index < SEED_COUNT; index += 1) {
     const seed = `oracle:${topicId}:${index}`
     const variants = generateDifficultyVariants(topicId, seed)
