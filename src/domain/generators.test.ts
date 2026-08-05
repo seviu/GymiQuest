@@ -6,6 +6,7 @@ import {
   generateQuestionsForTask,
   generatorCandidateCount,
   isCorrectAnswer,
+  isCorrectNumericInput,
   parseCoordinateAnswer,
   parseIntegerSequenceAnswer,
   parseIntegerSetAnswer,
@@ -800,6 +801,30 @@ describe("dynamic exercise generators", () => {
   it("accepts Swiss decimal commas and rejects empty text", () => {
     expect(parseNumericAnswer(" 12,5 ")).toBe(12.5)
     expect(parseNumericAnswer(" ")).toBeUndefined()
+  })
+
+  it("parses Swiss apostrophe grouping and round-trips the de-CH display format", () => {
+    expect(parseNumericAnswer("1'000")).toBe(1000)
+    expect(parseNumericAnswer("1’234’567,5")).toBe(1234567.5)
+    expect(parseNumericAnswer(new Intl.NumberFormat("de-CH").format(1234567.5))).toBe(1234567.5)
+    expect(parseNumericAnswer("3'000")).toBe(3000)
+  })
+
+  it("grades 3-digit group separators by expected-aware interpretation without breaking decimal commas", () => {
+    // de decimal-comma contract stays: "3,000" can still mean 3
+    expect(isCorrectNumericInput("3,000", 3, 0)).toBe(true)
+    expect(isCorrectNumericInput("12,5", 12.5, 1)).toBe(true)
+    // en/it grouping interpretations now also match when the canonical parse cannot
+    expect(isCorrectNumericInput("3,000", 3000, 0)).toBe(true)
+    expect(isCorrectNumericInput("3.000", 3000, 0)).toBe(true)
+    expect(isCorrectNumericInput("12'000", 12000, 0)).toBe(true)
+    expect(isCorrectNumericInput("-3,000", -3000, 0)).toBe(true)
+    // no false-correct: incomplete groups never become grouping separators
+    expect(isCorrectNumericInput("12.5", 125, 0)).toBe(false)
+    expect(isCorrectNumericInput("12,5", 125, 0)).toBe(false)
+    expect(isCorrectNumericInput("30,00", 3000, 0)).toBe(false)
+    expect(isCorrectNumericInput("3,000", 30, 0)).toBe(false)
+    expect(isCorrectNumericInput("3,000", 300, 0)).toBe(false)
   })
 
   it("parses unordered integer sets and rejects duplicates or malformed separators", () => {

@@ -562,10 +562,19 @@ export function generateQuestionsForTask(task: LearningTask): GeneratedQuestion[
 }
 
 export function parseNumericAnswer(value: string): number | undefined {
-  const normalized = value.trim().replace(/\s/g, "").replace(",", ".")
+  const normalized = value.trim().replace(/\s/g, "").replace(/['’]/g, "").replace(",", ".")
   if (!normalized) return undefined
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : undefined
+}
+
+// ponytail: expected-aware disambiguation of 3-digit grouping ("3,000" en / "3.000" it)
+// instead of threading contentLocale through every grading callsite; only plain integer
+// groups are recognized, decimals with grouping separators stay unparseable.
+export function parseGroupedNumericAnswer(value: string): number | undefined {
+  const normalized = value.trim().replace(/\s/g, "").replace(/['’]/g, "")
+  if (!/^-?\d{1,3}([.,]\d{3})+$/.test(normalized)) return undefined
+  return Number(normalized.replace(/[.,]/g, ""))
 }
 
 export function parseFractionAnswer(
@@ -636,10 +645,10 @@ export function isCorrectNumericInput(
   expected: number,
   decimals: number,
 ): boolean {
-  const parsed = parseNumericAnswer(value)
-  if (parsed === undefined) return false
   const tolerance = 10 ** -(decimals + 2)
-  return Math.abs(round(parsed - expected, decimals + 3)) <= tolerance
+  const withinTolerance = (parsed: number | undefined) =>
+    parsed !== undefined && Math.abs(round(parsed - expected, decimals + 3)) <= tolerance
+  return withinTolerance(parseNumericAnswer(value)) || withinTolerance(parseGroupedNumericAnswer(value))
 }
 
 function greatestCommonDivisor(left: number, right: number): number {
