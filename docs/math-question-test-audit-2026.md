@@ -4,7 +4,7 @@ Scope: audit of the math questions given to learners (generators, grading, offic
 content) and of the automated test suite guarding them. Evidence: 4 parallel code audits
 (generator layer, answer pipeline, test suite, official-exam/curriculum layer) plus a live
 `vitest run` baseline: **700 passed / 2 failed** — both failures are property-sweep
-timeouts under parallel load, not math regressions (P0 #5).
+timeouts under parallel load, not math regressions (P0 #4).
 
 Revisions after line-level verification: the claimed zero-denominator bug was false
 (`generators.ts:589` has one capture group — the denominator; `answerDiagnosis.test.ts:51-54`
