@@ -147,6 +147,23 @@ describe("2025 generator invariants", () => {
     }
   })
 
+  it("scrambles geometric-loci choice positions across seeds", () => {
+    const correctPositions = new Set<number>()
+
+    for (let index = 0; index < 500; index += 1) {
+      const question = generateQuestion("geometric-loci", `locus-order:${index}`)
+      expect(question.response.kind).toBe("choice")
+      if (question.response.kind !== "choice") throw new Error("Expected choice response")
+      const position = question.response.options.findIndex(
+        (option) => option.id === question.response.value,
+      )
+      expect(position).toBeGreaterThanOrEqual(0)
+      correctPositions.add(position)
+    }
+
+    expect(correctPositions.size).toBeGreaterThanOrEqual(3)
+  })
+
   it("generates 1,000 bounded and exactly gradable construction canvases", () => {
     const seenTools = new Set<string>()
 
