@@ -22,6 +22,84 @@ import {
 } from "./mockExam"
 import type { GeneratedQuestion } from "./model"
 
+// Pinned verbatim from docs/2015-2025-recurrence-matrix.md (Recurrence matrix table).
+const RECURRENCE_MATRIX_ROWS = [
+  "Calculation fluency and compatible units",
+  "Fractions, ratios, and proportional quantities",
+  "Spatial solids, nets, or orientation",
+  "Speed, distance, and time",
+  "Composite planar area or perimeter",
+  "Systematic number constraints, patterns, or enumeration",
+  "Construction, coordinates, or transformations",
+  "Tables and multi-column data interpretation",
+  "Explicit efficient-arithmetic structure",
+  "Multi-stage rates or changing processes",
+] as const
+
+// Pins mockExam.ts blueprintSlots to the recurrence matrix: each slot's topic
+// pool belongs to the listed row(s). Two pools span two rows (named in the
+// audit): calculation-units mixes efficient-arithmetic with calculation
+// fluency; rates-motion mixes multi-stage rates with speed. planar-geometry
+// additionally draws fraction-of-quantity, which buildGeneratedMockBlueprint
+// injects into part a for the current v6 blueprint. Every slot is worth a
+// flat 4 points.
+const MOCK_SLOT_RECURRENCE_BINDING = [
+  {
+    family: "calculation-units",
+    topicPool: ["arithmetic-equations", "efficient-arithmetic", "mass-units", "time-fractions"],
+    matrixRows: ["Calculation fluency and compatible units", "Explicit efficient-arithmetic structure"],
+    points: 4,
+  },
+  {
+    family: "tables-ratios",
+    topicPool: ["data-tables", "money-calculations", "proportional-revenue"],
+    matrixRows: ["Tables and multi-column data interpretation"],
+    points: 4,
+  },
+  {
+    family: "number-constraints",
+    topicPool: ["integer-combinations", "number-constraints"],
+    matrixRows: ["Systematic number constraints, patterns, or enumeration"],
+    points: 4,
+  },
+  {
+    family: "planar-geometry",
+    topicPool: ["area-fractions", "composite-areas", "tiling-costs", "fraction-of-quantity"],
+    matrixRows: ["Composite planar area or perimeter"],
+    points: 4,
+  },
+  {
+    family: "reverse-processes",
+    topicPool: ["reverse-fractions", "reverse-chains"],
+    matrixRows: ["Multi-stage rates or changing processes"],
+    points: 4,
+  },
+  {
+    family: "rates-motion",
+    topicPool: ["speed-distance-time", "inverse-proportion", "changing-rates"],
+    matrixRows: ["Multi-stage rates or changing processes", "Speed, distance, and time"],
+    points: 4,
+  },
+  {
+    family: "construction-transformations",
+    topicPool: ["geometric-loci", "coordinate-transformations"],
+    matrixRows: ["Construction, coordinates, or transformations"],
+    points: 4,
+  },
+  {
+    family: "spatial-orientation",
+    topicPool: ["cube-nets", "spatial-rolling"],
+    matrixRows: ["Spatial solids, nets, or orientation"],
+    points: 4,
+  },
+  {
+    family: "solid-geometry",
+    topicPool: ["cuboid-surface", "cube-nets", "composite-areas"],
+    matrixRows: ["Spatial solids, nets, or orientation"],
+    points: 4,
+  },
+] as const
+
 function correctAnswer(question: GeneratedQuestion): string {
   if (question.geometryConstruction) {
     return encodeGeometryConstructionAnswer({
@@ -58,6 +136,45 @@ describe("generated strict mock exams", () => {
     expect(first.tasks.flatMap((task) => task.parts).reduce((sum, part) => sum + part.maxPoints, 0)).toBe(MOCK_MAX_POINTS)
     expect(new Set(first.tasks.map((task) => task.family)).size).toBe(MOCK_TASK_COUNT)
     expect(first.durationSeconds).toBe(FULL_MOCK_DURATION_SECONDS)
+  })
+
+  it("pins the nine mock slots to their recurrence-matrix rows at a flat 4 points", () => {
+    expect(MOCK_SLOT_RECURRENCE_BINDING).toHaveLength(MOCK_TASK_COUNT)
+    expect(MOCK_SLOT_RECURRENCE_BINDING.every((slot) => slot.points === 4)).toBe(true)
+    expect(MOCK_SLOT_RECURRENCE_BINDING.reduce((sum, slot) => sum + slot.points, 0)).toBe(
+      MOCK_MAX_POINTS,
+    )
+
+    const matrixRows = new Set(RECURRENCE_MATRIX_ROWS)
+    expect(
+      MOCK_SLOT_RECURRENCE_BINDING
+        .filter((slot) => slot.matrixRows.length > 1)
+        .map((slot) => slot.family)
+        .sort(),
+    ).toEqual(["calculation-units", "rates-motion"])
+    for (const slot of MOCK_SLOT_RECURRENCE_BINDING) {
+      expect(slot.matrixRows.length).toBeGreaterThan(0)
+      for (const row of slot.matrixRows) expect(matrixRows.has(row)).toBe(true)
+    }
+
+    const observedFamilies = new Map<string, Set<string>>()
+    for (let index = 0; index < 300; index += 1) {
+      const blueprint = buildGeneratedMockBlueprint(`recurrence-binding:${index}`)
+      for (const task of blueprint.tasks) {
+        const pool = observedFamilies.get(task.family) ?? new Set<string>()
+        for (const part of task.parts) pool.add(part.topicId)
+        observedFamilies.set(task.family, pool)
+      }
+    }
+
+    expect([...observedFamilies.keys()].sort()).toEqual(
+      MOCK_SLOT_RECURRENCE_BINDING.map((slot) => slot.family).sort(),
+    )
+    for (const slot of MOCK_SLOT_RECURRENCE_BINDING) {
+      expect([...(observedFamilies.get(slot.family) ?? [])].sort()).toEqual(
+        [...slot.topicPool].sort(),
+      )
+    }
   })
 
   it("pins an English paper and its generated questions through replay and grading", () => {
