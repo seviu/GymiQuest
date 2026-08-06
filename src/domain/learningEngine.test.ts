@@ -15,6 +15,7 @@ import {
   buildErrorRefresh,
   buildPlacementTask,
   buildPrerequisiteRefresh,
+  buildSchoolPractice,
   buildTopicLesson,
   completePlacementWithoutCheck,
   createInitialLearner,
@@ -1265,5 +1266,90 @@ describe("learning engine", () => {
       UnsupportedCurriculumPackageError,
     )
     expect(unsupported.courseVersion).toBe(99)
+  })
+})
+
+describe("school exam practice", () => {
+  it("opens a curriculum-locked topic for exam prep and masters it on secure evidence", () => {
+    const state = completePlacementWithoutCheck(createInitialLearner(now), now)
+    expect(state.mastery["inverse-proportion"].status).toBe("locked")
+    expect(() => buildTopicLesson(state, "inverse-proportion")).toThrowError(
+      "This lesson is not currently available.",
+    )
+
+    const task = buildSchoolPractice(state, "inverse-proportion")
+    expect(task).toMatchObject({
+      id: "school-practice:inverse-proportion:0",
+      kind: "lesson",
+      topicIds: ["inverse-proportion"],
+    })
+
+    const result = recordCompletion(state, task, completion(task, "secure"))
+    expect(result.state.mastery["inverse-proportion"].status).toBe("mastered")
+    // The curriculum lesson id stays unconsumed.
+    expect(result.state.completedTaskIds).not.toContain("lesson:inverse-proportion")
+  })
+
+  it("routes a weak retry through a fresh lower-XP recovery round", () => {
+    const state = completePlacementWithoutCheck(createInitialLearner(now), now)
+    const lesson = buildSchoolPractice(state, "inverse-proportion")
+
+    const weak = recordCompletion(state, lesson, completion(lesson, "weak", { mistakes: 5, hints: 1 }))
+    expect(weak.state.mastery["inverse-proportion"].status).toBe("locked")
+
+    const retry = buildSchoolPractice(weak.state, "inverse-proportion")
+    expect(retry).toMatchObject({
+      id: "school-practice:inverse-proportion:1",
+      kind: "repair",
+      purpose: "lesson-recovery",
+    })
+    expect(retry.maxXp).toBeLessThan(lesson.maxXp)
+    expect(retry.seed).not.toBe(lesson.seed)
+
+    // A secure recovery round still masters the topic through lesson-recovery evidence.
+    const secured = recordCompletion(weak.state, retry, completion(retry, "secured"))
+    expect(secured.state.mastery["inverse-proportion"].status).toBe("mastered")
+  })
+
+  it("practises mastered topics as reviews so a weak round cannot demote mastery", () => {
+    const state = createSeededLearner(now)
+    const masteredId = topicIds.find((topicId) => state.mastery[topicId].status === "mastered")!
+
+    const task = buildSchoolPractice(state, masteredId)
+    expect(task).toMatchObject({ kind: "review", topicIds: [masteredId] })
+
+    const weak = recordCompletion(state, task, completion(task, "rough", { mistakes: 6, hints: 1 }))
+    expect(weak.state.mastery[masteredId].status).toBe("mastered")
+    expect(weak.award.reason).toBe("review-complete")
+  })
+
+  it("bypasses skip-until-tomorrow deferrals that block the curriculum path", () => {
+    const state = completePlacementWithoutCheck(createInitialLearner(now), now)
+    const deferred = skipTopicUntilTomorrow(state, "arithmetic-equations", now)
+    expect(() => buildTopicLesson(deferred, "arithmetic-equations", now)).toThrowError(
+      /skipped until/,
+    )
+    expect(buildSchoolPractice(deferred, "arithmetic-equations", now)).toMatchObject({
+      id: "school-practice:arithmetic-equations:0",
+      kind: "lesson",
+    })
+  })
+
+  it("keeps the placement, teacher-pause, and assessment gates", () => {
+    expect(() => buildSchoolPractice(createInitialLearner(now), "mass-units")).toThrowError(
+      "Complete placement before starting a lesson.",
+    )
+
+    const state = completePlacementWithoutCheck(createInitialLearner(now), now)
+    expect(() => buildSchoolPractice(
+      requestTeacherSupport(state, "inverse-proportion", now),
+      "inverse-proportion",
+    )).toThrowError("This topic is paused for teacher support.")
+
+    const assessmentReady = structuredClone(createSeededLearner(now))
+    assessmentReady.xpSinceAssessment = assessmentReady.assessmentThreshold
+    expect(() => buildSchoolPractice(assessmentReady, "inverse-proportion")).toThrowError(
+      "Complete the current assessment before starting a new lesson.",
+    )
   })
 })

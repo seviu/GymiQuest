@@ -917,6 +917,67 @@ export function buildTopicLesson(
 }
 
 /**
+ * Opens a task for school-exam prep regardless of curriculum order: the
+ * class calendar, not the app's prerequisite chain or spaced-repetition
+ * deferrals, decides what she needs this week. Placement, teacher pauses,
+ * and a pending assessment still gate.
+ *
+ * Task shape follows the topic state so the school path cannot farm lesson
+ * XP or replay identical questions: a first attempt on a non-mastered topic
+ * is the authored lesson, a retry after a weak attempt is the lower-XP
+ * securing round, and a mastered topic gets a review (review evidence never
+ * demotes mastery). Every attempt carries its own id and seed.
+ */
+export function buildSchoolPractice(
+  state: LearnerState,
+  topicId: TopicId,
+  now = new Date(),
+): LearningTask {
+  if (!state.placementCompletedAt) {
+    throw new Error("Complete placement before starting a lesson.")
+  }
+  if (topicNeedsTeacherSupport(state, topicId)) {
+    throw new Error("This topic is paused for teacher support.")
+  }
+  const current = refreshTopicAvailability(state)
+  if (assessmentTask(current, now)) {
+    throw new Error("Complete the current assessment before starting a new lesson.")
+  }
+  const mastery = current.mastery[topicId]
+  const sequence = current.learningEvents.filter((event) => (
+    event.taskId.startsWith(`school-practice:${topicId}:`)
+  )).length
+  const task = mastery.status === "mastered"
+    ? schoolReviewTaskForTopic(current, topicId)
+    : mastery.status === "learning" || sequence > 0
+      ? lessonRecoveryTaskForTopic(current, topicId)
+      : lessonTaskForTopic(current, topicId)
+  return {
+    ...task,
+    id: `school-practice:${topicId}:${sequence}`,
+    seed: `${task.seed}:school:${sequence}`,
+  }
+}
+
+function schoolReviewTaskForTopic(state: LearnerState, topicId: TopicId): LearningTask {
+  const topic = topics[topicId]
+  const mastery = state.mastery[topicId]
+  return {
+    id: `school-review:${topicId}:${mastery.reviewIteration}`,
+    kind: "review",
+    title: `Schulprüfungs-Runde: ${topic.shortTitle}`,
+    description: "Wiederholung für die Schulprüfung mit neuen Zahlen und derselben mathematischen Idee.",
+    topicIds: [topicId],
+    prerequisiteIds: topic.prerequisites,
+    maxXp: curriculumPackageFor(state).xp.reviewByTopic[topicId],
+    questionCount: 2,
+    seed: `school-review:${state.learnerId}:${topicId}:${mastery.reviewIteration}`,
+    curriculum: taskCurriculumFor(state),
+    generation: buildTaskGenerationProfile(["standard", "exam"]),
+  }
+}
+
+/**
  * Mastery decides which work is assigned. XP never makes a task easier and is
  * not used to suppress legitimate reviews; reviews simply carry smaller awards.
  */

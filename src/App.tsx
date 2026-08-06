@@ -121,6 +121,7 @@ import {
   buildErrorRefresh,
   buildPlacementTask,
   buildPrerequisiteRefresh,
+  buildSchoolPractice,
   buildTopicLesson,
   completePlacementWithoutCheck,
   courseProgress,
@@ -255,6 +256,7 @@ import {
   topicForLocale,
 } from "./i18n/curriculumContent"
 import { translateMessage } from "./i18n/messages"
+import { schoolAreaTitles, schoolThemes } from "./subjects/math/schoolChapters"
 import { learnerFeedbackCopyForLocale } from "./i18n/learnerFeedbackCopy"
 import { theorySupportCopy } from "./i18n/theorySupportCopy"
 import { authorValidationCopy } from "./i18n/authorValidationCopy"
@@ -1264,6 +1266,7 @@ export function Home({
   onResume,
   onPrerequisite,
   onOpenCurriculum,
+  onOpenSchoolChapters,
   onOpenCollection,
   onOpenConceptLab,
   onOpenMock,
@@ -1279,6 +1282,7 @@ export function Home({
   onResume: () => void
   onPrerequisite: (topicId: TopicId) => void
   onOpenCurriculum: () => void
+  onOpenSchoolChapters?: () => void
   onOpenCollection?: () => void
   onOpenConceptLab?: () => void
   onOpenMock: () => void
@@ -1543,6 +1547,18 @@ export function Home({
                 <strong>{t("home.paths.practiceTitle")}</strong>
                 <small>{t("home.paths.practiceBody")}</small>
               </button>
+              {onOpenSchoolChapters && (
+                <button
+                  className="home-shortcut-card school"
+                  type="button"
+                  aria-label={t("home.paths.schoolTitle")}
+                  onClick={onOpenSchoolChapters}
+                >
+                  <span aria-hidden="true">§</span>
+                  <strong>{t("home.paths.schoolTitle")}</strong>
+                  <small>{t("home.paths.schoolBody")}</small>
+                </button>
+              )}
               {onOpenConceptLab && (
                 <button
                   className="home-shortcut-card lab"
@@ -2242,6 +2258,128 @@ function curriculumGroupCopy(
   }
 }
 
+function CurriculumTopicCard({
+  learner,
+  topicId,
+  now,
+  learningBlocked,
+  onOpenConcept,
+  onStartLesson,
+  onRefresh,
+  onSchoolPractice,
+}: {
+  learner: LearnerState
+  topicId: TopicId
+  now: Date
+  learningBlocked: boolean
+  onOpenConcept: (topicId: TopicId) => void
+  onStartLesson?: (topicId: TopicId) => void
+  onRefresh?: (topicId: TopicId) => void
+  /** School-exam mode: every non-paused status starts targeted practice, ignoring deferrals. */
+  onSchoolPractice?: (topicId: TopicId) => void
+}) {
+  const { locale, t } = useLocalization()
+  const topic = topicForLocale(topicId, locale)
+  const mastery = learner.mastery[topicId]
+  const status = mastery.status
+  const teacherPaused = topicNeedsTeacherSupport(learner, topicId)
+  const schoolMode = onSchoolPractice !== undefined && !teacherPaused
+  const returnAt = schoolMode ? undefined : topicLearningReturnAt(learner, topicId, now)
+  const startPractice = schoolMode ? onSchoolPractice : undefined
+  const statusLabel = teacherPaused
+    ? t("curriculum.status.paused")
+    : returnAt
+      ? t("common.scheduled")
+    : status === "mastered"
+    ? t("curriculum.status.mastered")
+    : status === "available" || (schoolMode && status === "locked")
+      ? t("curriculum.status.available")
+      : status === "learning"
+        ? t("curriculum.status.learning")
+        : t("curriculum.status.locked")
+
+  return (
+    <article className={`curriculum-topic-card ${status}${teacherPaused ? " teacher-paused" : ""}`}>
+      <div className="curriculum-topic-order" aria-hidden="true">
+        {status === "mastered" ? "✓" : topic.courseOrder}
+      </div>
+      <div className="curriculum-topic-copy">
+        <div className="curriculum-topic-titleline">
+          <span className={`curriculum-status ${status}`}>{statusLabel}</span>
+          {status === "mastered" && mastery.dueAt && !teacherPaused && !returnAt && (
+            <small>{t("curriculum.nextReview", { date: formatReviewDate(mastery.dueAt, locale) })}</small>
+          )}
+          {returnAt && <small>{t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })}</small>}
+          {teacherPaused && <small>{t("curriculum.pausedBody")}</small>}
+        </div>
+        <h3>{topic.title}</h3>
+        <p>{topic.description}</p>
+        <div className="curriculum-prerequisites" aria-label={t("curriculum.prerequisites")}>
+          {topic.prerequisites.length === 0 ? (
+            <span className="curriculum-prerequisite ready">{t("curriculum.startTopic")}</span>
+          ) : topic.prerequisites.map((prerequisiteId) => {
+            const prerequisite = topicForLocale(prerequisiteId, locale)
+            const ready = learner.mastery[prerequisiteId].status === "mastered"
+            return (
+              <span className={`curriculum-prerequisite ${ready ? "ready" : "missing"}`} key={prerequisiteId}>
+                <span aria-hidden="true">{ready ? "✓" : "○"}</span>
+                {prerequisite.shortTitle}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      <div className="curriculum-topic-action">
+        <button
+          className="secondary-button compact"
+          type="button"
+          onClick={() => onOpenConcept(topicId)}
+        >
+          {t("curriculum.viewIdea")}
+        </button>
+        {status === "mastered" ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
+            onClick={() => (startPractice ?? onRefresh)?.(topicId)}
+          >
+            {teacherPaused
+              ? t("curriculum.pausedTraining")
+              : returnAt
+                ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
+                : t("curriculum.startRefresh")}
+          </button>
+        ) : status === "available" || status === "learning" ? (
+          <button
+            className="primary-button compact"
+            type="button"
+            disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
+            onClick={() => (startPractice ?? onStartLesson)?.(topicId)}
+          >
+            {teacherPaused
+              ? t("curriculum.pausedTraining")
+              : returnAt
+                ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
+                : status === "learning" ? t("curriculum.startRecovery") : t("curriculum.startLesson")}
+          </button>
+        ) : startPractice ? (
+          <button
+            className="primary-button compact"
+            type="button"
+            disabled={learningBlocked}
+            onClick={() => startPractice(topicId)}
+          >
+            {t("curriculum.startLesson")}
+          </button>
+        ) : (
+          <span>{t("curriculum.learnPrerequisites")}</span>
+        )}
+      </div>
+    </article>
+  )
+}
+
 export function CurriculumView({
   learner,
   examRunning = false,
@@ -2369,99 +2507,101 @@ export function CurriculumView({
               </div>
             </summary>
             <div className="curriculum-topic-list">
-              {group.topicIds.map((topicId) => {
-                const topic = topicForLocale(topicId, locale)
-                const mastery = learner.mastery[topicId]
-                const status = mastery.status
-                const teacherPaused = topicNeedsTeacherSupport(learner, topicId)
-                const returnAt = topicLearningReturnAt(learner, topicId, now)
-                const statusLabel = teacherPaused
-                  ? t("curriculum.status.paused")
-                  : returnAt
-                    ? t("common.scheduled")
-                  : status === "mastered"
-                  ? t("curriculum.status.mastered")
-                  : status === "available"
-                    ? t("curriculum.status.available")
-                    : status === "learning"
-                      ? t("curriculum.status.learning")
-                      : t("curriculum.status.locked")
-
-                return (
-                  <article className={`curriculum-topic-card ${status}${teacherPaused ? " teacher-paused" : ""}`} key={topic.id}>
-                    <div className="curriculum-topic-order" aria-hidden="true">
-                      {status === "mastered" ? "✓" : topic.courseOrder}
-                    </div>
-                    <div className="curriculum-topic-copy">
-                      <div className="curriculum-topic-titleline">
-                        <span className={`curriculum-status ${status}`}>{statusLabel}</span>
-                        {status === "mastered" && mastery.dueAt && !teacherPaused && !returnAt && (
-                          <small>{t("curriculum.nextReview", { date: formatReviewDate(mastery.dueAt, locale) })}</small>
-                        )}
-                        {returnAt && <small>{t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })}</small>}
-                        {teacherPaused && <small>{t("curriculum.pausedBody")}</small>}
-                      </div>
-                      <h3>{topic.title}</h3>
-                      <p>{topic.description}</p>
-                      <div className="curriculum-prerequisites" aria-label={t("curriculum.prerequisites")}>
-                        {topic.prerequisites.length === 0 ? (
-                          <span className="curriculum-prerequisite ready">{t("curriculum.startTopic")}</span>
-                        ) : topic.prerequisites.map((prerequisiteId) => {
-                          const prerequisite = topicForLocale(prerequisiteId, locale)
-                          const ready = learner.mastery[prerequisiteId].status === "mastered"
-                          return (
-                            <span className={`curriculum-prerequisite ${ready ? "ready" : "missing"}`} key={prerequisiteId}>
-                              <span aria-hidden="true">{ready ? "✓" : "○"}</span>
-                              {prerequisite.shortTitle}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    <div className="curriculum-topic-action">
-                      <button
-                        className="secondary-button compact"
-                        type="button"
-                        onClick={() => onOpenConcept(topicId)}
-                      >
-                        {t("curriculum.viewIdea")}
-                      </button>
-                      {status === "mastered" ? (
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
-                          onClick={() => onRefresh(topicId)}
-                        >
-                          {teacherPaused
-                            ? t("curriculum.pausedTraining")
-                            : returnAt
-                              ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
-                              : t("curriculum.startRefresh")}
-                        </button>
-                      ) : status === "available" || status === "learning" ? (
-                        <button
-                          className="primary-button compact"
-                          type="button"
-                          disabled={learningBlocked || teacherPaused || Boolean(returnAt)}
-                          onClick={() => onStartLesson(topicId)}
-                        >
-                          {teacherPaused
-                            ? t("curriculum.pausedTraining")
-                            : returnAt
-                              ? t("curriculum.returnAt", { date: formatReviewDate(returnAt, locale) })
-                              : status === "learning" ? t("curriculum.startRecovery") : t("curriculum.startLesson")}
-                        </button>
-                      ) : (
-                        <span>{t("curriculum.learnPrerequisites")}</span>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
+              {group.topicIds.map((topicId) => (
+                <CurriculumTopicCard
+                  key={topicId}
+                  learner={learner}
+                  topicId={topicId}
+                  now={now}
+                  learningBlocked={learningBlocked}
+                  onStartLesson={onStartLesson}
+                  onRefresh={onRefresh}
+                  onOpenConcept={onOpenConcept}
+                />
+              ))}
             </div>
           </details>
         )})}
+      </div>
+    </main>
+  )
+}
+
+export function SchoolChaptersView({
+  learner,
+  examRunning = false,
+  now = new Date(),
+  onBack,
+  onOpenConcept,
+  onStartSchoolPractice,
+}: {
+  learner: LearnerState
+  examRunning?: boolean
+  now?: Date
+  onBack: () => void
+  onOpenConcept: (topicId: TopicId) => void
+  onStartSchoolPractice: (topicId: TopicId) => void
+}) {
+  const { t } = useLocalization()
+  const learningBlocked = examRunning || buildAssignments(learner).some(
+    (task) => task.kind === "assessment",
+  )
+
+  return (
+    <main className="curriculum-shell">
+      <button className="curriculum-back" type="button" onClick={onBack}>
+        <span aria-hidden="true">←</span>
+        {t("common.learningPlan")}
+      </button>
+
+      <section className="curriculum-hero">
+        <div>
+          <span className="eyebrow">{t("school.eyebrow")}</span>
+          <h1>{t("school.title")}</h1>
+          <p>{t("school.body")}</p>
+        </div>
+      </section>
+
+      <div className="school-theme-list">
+        {schoolThemes.map((theme) => {
+          const themeMastered = theme.topicIds.filter(
+            (topicId) => learner.mastery[topicId].status === "mastered",
+          ).length
+          return (
+            <section className={`school-theme${theme.topicIds.length === 0 ? " gap" : ""}`} key={theme.number}>
+              <header className="school-theme-heading">
+                <span className="school-theme-number" aria-hidden="true">{theme.number}</span>
+                <div className="school-theme-copy">
+                  <h2>{theme.title}</h2>
+                  <small>{theme.months} · {schoolAreaTitles[theme.area]}</small>
+                </div>
+                {theme.topicIds.length > 0 && (
+                  <span className="school-theme-progress">
+                    <strong>{themeMastered}/{theme.topicIds.length}</strong>
+                    {t("curriculum.topicsLearned")}
+                  </span>
+                )}
+              </header>
+              {theme.topicIds.length === 0 ? (
+                <p className="school-theme-gap-note">{t("school.gapNote")}</p>
+              ) : (
+                <div className="curriculum-topic-list">
+                  {theme.topicIds.map((topicId) => (
+                    <CurriculumTopicCard
+                      key={topicId}
+                      learner={learner}
+                      topicId={topicId}
+                      now={now}
+                      learningBlocked={learningBlocked}
+                      onOpenConcept={onOpenConcept}
+                      onSchoolPractice={onStartSchoolPractice}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )
+        })}
       </div>
     </main>
   )
@@ -11707,6 +11847,7 @@ function LearningApp() {
   const [playerOpen, setPlayerOpen] = useState(false)
   const [completion, setCompletion] = useState<CompletionSummary>()
   const [showCurriculum, setShowCurriculum] = useState(false)
+  const [showSchoolChapters, setShowSchoolChapters] = useState(false)
   const [showSubjectLab, setShowSubjectLab] = useState(false)
   const [showConceptLibrary, setShowConceptLibrary] = useState(false)
   const [showCollection, setShowCollection] = useState(false)
@@ -11893,6 +12034,7 @@ function LearningApp() {
     setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -11991,6 +12133,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12010,6 +12153,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12039,6 +12183,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12064,6 +12209,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(true)
     setShowCollection(false)
@@ -12083,6 +12229,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(true)
@@ -12102,6 +12249,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(true)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12124,6 +12272,7 @@ function LearningApp() {
     setPlayerOpen(true)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -12205,6 +12354,11 @@ function LearningApp() {
     startTask(buildTopicLesson(learner, topicId))
   }
 
+  const startSchoolPractice = (topicId: TopicId) => {
+    if (!learner || topicNeedsTeacherSupport(learner, topicId)) return
+    startTask(buildSchoolPractice(learner, topicId))
+  }
+
   const startConceptPractice = (topicId: TopicId) => {
     if (!learner || activeSession || activeMock || activeArchivePractice) return
     if (topicNeedsTeacherSupport(learner, topicId)) return
@@ -12262,6 +12416,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12586,6 +12741,7 @@ function LearningApp() {
     setArchivePracticeResult(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowSubjectLab(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
@@ -12644,6 +12800,7 @@ function LearningApp() {
     setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -12668,6 +12825,7 @@ function LearningApp() {
     setPrerequisiteReturnXp(undefined)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -12758,6 +12916,7 @@ function LearningApp() {
     setPlayerOpen(false)
     setCompletion(undefined)
     setShowCurriculum(false)
+    setShowSchoolChapters(false)
     setShowConceptLibrary(false)
     setShowCollection(false)
     setConceptTopicId(undefined)
@@ -12973,6 +13132,14 @@ function LearningApp() {
           onRefresh={startPrerequisite}
           onOpenConcept={openConceptLibrary}
         />
+      ) : showSchoolChapters ? (
+        <SchoolChaptersView
+          learner={learner}
+          examRunning={Boolean(activeMock || activeArchivePractice)}
+          onBack={goHome}
+          onOpenConcept={openConceptLibrary}
+          onStartSchoolPractice={startSchoolPractice}
+        />
       ) : showCollection && learner.preferences.visualMode !== "focus" ? (
         <CollectionView learner={learner} onBack={goHome} />
       ) : showConceptLibrary ? (
@@ -13013,6 +13180,11 @@ function LearningApp() {
             setShowProgress(false)
             setShowCollection(false)
             setShowCurriculum(true)
+          }}
+          onOpenSchoolChapters={() => {
+            setShowProgress(false)
+            setShowCollection(false)
+            setShowSchoolChapters(true)
           }}
           onOpenCollection={learner.preferences.visualMode === "focus" ? undefined : openCollection}
           onOpenConceptLab={openSubjectLab}

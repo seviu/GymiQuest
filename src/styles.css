@@ -5171,6 +5171,98 @@ button.profile-chip:hover {
   padding: 0 14px 14px;
 }
 
+.school-theme-list {
+  display: grid;
+  gap: 12px;
+}
+
+.school-theme {
+  overflow: hidden;
+  border: 1px solid rgba(23, 59, 87, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 254, 250, 0.92);
+  box-shadow: var(--shadow-small);
+}
+
+.school-theme.gap {
+  background: rgba(255, 254, 250, 0.6);
+  box-shadow: none;
+}
+
+.school-theme-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 20px;
+}
+
+.school-theme-number {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--blue-dark);
+  background: var(--sky);
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.school-theme.gap .school-theme-number {
+  color: var(--ink-soft);
+  background: rgba(23, 59, 87, 0.08);
+}
+
+.school-theme-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.school-theme-copy h2 {
+  margin-bottom: 2px;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.school-theme-copy small {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.school-theme-progress {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--ink-soft);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.school-theme-progress strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.school-theme-gap-note {
+  margin: 0;
+  padding: 0 20px 16px 68px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.school-theme .curriculum-topic-list {
+  padding: 0 14px 14px 62px;
+}
+
 .curriculum-topic-card {
   position: relative;
   display: grid;
