@@ -323,7 +323,7 @@ describe("generated strict mock exams", () => {
         return question.id === part.id && question.topicId === part.topicId && question.prompt.length > 0
       }))).toBe(true)
     }
-  }, 30_000)
+  })
 
   it("replays legacy papers exactly while new papers persist exam-level generation", () => {
     const start = new Date("2026-07-14T12:00:00.000Z")
